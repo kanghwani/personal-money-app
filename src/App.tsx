@@ -93,6 +93,7 @@ type FinanceStore = {
   assets: Asset[]
   investments: Investment[]
   loans: Loan[]
+  budget: number
 }
 
 type ParseResult =
@@ -154,6 +155,7 @@ const seedData: FinanceStore = {
     loan('2026-06-07', '햇살론', '토스뱅크', 6100000, 225779, 0, '매월 1일'),
     loan('2026-06-07', '자동차 할부', '국민카드', 3500000, 515690, 0, '매월 14일'),
   ],
+  budget: 1000000,
 }
 
 function App() {
@@ -173,6 +175,11 @@ function App() {
   function dismissPwaBanner() {
     window.localStorage.setItem('shiba-pwa-dismissed', 'true')
     setShowPwaBanner(false)
+  }
+
+  function updateBudget(amount: number) {
+    setStore((current) => ({ ...current, budget: amount }))
+    setLastMessage(`예산 ${formatMoney(amount)}으로 변경됨`)
   }
 
   function applyQuickInput(raw: string) {
@@ -259,7 +266,7 @@ function App() {
         <TabButton tab="insights" activeTab={activeTab} icon={<Sparkles size={18} />} label="인사이트" onClick={setActiveTab} />
       </nav>
 
-      {activeTab === 'dashboard' && <Dashboard store={store} summary={summary} />}
+      {activeTab === 'dashboard' && <Dashboard store={store} summary={summary} onUpdateBudget={updateBudget} />}
       {activeTab === 'ledger' && <Ledger transactions={store.transactions} onDelete={deleteTransaction} />}
       {activeTab === 'assets' && <AssetsView store={store} summary={summary} onSaveAsset={saveAsset} />}
       {activeTab === 'insights' && <InsightsView store={store} summary={summary} />}
@@ -319,9 +326,90 @@ function QuickEntry({ onSubmit, lastMessage }: { onSubmit: (raw: string) => void
   )
 }
 
-function Dashboard({ store, summary }: { store: FinanceStore; summary: Summary }) {
+function Dashboard({
+  store,
+  summary,
+  onUpdateBudget,
+}: {
+  store: FinanceStore
+  summary: Summary
+  onUpdateBudget: (amount: number) => void
+}) {
+  const [isEditingBudget, setIsEditingBudget] = useState(false)
+  const [budgetInput, setBudgetInput] = useState(String(summary.budget))
+
+  // 예산 소진율 상태별 Reality Check 멘트
+  const getRealityCheck = (rate: number) => {
+    if (rate === 0) return { emoji: '🎨', text: '텅장 방어전 시작! 지출 0원으로 완전 깨끗합니다.' }
+    if (rate < 0.4) return { emoji: '🌱', text: '나름 절제하며 잘 버티고 있어요. 좋은 기세입니다!' }
+    if (rate < 0.7) return { emoji: '⚠️', text: '슬슬 소비에 탄력이 붙기 시작했으니, 경계심을 가지세요.' }
+    if (rate < 0.95) return { emoji: '🍜', text: '위험 경보! 진짜 돈 없어요. 이제 삼각김밥 코스입니다.' }
+    return { emoji: '💸', text: '거덜 났습니다! 카드 다 압수하고, 당장 지갑 닫으세요.' }
+  }
+
+  const reality = getRealityCheck(summary.budgetUsageRate)
+
+  function saveBudget() {
+    const nextVal = Number(budgetInput.replace(/,/g, ''))
+    if (!isNaN(nextVal) && nextVal > 0) {
+      onUpdateBudget(nextVal)
+    }
+    setIsEditingBudget(false)
+  }
+
   return (
     <section className="view-stack">
+      {/* Notion-style Reality Budget Checker */}
+      <article className="budget-progress-card">
+        <div className="budget-progress-header">
+          <div>
+            <span className="reality-emoji">{reality.emoji}</span>
+            <div>
+              <h3>이번 달 예산 한도</h3>
+              <p className="reality-comment">{reality.text}</p>
+            </div>
+          </div>
+          <div className="budget-edit-box">
+            {isEditingBudget ? (
+              <div className="budget-inline-form">
+                <input
+                  value={budgetInput}
+                  onChange={(e) => setBudgetInput(e.target.value.replace(/[^\d,]/g, ''))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveBudget()
+                    if (e.key === 'Escape') setIsEditingBudget(false)
+                  }}
+                  autoFocus
+                />
+                <button type="button" onClick={saveBudget}>저장</button>
+              </div>
+            ) : (
+              <div className="budget-display">
+                <strong>{formatMoney(summary.thisMonth.realSpend)}</strong>
+                <span>/ {formatMoney(summary.budget)}</span>
+                <button type="button" onClick={() => {
+                  setBudgetInput(String(summary.budget))
+                  setIsEditingBudget(true)
+                }}>
+                  수정
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <div className="budget-progress-bar-track">
+          <span 
+            className={`budget-progress-bar-fill ${summary.budgetUsageRate >= 0.95 ? 'danger' : summary.budgetUsageRate >= 0.7 ? 'warn' : ''}`}
+            style={{ width: `${Math.min(100, summary.budgetUsageRate * 100)}%` }}
+          />
+        </div>
+        <div className="budget-progress-footer">
+          <span>소진율 {formatPercent(summary.budgetUsageRate)}</span>
+          <span>남은 금액: {formatMoney(Math.max(0, summary.budget - summary.thisMonth.realSpend))}</span>
+        </div>
+      </article>
+
       <div className="metric-grid">
         <MetricCard title="이번 달 실지출" value={formatMoney(summary.thisMonth.realSpend)} note={summary.monthKey} icon={<Banknote />} tone="green" />
         <MetricCard title="순자산" value={formatMoney(summary.netWorth)} note={`부채 ${formatMoney(summary.loanTotal)}`} icon={<PiggyBank />} tone="blue" />
@@ -759,6 +847,8 @@ type Summary = {
   netWorth: number
   fixedShare: number
   investmentShare: number
+  budget: number
+  budgetUsageRate: number
 }
 
 function usePersistentStore() {
@@ -766,7 +856,11 @@ function usePersistentStore() {
     const saved = window.localStorage.getItem(STORAGE_KEY)
     if (!saved) return seedData
     try {
-      return JSON.parse(saved) as FinanceStore
+      const parsed = JSON.parse(saved) as FinanceStore
+      if (typeof parsed.budget !== 'number') {
+        parsed.budget = seedData.budget
+      }
+      return parsed
     } catch {
       return seedData
     }
@@ -793,6 +887,8 @@ function buildSummary(store: FinanceStore): Summary {
   const netWorth = assetTotal + investmentTotal - loanTotal
   const fixedShare = thisMonth.totalSpend ? thisMonth.fixed / thisMonth.totalSpend : 0
   const investmentShare = assetTotal + investmentTotal ? investmentTotal / (assetTotal + investmentTotal) : 0
+  const budget = store.budget ?? 1000000
+  const budgetUsageRate = budget ? thisMonth.realSpend / budget : 0
 
   return {
     monthKey,
@@ -807,6 +903,8 @@ function buildSummary(store: FinanceStore): Summary {
     netWorth,
     fixedShare,
     investmentShare,
+    budget,
+    budgetUsageRate,
   }
 }
 
@@ -854,59 +952,72 @@ function buildInsights(store: FinanceStore, summary: Summary) {
   const worstInvestment = [...store.investments].sort((a, b) => a.returnRate - b.returnRate)[0]
   const missingPayment = store.transactions.filter((item) => !item.payment).length
 
+  // 당월 지출 중 단일 최대 지출 추출
+  const currentMonthTx = store.transactions.filter((item) => item.date.startsWith(summary.monthKey) && item.type === 'expense')
+  const maxTx = currentMonthTx.length > 0 ? [...currentMonthTx].sort((a, b) => b.amount - a.amount)[0] : undefined
+
   rows.push({
     level: diff > 0 ? 'warn' : 'good',
     icon: diff > 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />,
-    title: diff > 0 ? '지출 증가' : '지출 안정',
-    body: summary.previousMonth ? `전월 대비 ${formatSignedMoney(diff)}입니다.` : '비교할 이전 달이 아직 없습니다.',
+    title: diff > 0 ? '지출 증가 현황' : '지출 안정',
+    body: summary.previousMonth ? `전월 대비 ${formatSignedMoney(diff)} 썼습니다. ${diff > 0 ? '지갑 끈 바짝 조이세요!' : '좋은 흐름입니다!'}` : '비교할 이전 달이 아직 없습니다.',
   })
+
+  if (maxTx) {
+    rows.push({
+      level: maxTx.amount >= 150000 ? 'danger' : 'warn',
+      icon: <CircleDollarSign size={18} />,
+      title: '이번 달 최대 지출건',
+      body: `💳 ${maxTx.memo}에 ${formatMoney(maxTx.amount)} 지출. 이거 진짜 평생 쓸 필수품 맞나요? 🤔`,
+    })
+  }
 
   if (topCategory) {
     rows.push({
       level: topCategory.value / Math.max(summary.thisMonth.totalSpend, 1) > 0.35 ? 'warn' : 'good',
       icon: <ReceiptText size={18} />,
       title: `${topCategory.name} 비중`,
-      body: `${formatMoney(topCategory.value)} · ${formatPercent(topCategory.value / Math.max(summary.thisMonth.totalSpend, 1))}`,
+      body: `${formatMoney(topCategory.value)} · ${formatPercent(topCategory.value / Math.max(summary.thisMonth.totalSpend, 1))} 차지. 이 카테고리만 줄여도 텅장은 면합니다.`,
+    })
+  }
+
+  if (topPayment) {
+    rows.push({
+      level: topPayment.name.includes('카드') ? 'warn' : 'good',
+      icon: <CreditCard size={18} />,
+      title: '가장 많이 쓴 결제수단',
+      body: `💳 이번 달은 ${topPayment.name}으로 가장 많이(${formatMoney(topPayment.value)}) 긁었습니다. 영수증 볼 때 가슴 아프지 않으시길 바랍니다. 💸`,
     })
   }
 
   rows.push({
     level: summary.fixedShare > 0.6 ? 'warn' : 'good',
     icon: <ShieldCheck size={18} />,
-    title: '고정비',
-    body: `${formatPercent(summary.fixedShare)} · ${summary.fixedShare > 0.6 ? '고정 지출이 높습니다. 구독/대출/통신비부터 점검하세요.' : '고정비는 관리 가능한 범위입니다.'}`,
+    title: '고정비 청구',
+    body: `${formatPercent(summary.fixedShare)} · ${summary.fixedShare > 0.6 ? '숨쉬기만 해도 이만큼 나가요. 넷플릭스/구독부터 다 해지하세요.' : '안정적 고정 지출 수준입니다.'}`,
   })
 
   rows.push({
     level: summary.thisMonth.variable > summary.thisMonth.fixed ? 'warn' : 'good',
     icon: <ArrowDownUp size={18} />,
-    title: '변동비',
-    body: `${formatMoney(summary.thisMonth.variable)} · ${topCategory ? `${topCategory.name}에서 절감 여지가 큽니다.` : '거래가 더 쌓이면 절감 후보를 보여줍니다.'}`,
+    title: '변동비 경보',
+    body: `${formatMoney(summary.thisMonth.variable)} · ${topCategory ? `${topCategory.name}에서 안 써도 될 돈이 나갔는지 보세요.` : '데이터가 더 쌓이면 상세 분석해 드릴게요.'}`,
   })
-
-  if (topPayment) {
-    rows.push({
-      level: topPayment.name === '미지정' ? 'warn' : 'good',
-      icon: <CreditCard size={18} />,
-      title: '결제수단',
-      body: `${topPayment.name} ${formatMoney(topPayment.value)} · 결제수단별 소비 편중을 확인하세요.`,
-    })
-  }
 
   if (worstInvestment) {
     rows.push({
       level: worstInvestment.returnRate < -0.15 ? 'danger' : 'good',
       icon: <LineChart size={18} />,
-      title: worstInvestment.returnRate < 0 ? '투자 손실 점검' : '투자 수익',
-      body: `${worstInvestment.name} ${formatPercent(worstInvestment.returnRate)}`,
+      title: worstInvestment.returnRate < 0 ? '투자 현타 상태' : '투자 수익',
+      body: `${worstInvestment.name} ${formatPercent(worstInvestment.returnRate)} ${worstInvestment.returnRate < -0.15 ? '파랗게 질렸습니다. 물타기 금지 🛑' : '수익 보는 중!'}`,
     })
   }
 
   rows.push({
     level: missingPayment > 0 ? 'warn' : 'good',
     icon: <Sparkles size={18} />,
-    title: '데이터 품질',
-    body: missingPayment > 0 ? `결제수단 미입력 ${missingPayment}건` : '분석에 필요한 기본값이 채워져 있습니다.',
+    title: '입력 성실도',
+    body: missingPayment > 0 ? `결제수단 미입력 ${missingPayment}건. 귀찮아도 꼬박꼬박 적어야 현실을 봅니다.` : '완벽한 기록 데이터! 칭찬합니다.',
   })
 
   return rows

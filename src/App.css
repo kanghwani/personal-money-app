@@ -193,6 +193,157 @@
   font-weight: 700;
 }
 
+/* Notion-style Budget Progress Card */
+.budget-progress-card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 20px;
+  box-shadow: var(--soft-shadow);
+  display: grid;
+  gap: 16px;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.budget-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.budget-progress-header > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.reality-emoji {
+  font-size: 28px;
+}
+
+.budget-progress-header h3 {
+  margin: 0 0 2px 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--accent-tan);
+}
+
+.reality-comment {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.budget-edit-box {
+  display: flex;
+  align-items: center;
+}
+
+.budget-display {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.budget-display strong {
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--ink);
+}
+
+.budget-display span {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.budget-display button,
+.budget-inline-form button {
+  margin-left: 8px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.budget-display button:hover,
+.budget-inline-form button:hover {
+  background: var(--accent-tan-soft);
+  color: var(--accent-tan);
+  border-color: rgba(229, 196, 147, 0.3);
+}
+
+.budget-inline-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.budget-inline-form input {
+  width: 110px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.budget-inline-form input:focus {
+  border-color: var(--accent-tan);
+  outline: none;
+}
+
+/* Progress bar track & fill */
+.budget-progress-bar-track {
+  height: 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.budget-progress-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+  background: var(--green);
+  transition: width 0.3s ease;
+}
+
+.budget-progress-bar-fill.warn {
+  background: var(--amber);
+}
+
+.budget-progress-bar-fill.danger {
+  background: var(--danger);
+}
+
+.budget-progress-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.budget-progress-footer span:last-child {
+  color: var(--accent-tan);
+}
+
 /* Floating iOS-style Tab Bar */
 .tab-bar {
   position: fixed;
