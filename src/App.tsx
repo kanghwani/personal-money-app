@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   Area,
   AreaChart,
@@ -26,6 +26,7 @@ import {
   PiggyBank,
   Plus,
   ReceiptText,
+  RefreshCw,
   Save,
   Send,
   ShieldCheck,
@@ -36,6 +37,8 @@ import {
   Wallet,
   X,
 } from 'lucide-react'
+import { pickNewer } from './sync/merge'
+import { getSyncConfig, loadFromServer, saveToServer } from './sync/syncClient'
 import './App.css'
 
 type Tab = 'dashboard' | 'ledger' | 'assets' | 'insights'
@@ -106,6 +109,8 @@ type ParseResult =
   | { kind: 'error'; message: string }
 
 const STORAGE_KEY = 'personal-money-app:v1'
+const UPDATED_AT_KEY = 'personal-money-app:v1:updatedAt'
+export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error'
 
 const categoryRules = [
   { words: ['점심', '저녁', '밥', '식당', '라멘', '피자', '버거', '김밥'], category: '식비', sub: '외식' },
@@ -161,7 +166,7 @@ const seedData: FinanceStore = {
 }
 
 function App() {
-  const [store, setStore] = usePersistentStore()
+  const [store, setStore, syncStatus, syncNow] = usePersistentStore()
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
   const [lastMessage, setLastMessage] = useState('준비됨')
   const [showPwaBanner, setShowPwaBanner] = useState(() => {
@@ -239,6 +244,19 @@ function App() {
           <p className="eyebrow">{formatDateLabel(todayIso())}</p>
           <h1>돈 정리</h1>
         </div>
+        <button
+          className="icon-button"
+          type="button"
+          onClick={syncNow}
+          aria-label="동기화"
+          title={
+            syncStatus === 'syncing' ? '동기화 중' :
+            syncStatus === 'offline' ? '오프라인' :
+            syncStatus === 'error' ? '동기화 오류' : '동기화됨'
+          }
+        >
+          <RefreshCw size={18} className={syncStatus === 'syncing' ? 'spin' : undefined} />
+        </button>
         <button className="icon-button" type="button" onClick={exportData} aria-label="내보내기">
           <Download size={19} />
         </button>
@@ -912,12 +930,90 @@ function usePersistentStore() {
       return seedData
     }
   })
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
+  const updatedAtRef = useRef<string>(
+    window.localStorage.getItem(UPDATED_AT_KEY) || new Date(0).toISOString(),
+  )
+  const skipNextPush = useRef(true) // 최초 마운트 저장 + 서버 적용분은 push 생략
+  const applyingRemote = useRef(false)
+  const saveTimer = useRef<number | undefined>(undefined)
 
+  async function pushNow(current: FinanceStore, stamp: string) {
+    setSyncStatus('syncing')
+    try {
+      const ok = await saveToServer(current, stamp)
+      setSyncStatus(ok ? 'idle' : 'error')
+    } catch {
+      setSyncStatus('offline')
+    }
+  }
+
+  // 마운트 시 서버에서 pull
+  useEffect(() => {
+    if (!getSyncConfig()) return
+    let cancelled = false
+    setSyncStatus('syncing')
+    loadFromServer<FinanceStore>()
+      .then((remote) => {
+        if (cancelled) return
+        const local = { store, updatedAt: updatedAtRef.current }
+        const winner = pickNewer(local, remote)
+        if (winner !== local) {
+          applyingRemote.current = true
+          updatedAtRef.current = winner.updatedAt
+          window.localStorage.setItem(UPDATED_AT_KEY, winner.updatedAt)
+          setStore(winner.store)
+          setSyncStatus('idle')
+        } else if (remote === null) {
+          // 서버가 비어 있으면 현재 로컬 데이터를 업로드(기존 입력 보존)
+          const stamp = new Date().toISOString()
+          updatedAtRef.current = stamp
+          window.localStorage.setItem(UPDATED_AT_KEY, stamp)
+          void pushNow(store, stamp)
+        } else {
+          setSyncStatus('idle')
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSyncStatus('offline')
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // 변경 시 localStorage 저장 + debounce push
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
+    if (skipNextPush.current) {
+      skipNextPush.current = false
+      return
+    }
+    if (applyingRemote.current) {
+      applyingRemote.current = false
+      return
+    }
+    if (!getSyncConfig()) return
+    const stamp = new Date().toISOString()
+    updatedAtRef.current = stamp
+    window.localStorage.setItem(UPDATED_AT_KEY, stamp)
+    window.clearTimeout(saveTimer.current)
+    saveTimer.current = window.setTimeout(() => {
+      void pushNow(store, stamp)
+    }, 2000)
+    return () => window.clearTimeout(saveTimer.current)
   }, [store])
 
-  return [store, setStore] as const
+  const syncNow = () => {
+    if (!getSyncConfig()) return
+    const stamp = new Date().toISOString()
+    updatedAtRef.current = stamp
+    window.localStorage.setItem(UPDATED_AT_KEY, stamp)
+    void pushNow(store, stamp)
+  }
+
+  return [store, setStore, syncStatus, syncNow] as const
 }
 
 function buildSummary(store: FinanceStore): Summary {
