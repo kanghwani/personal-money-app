@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "deploy": "gh-pages -d dist",
+    "test": "vitest run"
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -34,6 +35,7 @@
     "playwright": "^1.60.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
-    "vite": "^8.0.12"
+    "vite": "^8.0.12",
+    "vitest": "^4.1.8"
   }
 }
