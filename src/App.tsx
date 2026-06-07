@@ -630,14 +630,45 @@ function InsightsView({ store, summary }: { store: FinanceStore; summary: Summar
   )
 }
 
-function MetricCard({ title, value, note, icon, tone }: { title: string; value: string; note: string; icon: ReactNode; tone: string }) {
+function MetricCard({ title, value, note, icon, tone, active, onClick }: { title: string; value: string; note: string; icon: ReactNode; tone: string; active?: boolean; onClick?: () => void }) {
   return (
-    <article className={`metric-card ${tone}`}>
+    <article
+      className={`metric-card ${tone}${active ? ' active' : ''}`}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <div className="metric-icon">{icon}</div>
       <p>{title}</p>
       <strong>{value}</strong>
       <span>{note}</span>
     </article>
+  )
+}
+
+function MetricDetailPanel({ metric, store, summary, onClose }: { metric: MetricKey; store: FinanceStore; summary: Summary; onClose: () => void }) {
+  const labels: Record<MetricKey, string> = {
+    realSpend: '이번 달 실지출',
+    netWorth: '순자산',
+    fixedCost: '고정비 비중',
+    investment: '투자 평가액',
+  }
+  const details: Record<MetricKey, string> = {
+    realSpend: `${summary.monthKey} 실지출 ${formatMoney(summary.thisMonth.realSpend)}`,
+    netWorth: `자산에서 부채 ${formatMoney(summary.loanTotal)}를 뺀 순자산`,
+    fixedCost: `이번 달 고정비 ${formatMoney(summary.thisMonth.fixed)} (${formatPercent(summary.fixedShare)})`,
+    investment: `투자 ${store.investments.length}건 · 평가액 ${formatMoney(summary.investmentTotal)}`,
+  }
+  return (
+    <section className="metric-detail-panel">
+      <div className="metric-detail-header">
+        <h3>{labels[metric]}</h3>
+        <button className="icon-button" type="button" onClick={onClose} aria-label="닫기">
+          <X size={18} />
+        </button>
+      </div>
+      <p>{details[metric]}</p>
+    </section>
   )
 }
 
@@ -1282,8 +1313,8 @@ function asset(date: string, kind: string, name: string, institution: string, am
   return { id: uid(), date, kind, name, institution, amount, note: '' }
 }
 
-function investment(date: string, account: string, name: string, value: number, returnRate: number): Investment {
-  return { id: uid(), date, account, name, value, returnRate, note: '' }
+function investment(date: string, account: string, name: string, ticker: string, value: number, returnRate: number): Investment {
+  return { id: uid(), date, account, name, ticker, value, returnRate, note: '' }
 }
 
 function loan(date: string, name: string, institution: string, balance: number, monthlyPayment: number, rate: number, dueDay: string): Loan {
