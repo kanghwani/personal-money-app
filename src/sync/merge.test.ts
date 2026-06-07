@@ -35,4 +35,10 @@ describe('pickNewer', () => {
     const remote = snap('garbage', 2)
     expect(pickNewer(local, remote)).toBe(local)
   })
+
+  it('local updatedAt가 무효이고 remote가 유효하면 remote 반환', () => {
+    const local = snap('garbage', 1)
+    const remote = snap('2026-06-07T11:00:00.000Z', 2)
+    expect(pickNewer(local, remote)).toBe(remote)
+  })
 })
