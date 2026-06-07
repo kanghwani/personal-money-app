@@ -930,6 +930,10 @@ function usePersistentStore() {
       return seedData
     }
   })
+  const storeRef = useRef(store)
+  useEffect(() => {
+    storeRef.current = store
+  })
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
   const updatedAtRef = useRef<string>(
     window.localStorage.getItem(UPDATED_AT_KEY) || new Date(0).toISOString(),
@@ -956,7 +960,7 @@ function usePersistentStore() {
     loadFromServer<FinanceStore>()
       .then((remote) => {
         if (cancelled) return
-        const local = { store, updatedAt: updatedAtRef.current }
+        const local = { store: storeRef.current, updatedAt: updatedAtRef.current }
         const winner = pickNewer(local, remote)
         if (winner !== local) {
           applyingRemote.current = true
@@ -969,7 +973,7 @@ function usePersistentStore() {
           const stamp = new Date().toISOString()
           updatedAtRef.current = stamp
           window.localStorage.setItem(UPDATED_AT_KEY, stamp)
-          void pushNow(store, stamp)
+          void pushNow(storeRef.current, stamp)
         } else {
           setSyncStatus('idle')
         }
