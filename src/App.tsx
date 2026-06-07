@@ -71,6 +71,8 @@ type Investment = {
   date: string
   account: string
   name: string
+  ticker?: string   // 종목코드 (예: 005930)
+  shares?: number   // 보유 수량
   value: number
   returnRate: number
   note: string
@@ -146,10 +148,10 @@ const seedData: FinanceStore = {
     asset('2026-06-07', '예금', '비상금', '카카오뱅크', 2500000),
   ],
   investments: [
-    investment('2026-06-07', '일반', '크래프톤', 4562694, 0.0008),
-    investment('2026-06-07', '일반', '시프트업', 1722635, -0.308),
-    investment('2026-06-07', 'ISA', '삼성전자', 21797000, 0.3119),
-    investment('2026-06-07', '연금저축', 'TIGER 미국배당 다우존스', 2230800, 0.0749),
+    investment('2026-06-07', '일반', '크래프톤', '259960', 4562694, 0.0008),
+    investment('2026-06-07', '일반', '시프트업', '462870', 1722635, -0.308),
+    investment('2026-06-07', 'ISA', '삼성전자', '005930', 21797000, 0.3119),
+    investment('2026-06-07', '연금저축', 'TIGER 미국배당 다우존스', '458730', 2230800, 0.0749),
   ],
   loans: [
     loan('2026-06-07', '햇살론', '토스뱅크', 6100000, 225779, 0, '매월 1일'),
@@ -326,6 +328,8 @@ function QuickEntry({ onSubmit, lastMessage }: { onSubmit: (raw: string) => void
   )
 }
 
+type MetricKey = 'realSpend' | 'netWorth' | 'fixedCost' | 'investment'
+
 function Dashboard({
   store,
   summary,
@@ -337,6 +341,7 @@ function Dashboard({
 }) {
   const [isEditingBudget, setIsEditingBudget] = useState(false)
   const [budgetInput, setBudgetInput] = useState(String(summary.budget))
+  const [activeMetric, setActiveMetric] = useState<MetricKey | null>(null)
 
   // 예산 소진율 상태별 Reality Check 멘트
   const getRealityCheck = (rate: number) => {
@@ -411,11 +416,20 @@ function Dashboard({
       </article>
 
       <div className="metric-grid">
-        <MetricCard title="이번 달 실지출" value={formatMoney(summary.thisMonth.realSpend)} note={summary.monthKey} icon={<Banknote />} tone="green" />
-        <MetricCard title="순자산" value={formatMoney(summary.netWorth)} note={`부채 ${formatMoney(summary.loanTotal)}`} icon={<PiggyBank />} tone="blue" />
-        <MetricCard title="고정비 비중" value={formatPercent(summary.fixedShare)} note={formatMoney(summary.thisMonth.fixed)} icon={<ShieldCheck />} tone="amber" />
-        <MetricCard title="투자 평가액" value={formatMoney(summary.investmentTotal)} note={formatPercent(summary.investmentShare)} icon={<LineChart />} tone="rose" />
+        <MetricCard title="이번 달 실지출" value={formatMoney(summary.thisMonth.realSpend)} note={summary.monthKey} icon={<Banknote />} tone="green" active={activeMetric === 'realSpend'} onClick={() => setActiveMetric(activeMetric === 'realSpend' ? null : 'realSpend')} />
+        <MetricCard title="순자산" value={formatMoney(summary.netWorth)} note={`부채 ${formatMoney(summary.loanTotal)}`} icon={<PiggyBank />} tone="blue" active={activeMetric === 'netWorth'} onClick={() => setActiveMetric(activeMetric === 'netWorth' ? null : 'netWorth')} />
+        <MetricCard title="고정비 비중" value={formatPercent(summary.fixedShare)} note={formatMoney(summary.thisMonth.fixed)} icon={<ShieldCheck />} tone="amber" active={activeMetric === 'fixedCost'} onClick={() => setActiveMetric(activeMetric === 'fixedCost' ? null : 'fixedCost')} />
+        <MetricCard title="투자 평가액" value={formatMoney(summary.investmentTotal)} note={formatPercent(summary.investmentShare)} icon={<LineChart />} tone="rose" active={activeMetric === 'investment'} onClick={() => setActiveMetric(activeMetric === 'investment' ? null : 'investment')} />
       </div>
+
+      {activeMetric && (
+        <MetricDetailPanel
+          metric={activeMetric}
+          store={store}
+          summary={summary}
+          onClose={() => setActiveMetric(null)}
+        />
+      )}
 
       <section className="wide-section">
         <SectionHeader icon={<ChartNoAxesCombined size={18} />} title="월별 흐름" aside={summary.monthlyTrend.at(-1)?.month ?? ''} />
@@ -598,7 +612,9 @@ function InsightsView({ store, summary }: { store: FinanceStore; summary: Summar
               <XAxis type="number" tickFormatter={compactMoney} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--muted)' }} />
               <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={76} tick={{ fontSize: 11, fill: 'var(--muted)' }} />
               <Tooltip 
-                contentStyle={{ backgroundColor: '#121f18', borderColor: 'var(--line)', borderRadius: '10px', color: 'var(--ink)' }} 
+                contentStyle={{ backgroundColor: '#121f18', borderColor: 'rgba(130,148,138,0.25)', borderRadius: '10px', color: '#f2f5f3' }}
+                itemStyle={{ color: '#f2f5f3' }}
+                labelStyle={{ color: '#e5c493', fontWeight: 800 }}
                 formatter={(value) => [formatMoney(Number(value)), '지출액']} 
               />
               <Bar dataKey="value" radius={[0, 6, 6, 0]}>
