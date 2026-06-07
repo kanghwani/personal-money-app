@@ -1,0 +1,22 @@
+{
+  "name": "돈 정리 - 프리미엄 다크 가계부",
+  "short_name": "돈 정리",
+  "description": "차콜 다크 테마의 프리미엄 개인용 가계부 웹앱",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a120e",
+  "theme_color": "#0a120e",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}
