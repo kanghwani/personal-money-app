@@ -56,3 +56,15 @@ describe('saveToServer', () => {
     expect(await saveToServer({ n: 1 }, 'x', null)).toBe(false)
   })
 })
+
+describe('네트워크 오류 계약', () => {
+  it('loadFromServer는 fetch 거부 시 throw한다 (null로 삼키지 않음)', async () => {
+    ;(fetch as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('network down'))
+    await expect(loadFromServer(cfg)).rejects.toThrow('network down')
+  })
+
+  it('saveToServer는 fetch 거부 시 throw한다', async () => {
+    ;(fetch as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('network down'))
+    await expect(saveToServer({ n: 1 }, 'x', cfg)).rejects.toThrow('network down')
+  })
+})
