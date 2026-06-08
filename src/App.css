@@ -130,157 +130,6 @@
   font-weight: 700;
 }
 
-/* Notion-style Budget Progress Card */
-.budget-progress-card {
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--surface);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  padding: 20px;
-  box-shadow: var(--soft-shadow);
-  display: grid;
-  gap: 16px;
-  max-width: 1180px;
-  margin: 0 auto;
-}
-
-.budget-progress-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-}
-
-.budget-progress-header > div:first-child {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.reality-emoji {
-  font-size: 28px;
-}
-
-.budget-progress-header h3 {
-  margin: 0 0 2px 0;
-  font-size: 15px;
-  font-weight: 800;
-  color: var(--accent-tan);
-}
-
-.reality-comment {
-  margin: 0;
-  font-size: 13px;
-  color: var(--muted);
-  font-weight: 700;
-}
-
-.budget-edit-box {
-  display: flex;
-  align-items: center;
-}
-
-.budget-display {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.budget-display strong {
-  font-size: 20px;
-  font-weight: 900;
-  color: var(--ink);
-}
-
-.budget-display span {
-  font-size: 13px;
-  color: var(--muted);
-  font-weight: 700;
-}
-
-.budget-display button,
-.budget-inline-form button {
-  margin-left: 8px;
-  padding: 4px 8px;
-  border: 0;
-  border-radius: 8px;
-  background: var(--surface-solid);
-  border: 1px solid var(--line);
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.budget-display button:hover,
-.budget-inline-form button:hover {
-  background: var(--accent-tan-soft);
-  color: var(--accent-tan);
-  border-color: rgba(201, 121, 79, 0.3);
-}
-
-.budget-inline-form {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.budget-inline-form input {
-  width: 110px;
-  height: 32px;
-  padding: 0 8px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface-solid);
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 800;
-  text-align: right;
-}
-
-.budget-inline-form input:focus {
-  border-color: var(--accent-tan);
-  outline: none;
-}
-
-/* Progress bar track & fill */
-.budget-progress-bar-track {
-  height: 12px;
-  border-radius: 6px;
-  background: rgba(120, 90, 50, 0.08);
-  border: 1px solid var(--line);
-  overflow: hidden;
-}
-
-.budget-progress-bar-fill {
-  display: block;
-  height: 100%;
-  border-radius: 6px;
-  background: var(--green);
-  transition: width 0.3s ease;
-}
-
-.budget-progress-bar-fill.warn {
-  background: var(--amber);
-}
-
-.budget-progress-bar-fill.danger {
-  background: var(--danger);
-}
-
-.budget-progress-footer {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12.5px;
-  color: var(--muted);
-  font-weight: 700;
-}
-
-.budget-progress-footer span:last-child {
-  color: var(--accent-tan);
-}
-
 /* Floating iOS-style Tab Bar */
 .tab-bar {
   position: fixed;
@@ -339,13 +188,6 @@
   margin: 0 auto;
 }
 
-.metric-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.metric-card,
 .insight-card,
 .mini-row,
 .ledger-row {
@@ -358,73 +200,11 @@
   transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease;
 }
 
-.metric-card:hover,
 .insight-card:hover,
 .mini-row:hover,
 .ledger-row:hover {
   transform: translateY(-2px);
   border-color: rgba(201, 121, 79, 0.3);
-}
-
-.metric-card {
-  min-height: 142px;
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  overflow: hidden;
-  position: relative;
-}
-
-.metric-card p,
-.metric-card span {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.metric-card strong {
-  display: block;
-  color: var(--ink);
-  font-size: 24px;
-  font-weight: 900;
-  line-height: 1.1;
-  word-break: keep-all;
-  letter-spacing: -0.5px;
-}
-
-.metric-icon {
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-}
-
-.metric-icon svg {
-  width: 20px;
-  height: 20px;
-}
-
-.metric-card.green .metric-icon {
-  background: var(--green-soft);
-  color: var(--green);
-}
-
-.metric-card.blue .metric-icon {
-  background: var(--blue-soft);
-  color: var(--blue);
-}
-
-.metric-card.amber .metric-icon {
-  background: var(--amber-soft);
-  color: var(--amber);
-}
-
-.metric-card.rose .metric-icon {
-  background: var(--danger-soft);
-  color: var(--danger);
 }
 
 .wide-section {
@@ -481,21 +261,10 @@
   align-items: start;
 }
 
-.category-bars,
 .recent-list,
 .ledger-table {
   display: grid;
   gap: 10px;
-}
-
-.category-bars {
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--surface);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: var(--soft-shadow);
 }
 
 .fixed-panel,
@@ -563,11 +332,6 @@
   color: var(--ink);
   font-size: 19px;
   line-height: 1.15;
-}
-
-.category-bar {
-  display: grid;
-  gap: 8px;
 }
 
 .bar-label {
@@ -967,15 +731,9 @@
     padding: calc(14px + env(safe-area-inset-top, 0px)) 12px calc(260px + env(safe-area-inset-bottom, 0px));
   }
 
-  .metric-grid,
   .split-layout,
   .insight-board {
     grid-template-columns: 1fr;
-  }
-
-  .metric-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
   }
 
   .balance-band {
@@ -1019,19 +777,6 @@
   .quick-input-row input {
     height: 40px;
     font-size: 15px;
-  }
-
-  .metric-grid {
-    gap: 8px;
-  }
-
-  .metric-card {
-    min-height: 130px;
-    padding: 14px;
-  }
-
-  .metric-card strong {
-    font-size: 20px;
   }
 
   .mini-row,
