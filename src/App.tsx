@@ -39,6 +39,7 @@ import {
 } from 'lucide-react'
 import { pickNewer, dedupById } from './sync/merge'
 import { getSyncConfig, loadFromServer, saveToServer, loadLedger } from './sync/syncClient'
+import { deriveQuickChips, type QuickChip } from './dashboardLogic'
 import './App.css'
 
 type Tab = 'dashboard' | 'ledger' | 'assets' | 'insights'
@@ -189,6 +190,14 @@ function App() {
     () => buildSummary({ ...store, transactions: mergedTransactions }),
     [store, mergedTransactions],
   )
+  const quickChips = useMemo(() => deriveQuickChips(mergedTransactions, 4), [mergedTransactions])
+  const [undoTx, setUndoTx] = useState<Transaction | null>(null)
+
+  useEffect(() => {
+    if (!undoTx) return
+    const id = window.setTimeout(() => setUndoTx(null), 5000)
+    return () => window.clearTimeout(id)
+  }, [undoTx])
 
   function dismissPwaBanner() {
     window.localStorage.setItem('shiba-pwa-dismissed', 'true')
@@ -221,6 +230,22 @@ function App() {
     })
 
     setLastMessage(resultLabel(parsed))
+  }
+
+  function logQuickChip(chip: QuickChip) {
+    const t: Transaction = {
+      id: uid(), date: todayIso(), type: 'expense', amount: chip.amount,
+      memo: chip.label, category: chip.category, subCategory: chip.subCategory,
+      payment: chip.payment, fixedType: chip.fixedType, split: 0, raw: `${chip.label} ${chip.amount}`,
+    }
+    setStore((cur) => ({ ...cur, transactions: [t, ...cur.transactions] }))
+    setUndoTx(t)
+    setLastMessage(`${chip.label} ${formatMoney(chip.amount)} 기록`)
+  }
+  function undoLastChip() {
+    if (!undoTx) return
+    setStore((cur) => ({ ...cur, transactions: cur.transactions.filter((x) => x.id !== undoTx.id) }))
+    setUndoTx(null)
   }
 
   function deleteTransaction(id: string) {
@@ -288,7 +313,24 @@ function App() {
         </section>
       )}
 
-      <QuickEntry onSubmit={applyQuickInput} lastMessage={lastMessage} />
+      <div className="bottom-dock">
+        {undoTx && (
+          <div className="undo-toast">
+            <span>{undoTx.memo} {formatMoney(undoTx.amount)} 기록됨</span>
+            <button type="button" onClick={undoLastChip}>되돌리기</button>
+          </div>
+        )}
+        {quickChips.length > 0 && (
+          <div className="quick-chips">
+            {quickChips.map((c) => (
+              <button key={c.key} type="button" className="quick-chip" onClick={() => logQuickChip(c)}>
+                <span>{c.emoji}</span>{c.label}
+              </button>
+            ))}
+          </div>
+        )}
+        <QuickEntry onSubmit={applyQuickInput} lastMessage={lastMessage} />
+      </div>
 
       <nav className="tab-bar" aria-label="화면">
         <TabButton tab="dashboard" activeTab={activeTab} icon={<Home size={18} />} label="홈" onClick={setActiveTab} />
