@@ -1,6 +1,6 @@
 .app-shell {
   min-height: 100svh;
-  padding: calc(18px + env(safe-area-inset-top, 0px)) 18px calc(240px + env(safe-area-inset-bottom, 0px));
+  padding: calc(18px + env(safe-area-inset-top, 0px)) 18px calc(120px + env(safe-area-inset-bottom, 0px));
   color: var(--ink);
   max-width: 1200px;
   margin: 0 auto;
@@ -124,10 +124,11 @@
 }
 
 .status-line {
-  margin: 12px 2px 0;
+  margin: 10px 2px 0;
   color: var(--muted);
   font-size: 13px;
   font-weight: 700;
+  text-align: center;
 }
 
 /* Floating iOS-style Tab Bar */
@@ -728,7 +729,7 @@
 
 @media (max-width: 920px) {
   .app-shell {
-    padding: calc(14px + env(safe-area-inset-top, 0px)) 12px calc(260px + env(safe-area-inset-bottom, 0px));
+    padding: calc(14px + env(safe-area-inset-top, 0px)) 12px calc(130px + env(safe-area-inset-bottom, 0px));
   }
 
   .split-layout,
@@ -805,18 +806,16 @@
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── Bottom Dock (fixed above tab-bar) ─────────────────────────── */
-.bottom-dock {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
-  padding: 8px 14px 8px;
-  background: linear-gradient(transparent, var(--bg) 22%);
-  z-index: 30;
+.home-input {
+  margin-bottom: 6px;
+}
+.home-input .quick-chips {
+  max-width: 1180px;
+  margin: 0 auto 8px;
 }
 
-.bottom-dock .quick-panel {
-  margin: 0;
+.home-input .quick-panel {
+  margin: 0 auto 4px;
 }
 
 .quick-chips {
@@ -927,6 +926,9 @@
 .fixed-toggle.on { background: var(--accent-tan); color: #fff; border-color: var(--accent-tan); }
 .fixed-form { display: flex; flex-direction: column; gap: 10px; margin: 8px 0 14px; }
 .fixed-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.fixed-form label.fixed-check { flex-direction: row; align-items: center; gap: 8px; font-size: 13px; color: var(--ink); }
+.fixed-form label.fixed-check input { width: 18px; height: 18px; flex: 0 0 auto; accent-color: var(--accent-tan); }
+.fixed-badge { display: inline-block; margin-left: 6px; background: var(--accent-tan-soft); color: var(--accent-tan); border-radius: 8px; padding: 1px 7px; font-size: 10px; font-weight: 700; vertical-align: middle; }
 .fixed-form input { background: var(--surface-solid); border: 1.5px solid var(--line); border-radius: 12px; padding: 9px 11px; color: var(--ink); font-size: 14px; }
 .fixed-actions { display: flex; gap: 8px; }
 .fixed-save { flex: 1; background: var(--accent-tan); color: #fff; border: none; border-radius: 14px; padding: 11px; font-size: 14px; font-weight: 700; cursor: pointer; }

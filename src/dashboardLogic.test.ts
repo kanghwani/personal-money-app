@@ -122,7 +122,7 @@ describe('distinctCategoryOptions', () => {
 })
 
 describe('fixedRemaining', () => {
-  const base: FixedDef = { id: '1', active: true, name: '맥북 할부', amount: 179354, category: '생활', subCategory: '전자기기', payment: '카드', payDay: 1, startMonth: '2026-03', installmentTotal: 14 }
+  const base: FixedDef = { id: '1', active: true, name: '맥북 할부', amount: 179354, category: '생활', subCategory: '전자기기', payment: '카드', payDay: 1, startMonth: '2026-03', installmentTotal: 14, variable: false }
   it('진행중 할부: 경과/남은 회차·금액', () => {
     expect(fixedRemaining(base, '2026-05')).toEqual({ count: 3, total: 14, remainingCount: 11, remainingAmount: 11 * 179354, done: false })
   })

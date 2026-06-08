@@ -327,25 +327,6 @@ function App() {
         </section>
       )}
 
-      <div className="bottom-dock">
-        {undoTx && (
-          <div className="undo-toast">
-            <span>{undoTx.memo} {formatMoney(undoTx.amount)} 기록됨</span>
-            <button type="button" onClick={undoLastChip}>되돌리기</button>
-          </div>
-        )}
-        {quickChips.length > 0 && (
-          <div className="quick-chips">
-            {quickChips.map((c) => (
-              <button key={c.key} type="button" className="quick-chip" onClick={() => logQuickChip(c)}>
-                <span>{c.emoji}</span>{c.label}
-              </button>
-            ))}
-          </div>
-        )}
-        <QuickEntry onSubmit={applyQuickInput} lastMessage={lastMessage} />
-      </div>
-
       <nav className="tab-bar" aria-label="화면">
         <TabButton tab="dashboard" activeTab={activeTab} icon={<Home size={18} />} label="홈" onClick={setActiveTab} />
         <TabButton tab="ledger" activeTab={activeTab} icon={<ReceiptText size={18} />} label="원장" onClick={setActiveTab} />
@@ -355,7 +336,27 @@ function App() {
       </nav>
 
       {activeTab === 'dashboard' && (
-        <Dashboard summary={summary} transactions={mergedTransactions} categoryOptions={categoryOptions} onAssign={assignCategoryFor} />
+        <>
+          <div className="home-input">
+            {undoTx && (
+              <div className="undo-toast">
+                <span>{undoTx.memo} {formatMoney(undoTx.amount)} 기록됨</span>
+                <button type="button" onClick={undoLastChip}>되돌리기</button>
+              </div>
+            )}
+            {quickChips.length > 0 && (
+              <div className="quick-chips">
+                {quickChips.map((c) => (
+                  <button key={c.key} type="button" className="quick-chip" onClick={() => logQuickChip(c)}>
+                    <span>{c.emoji}</span>{c.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            <QuickEntry onSubmit={applyQuickInput} lastMessage={lastMessage} />
+          </div>
+          <Dashboard summary={summary} transactions={mergedTransactions} categoryOptions={categoryOptions} onAssign={assignCategoryFor} />
+        </>
       )}
       {activeTab === 'ledger' && (
         <Ledger
@@ -886,7 +887,7 @@ function InsightsView({ store, summary }: { store: FinanceStore; summary: Summar
 }
 
 function emptyFixedDef(monthKey: string): FixedDef {
-  return { id: '', active: true, name: '', amount: 0, category: '', subCategory: '', payment: '카드', payDay: 1, startMonth: monthKey, installmentTotal: null }
+  return { id: '', active: true, name: '', amount: 0, category: '', subCategory: '', payment: '카드', payDay: 1, startMonth: monthKey, installmentTotal: null, variable: false }
 }
 
 function FixedView({ monthKey }: { monthKey: string }) {
@@ -933,9 +934,10 @@ function FixedView({ monthKey }: { monthKey: string }) {
             <article className={`fixed-row${d.active ? '' : ' off'}`} key={d.id}>
               <button type="button" className="fixed-main" onClick={() => setEditing(d)}>
                 <div>
-                  <p className="row-title">{d.name}</p>
+                  <p className="row-title">{d.name}{d.variable && <span className="fixed-badge">변동</span>}</p>
                   <p className="row-meta">
                     {formatMoney(d.amount)} · 매월 {d.payDay}일
+                    {d.variable && ' · 확인필요'}
                     {rem && (rem.done ? ' · 완료' : ` · ${rem.count}/${rem.total}회 · 남은 ${formatMoney(rem.remainingAmount)}`)}
                   </p>
                 </div>
@@ -987,6 +989,10 @@ function FixedEditSheet({ def, busy, onClose, onSave, onDelete }: {
           <label>납부일<input type="number" min={1} max={31} value={draft.payDay || ''} onChange={(e) => set({ payDay: Number(e.target.value) || 1 })} /></label>
           <label>시작월(yyyy-MM)<input value={draft.startMonth} onChange={(e) => set({ startMonth: e.target.value })} /></label>
           <label>할부 총회차(없으면 비움)<input type="number" value={draft.installmentTotal ?? ''} onChange={(e) => set({ installmentTotal: e.target.value === '' ? null : Number(e.target.value) })} /></label>
+          <label className="fixed-check">
+            <input type="checkbox" checked={draft.variable} onChange={(e) => set({ variable: e.target.checked })} />
+            <span>변동 항목 (금액이 매달 바뀜 — 자동입력 시 ‘확인필요’ 표시)</span>
+          </label>
         </div>
         <div className="fixed-actions">
           {def.id && <button type="button" className="fixed-del" disabled={busy} onClick={() => onDelete(def.id)}>삭제</button>}

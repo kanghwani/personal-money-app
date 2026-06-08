@@ -84,6 +84,7 @@ export type FixedDef = {
   payDay: number
   startMonth: string
   installmentTotal: number | null
+  variable: boolean
 }
 
 function monthIndex(ym: string): number {
