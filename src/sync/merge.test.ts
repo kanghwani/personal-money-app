@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pickNewer, type Snapshot } from './merge'
+import { pickNewer, dedupById, type Snapshot } from './merge'
 
 const snap = (updatedAt: string, n: number): Snapshot<{ n: number }> => ({
   store: { n },
@@ -40,5 +40,27 @@ describe('pickNewer', () => {
     const local = snap('garbage', 1)
     const remote = snap('2026-06-07T11:00:00.000Z', 2)
     expect(pickNewer(local, remote)).toBe(remote)
+  })
+})
+
+describe('dedupById', () => {
+  const t = (id: string, n: number) => ({ id, n })
+
+  it('history만 있으면 그대로', () => {
+    expect(dedupById([t('a', 1), t('b', 2)], [])).toEqual([t('a', 1), t('b', 2)])
+  })
+
+  it('store만 있으면 그대로', () => {
+    expect(dedupById([], [t('a', 1)])).toEqual([t('a', 1)])
+  })
+
+  it('같은 id는 store가 우선', () => {
+    const res = dedupById([t('a', 1)], [t('a', 99)])
+    expect(res).toEqual([t('a', 99)])
+  })
+
+  it('history+store 병합(중복 없음)', () => {
+    const res = dedupById([t('a', 1)], [t('b', 2)])
+    expect(res.map((x) => x.id).sort()).toEqual(['a', 'b'])
   })
 })

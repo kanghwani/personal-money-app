@@ -14,3 +14,11 @@ export function pickNewer<T>(local: Snapshot<T>, remote: Snapshot<T> | null): Sn
   if (Number.isNaN(l)) return remote
   return r > l ? remote : local
 }
+
+/** history와 store 거래를 id 기준으로 병합한다. 같은 id는 store가 우선(최신). */
+export function dedupById<T extends { id: string }>(history: T[], store: T[]): T[] {
+  const map = new Map<string, T>()
+  for (const item of history) map.set(item.id, item)
+  for (const item of store) map.set(item.id, item)
+  return [...map.values()]
+}
