@@ -1,12 +1,12 @@
 {
-  "name": "돈 정리 - 프리미엄 다크 가계부",
+  "name": "돈 정리 - 가계부",
   "short_name": "돈 정리",
-  "description": "차콜 다크 테마의 프리미엄 개인용 가계부 웹앱",
+  "description": "코지 베이지 테마의 개인용 가계부 웹앱",
   "start_url": "/personal-money-app/",
   "scope": "/personal-money-app/",
   "display": "standalone",
-  "background_color": "#0a120e",
-  "theme_color": "#0a120e",
+  "background_color": "#f1e9db",
+  "theme_color": "#f1e9db",
   "orientation": "portrait",
   "icons": [
     {
