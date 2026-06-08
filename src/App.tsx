@@ -480,7 +480,7 @@ function Dashboard({ summary, transactions }: { summary: Summary; transactions: 
       {selectedCategory && (
         <CategoryDetailSheet
           category={selectedCategory}
-          transactions={transactions.filter((t) => t.category === selectedCategory)}
+          transactions={transactions.filter((t) => t.category === selectedCategory && t.date.slice(0, 7) === summary.monthKey)}
           onClose={() => setSelectedCategory(null)}
         />
       )}
