@@ -68,3 +68,21 @@ export async function loadLedger<T>(
   if (!data || !data.ok || !Array.isArray(data.transactions)) return []
   return data.transactions as T[]
 }
+
+/** 거래 카테고리를 서버(시트 원장)에 반영하고 분류규칙을 학습시킨다. cfg 없으면 false. */
+export async function assignCategory(
+  id: string,
+  category: string,
+  subCategory: string,
+  cfg: SyncConfig | null = getSyncConfig(),
+): Promise<boolean> {
+  if (!cfg) return false
+  const res = await fetch(cfg.url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    redirect: 'follow',
+    body: JSON.stringify({ action: 'assignCategory', token: cfg.token, id, category, subCategory }),
+  })
+  const data = await res.json()
+  return !!(data && data.ok)
+}

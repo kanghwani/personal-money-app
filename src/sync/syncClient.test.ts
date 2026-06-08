@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { loadFromServer, saveToServer, loadLedger, type SyncConfig } from './syncClient'
+import { loadFromServer, saveToServer, loadLedger, assignCategory, type SyncConfig } from './syncClient'
 
 const cfg: SyncConfig = { url: 'https://script.example/exec', token: 'secret-tok' }
 
@@ -91,5 +91,22 @@ describe('loadLedger', () => {
       json: async () => ({ ok: false }),
     })
     expect(await loadLedger(cfg)).toEqual([])
+  })
+})
+
+describe('assignCategory', () => {
+  it('cfg 없으면 false', async () => {
+    expect(await assignCategory('id1', '식비', '외식', null)).toBe(false)
+  })
+  it('text/plain POST로 assignCategory 본문 전송, ok 반환', async () => {
+    ;(fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ json: async () => ({ ok: true, updated: 1 }) })
+    const ok = await assignCategory('id1', '식비', '외식', cfg)
+    const [url, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+    expect(url).toBe(cfg.url)
+    expect(init.headers['Content-Type']).toBe('text/plain;charset=utf-8')
+    const body = JSON.parse(init.body as string)
+    expect(body.action).toBe('assignCategory')
+    expect(body).toMatchObject({ id: 'id1', category: '식비', subCategory: '외식', token: 'secret-tok' })
+    expect(ok).toBe(true)
   })
 })
