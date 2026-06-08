@@ -6,6 +6,8 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -13,8 +15,6 @@ import {
 } from 'recharts'
 import {
   ArrowDownUp,
-  Banknote,
-  CalendarDays,
   ChartNoAxesCombined,
   CircleDollarSign,
   CreditCard,
@@ -23,7 +23,6 @@ import {
   Landmark,
   LineChart,
   Pencil,
-  PiggyBank,
   Plus,
   ReceiptText,
   RefreshCw,
@@ -39,7 +38,7 @@ import {
 } from 'lucide-react'
 import { pickNewer, dedupById } from './sync/merge'
 import { getSyncConfig, loadFromServer, saveToServer, loadLedger } from './sync/syncClient'
-import { deriveQuickChips, type QuickChip } from './dashboardLogic'
+import { deriveQuickChips, type QuickChip, changeRate } from './dashboardLogic'
 import './App.css'
 
 type Tab = 'dashboard' | 'ledger' | 'assets' | 'insights'
@@ -195,11 +194,6 @@ function App() {
     setShowPwaBanner(false)
   }
 
-  function updateBudget(amount: number) {
-    setStore((current) => ({ ...current, budget: amount }))
-    setLastMessage(`예산 ${formatMoney(amount)}으로 변경됨`)
-  }
-
   function applyQuickInput(raw: string) {
     const parsed = parseQuickEntry(raw)
     if (parsed.kind === 'error') {
@@ -330,7 +324,7 @@ function App() {
         <TabButton tab="insights" activeTab={activeTab} icon={<Sparkles size={18} />} label="인사이트" onClick={setActiveTab} />
       </nav>
 
-      {activeTab === 'dashboard' && <Dashboard store={store} summary={summary} onUpdateBudget={updateBudget} />}
+      {activeTab === 'dashboard' && <Dashboard summary={summary} />}
       {activeTab === 'ledger' && <Ledger transactions={mergedTransactions} onDelete={deleteTransaction} />}
       {activeTab === 'assets' && <AssetsView store={store} summary={summary} onSaveAsset={saveAsset} />}
       {activeTab === 'insights' && <InsightsView store={store} summary={summary} />}
@@ -371,135 +365,57 @@ function QuickEntry({ onSubmit, lastMessage }: { onSubmit: (raw: string) => void
   )
 }
 
-type MetricKey = 'realSpend' | 'netWorth' | 'fixedCost' | 'investment'
+const RING_COLORS = ['#c9794f', '#7e9b6f', '#d6a85e', '#9a7bb0', '#5a7d8f', '#cdbf9c']
 
-function Dashboard({
-  store,
-  summary,
-  onUpdateBudget,
-}: {
-  store: FinanceStore
-  summary: Summary
-  onUpdateBudget: (amount: number) => void
-}) {
-  const [isEditingBudget, setIsEditingBudget] = useState(false)
-  const [budgetInput, setBudgetInput] = useState(String(summary.budget))
-  const [activeMetric, setActiveMetric] = useState<MetricKey | null>(null)
+function CategoryRing({ total, subtitle, data }: { total: string; subtitle: string | null; data: NameValue[] }) {
+  return (
+    <div className="cat-ring">
+      <ResponsiveContainer width="100%" height={200}>
+        <PieChart>
+          <Pie data={data} dataKey="value" nameKey="name" innerRadius={66} outerRadius={92} paddingAngle={2} stroke="none">
+            {data.map((_, i) => (
+              <Cell key={i} fill={RING_COLORS[i % RING_COLORS.length]} />
+            ))}
+          </Pie>
+        </PieChart>
+      </ResponsiveContainer>
+      <div className="cat-ring-center">
+        <span className="cr-k">이번 달 실지출</span>
+        <strong>{total}</strong>
+        {subtitle && <span className="cr-s">{subtitle}</span>}
+      </div>
+    </div>
+  )
+}
 
-  // 예산 소진율 상태별 Reality Check 멘트
-  const getRealityCheck = (rate: number) => {
-    if (rate === 0) return { emoji: '🎨', text: '텅장 방어전 시작! 지출 0원으로 완전 깨끗합니다.' }
-    if (rate < 0.4) return { emoji: '🌱', text: '나름 절제하며 잘 버티고 있어요. 좋은 기세입니다!' }
-    if (rate < 0.7) return { emoji: '⚠️', text: '슬슬 소비에 탄력이 붙기 시작했으니, 경계심을 가지세요.' }
-    if (rate < 0.95) return { emoji: '🍜', text: '위험 경보! 진짜 돈 없어요. 이제 삼각김밥 코스입니다.' }
-    return { emoji: '💸', text: '거덜 났습니다! 카드 다 압수하고, 당장 지갑 닫으세요.' }
-  }
-
-  const reality = getRealityCheck(summary.budgetUsageRate)
-
-  function saveBudget() {
-    const nextVal = Number(budgetInput.replace(/,/g, ''))
-    if (!isNaN(nextVal) && nextVal > 0) {
-      onUpdateBudget(nextVal)
-    }
-    setIsEditingBudget(false)
-  }
+function Dashboard({ summary }: { summary: Summary }) {
+  const prev = summary.previousMonth?.realSpend ?? 0
+  const rate = changeRate(summary.thisMonth.realSpend, prev)
+  const ringSubtitle = rate === null ? null : `전월 대비 ${rate >= 0 ? '+' : '−'}${Math.abs(Math.round(rate * 100))}%`
 
   return (
     <section className="view-stack">
-      {/* Notion-style Reality Budget Checker */}
-      <article className="budget-progress-card">
-        <div className="budget-progress-header">
-          <div>
-            <span className="reality-emoji">{reality.emoji}</span>
-            <div>
-              <h3>이번 달 예산 한도</h3>
-              <p className="reality-comment">{reality.text}</p>
+      <article className="ring-card">
+        <CategoryRing
+          total={formatMoney(summary.thisMonth.realSpend)}
+          subtitle={ringSubtitle}
+          data={summary.categoryTotals.slice(0, 6)}
+        />
+        <div className="cat-rank">
+          {summary.categoryTotals.slice(0, 5).map((c, i) => (
+            <div className="cat-rank-row" key={c.name}>
+              <span className="cat-dot" style={{ background: RING_COLORS[i % RING_COLORS.length] }} />
+              <span className="cat-name">{c.name}</span>
+              <span className="cat-amt">{formatMoney(c.value)}</span>
+              <span className="cat-pct">{formatPercent(summary.thisMonth.totalSpend ? c.value / summary.thisMonth.totalSpend : 0)}</span>
             </div>
-          </div>
-          <div className="budget-edit-box">
-            {isEditingBudget ? (
-              <div className="budget-inline-form">
-                <input
-                  value={budgetInput}
-                  onChange={(e) => setBudgetInput(e.target.value.replace(/[^\d,]/g, ''))}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') saveBudget()
-                    if (e.key === 'Escape') setIsEditingBudget(false)
-                  }}
-                  autoFocus
-                />
-                <button type="button" onClick={saveBudget}>저장</button>
-              </div>
-            ) : (
-              <div className="budget-display">
-                <strong>{formatMoney(summary.thisMonth.realSpend)}</strong>
-                <span>/ {formatMoney(summary.budget)}</span>
-                <button type="button" onClick={() => {
-                  setBudgetInput(String(summary.budget))
-                  setIsEditingBudget(true)
-                }}>
-                  수정
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-        
-        <div className="budget-progress-bar-track">
-          <span 
-            className={`budget-progress-bar-fill ${summary.budgetUsageRate >= 0.95 ? 'danger' : summary.budgetUsageRate >= 0.7 ? 'warn' : ''}`}
-            style={{ width: `${Math.min(100, summary.budgetUsageRate * 100)}%` }}
-          />
-        </div>
-        <div className="budget-progress-footer">
-          <span>소진율 {formatPercent(summary.budgetUsageRate)}</span>
-          <span>남은 금액: {formatMoney(Math.max(0, summary.budget - summary.thisMonth.realSpend))}</span>
+          ))}
         </div>
       </article>
 
-      <div className="metric-grid">
-        <MetricCard title="이번 달 실지출" value={formatMoney(summary.thisMonth.realSpend)} note={summary.monthKey} icon={<Banknote />} tone="green" active={activeMetric === 'realSpend'} onClick={() => setActiveMetric(activeMetric === 'realSpend' ? null : 'realSpend')} />
-        <MetricCard title="순자산" value={formatMoney(summary.netWorth)} note={`부채 ${formatMoney(summary.loanTotal)}`} icon={<PiggyBank />} tone="blue" active={activeMetric === 'netWorth'} onClick={() => setActiveMetric(activeMetric === 'netWorth' ? null : 'netWorth')} />
-        <MetricCard title="고정비 비중" value={formatPercent(summary.fixedShare)} note={formatMoney(summary.thisMonth.fixed)} icon={<ShieldCheck />} tone="amber" active={activeMetric === 'fixedCost'} onClick={() => setActiveMetric(activeMetric === 'fixedCost' ? null : 'fixedCost')} />
-        <MetricCard title="투자 평가액" value={formatMoney(summary.investmentTotal)} note={formatPercent(summary.investmentShare)} icon={<LineChart />} tone="rose" active={activeMetric === 'investment'} onClick={() => setActiveMetric(activeMetric === 'investment' ? null : 'investment')} />
-      </div>
-
-      {activeMetric && (
-        <MetricDetailPanel
-          metric={activeMetric}
-          store={store}
-          summary={summary}
-          onClose={() => setActiveMetric(null)}
-        />
-      )}
-
-      <section className="split-layout">
-        <div className="wide-section">
-          <SectionHeader icon={<ArrowDownUp size={18} />} title="카테고리" aside={formatMoney(summary.thisMonth.totalSpend)} />
-          <CategoryBars data={summary.categoryTotals.slice(0, 6)} total={summary.thisMonth.totalSpend} />
-        </div>
-
-        <div className="wide-section">
-          <SectionHeader icon={<CreditCard size={18} />} title="결제수단" aside={summary.paymentTotals[0]?.name ?? '미지정'} />
-          <CategoryBars data={summary.paymentTotals.slice(0, 6)} total={summary.thisMonth.totalSpend} />
-        </div>
-      </section>
-
-      <section className="split-layout">
-        <div className="wide-section">
-          <SectionHeader icon={<ShieldCheck size={18} />} title="고정비 / 변동비" aside={formatPercent(summary.fixedShare)} />
-          <FixedVariablePanel summary={summary} />
-        </div>
-
-        <div className="wide-section">
-          <SectionHeader icon={<CalendarDays size={18} />} title="최근 거래" aside={`${store.transactions.length}건`} />
-          <div className="recent-list">
-            {store.transactions.slice(0, 6).map((transaction) => (
-              <TransactionRow key={transaction.id} transaction={transaction} />
-            ))}
-          </div>
-        </div>
+      <section className="wide-section">
+        <SectionHeader icon={<ShieldCheck size={18} />} title="고정비 / 변동비" aside={formatPercent(summary.fixedShare)} />
+        <FixedVariablePanel summary={summary} />
       </section>
     </section>
   )
@@ -673,48 +589,6 @@ function InsightsView({ store, summary }: { store: FinanceStore; summary: Summar
   )
 }
 
-function MetricCard({ title, value, note, icon, tone, active, onClick }: { title: string; value: string; note: string; icon: ReactNode; tone: string; active?: boolean; onClick?: () => void }) {
-  return (
-    <article
-      className={`metric-card ${tone}${active ? ' active' : ''}`}
-      onClick={onClick}
-      role={onClick ? 'button' : undefined}
-      tabIndex={onClick ? 0 : undefined}
-    >
-      <div className="metric-icon">{icon}</div>
-      <p>{title}</p>
-      <strong>{value}</strong>
-      <span>{note}</span>
-    </article>
-  )
-}
-
-function MetricDetailPanel({ metric, store, summary, onClose }: { metric: MetricKey; store: FinanceStore; summary: Summary; onClose: () => void }) {
-  const labels: Record<MetricKey, string> = {
-    realSpend: '이번 달 실지출',
-    netWorth: '순자산',
-    fixedCost: '고정비 비중',
-    investment: '투자 평가액',
-  }
-  const details: Record<MetricKey, string> = {
-    realSpend: `${summary.monthKey} 실지출 ${formatMoney(summary.thisMonth.realSpend)}`,
-    netWorth: `자산에서 부채 ${formatMoney(summary.loanTotal)}를 뺀 순자산`,
-    fixedCost: `이번 달 고정비 ${formatMoney(summary.thisMonth.fixed)} (${formatPercent(summary.fixedShare)})`,
-    investment: `투자 ${store.investments.length}건 · 평가액 ${formatMoney(summary.investmentTotal)}`,
-  }
-  return (
-    <section className="metric-detail-panel">
-      <div className="metric-detail-header">
-        <h3>{labels[metric]}</h3>
-        <button className="icon-button" type="button" onClick={onClose} aria-label="닫기">
-          <X size={18} />
-        </button>
-      </div>
-      <p>{details[metric]}</p>
-    </section>
-  )
-}
-
 function SectionHeader({ icon, title, aside }: { icon: ReactNode; title: string; aside?: string }) {
   return (
     <div className="section-header">
@@ -723,24 +597,6 @@ function SectionHeader({ icon, title, aside }: { icon: ReactNode; title: string;
         <h2>{title}</h2>
       </div>
       {aside && <span>{aside}</span>}
-    </div>
-  )
-}
-
-function CategoryBars({ data, total }: { data: NameValue[]; total: number }) {
-  return (
-    <div className="category-bars">
-      {data.map((item) => (
-        <div className="category-bar" key={item.name}>
-          <div className="bar-label">
-            <span>{item.name}</span>
-            <strong>{formatMoney(item.value)}</strong>
-          </div>
-          <div className="bar-track">
-            <span style={{ width: `${Math.max(5, total ? (item.value / total) * 100 : 0)}%` }} />
-          </div>
-        </div>
-      ))}
     </div>
   )
 }
@@ -768,21 +624,6 @@ function FixedVariablePanel({ summary }: { summary: Summary }) {
         </div>
       </div>
     </div>
-  )
-}
-
-function TransactionRow({ transaction }: { transaction: Transaction }) {
-  return (
-    <article className="mini-row">
-      <div className="mini-icon">
-        {transaction.type === 'income' ? <TrendingUp size={17} /> : <ReceiptText size={17} />}
-      </div>
-      <div>
-        <p className="row-title">{transaction.memo}</p>
-        <p className="row-meta">{transaction.category} · {transaction.payment || '미지정'} · {fixedTypeLabel(transaction.fixedType)} · {formatDateLabel(transaction.date)}</p>
-      </div>
-      <strong className={transaction.type === 'income' ? 'income' : ''}>{transaction.type === 'income' ? '+' : '-'}{formatMoney(transaction.amount)}</strong>
-    </article>
   )
 }
 

@@ -116,74 +116,11 @@
   transform: translateY(-1px);
 }
 
-.template-row {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding-bottom: 2px;
-}
-
-.template-row::-webkit-scrollbar,
-.hint-row::-webkit-scrollbar {
-  display: none;
-}
-
-.template-row button,
-.hint-row button,
 .segmented button,
 .tab-bar button {
   border: 0;
   cursor: pointer;
   font: inherit;
-}
-
-.template-row button {
-  flex: 0 0 auto;
-  padding: 8px 12px;
-  border-radius: 10px;
-  background: var(--surface-solid);
-  border: 1px solid var(--line);
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.template-row button:hover {
-  background: var(--accent-tan-soft);
-  border-color: rgba(201, 121, 79, 0.3);
-  color: var(--accent-tan);
-}
-
-.hint-row {
-  display: flex;
-  gap: 7px;
-  margin-top: 10px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.hint-row button {
-  flex: 0 0 auto;
-  padding: 7px 11px;
-  border-radius: 9px;
-  background: rgba(201, 121, 79, 0.08);
-  border: 1px solid rgba(201, 121, 79, 0.15);
-  color: var(--accent-tan);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.hint-row button.fixed-hint {
-  background: rgba(90, 164, 225, 0.08);
-  border-color: rgba(90, 164, 225, 0.15);
-  color: var(--blue);
-}
-
-.hint-row button:hover {
-  background: var(--accent-tan-soft);
-  border-color: var(--accent-tan);
 }
 
 .status-line {
@@ -1185,3 +1122,16 @@
   border: none;
   cursor: pointer;
 }
+
+.ring-card { background: var(--surface-solid); border: 1px solid var(--line); border-radius: 16px; padding: 14px; box-shadow: var(--soft-shadow); }
+.cat-ring { position: relative; }
+.cat-ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+.cat-ring-center .cr-k { color: var(--muted); font-size: 11px; }
+.cat-ring-center strong { color: var(--ink); font-size: 23px; font-weight: 800; letter-spacing: -.5px; margin: 2px 0; }
+.cat-ring-center .cr-s { color: var(--accent-tan); font-size: 11px; font-weight: 700; }
+.cat-rank { margin-top: 6px; }
+.cat-rank-row { display: flex; align-items: center; gap: 9px; padding: 7px 2px; }
+.cat-dot { width: 9px; height: 9px; border-radius: 3px; flex: 0 0 auto; }
+.cat-name { flex: 1; color: var(--ink); font-size: 13px; font-weight: 600; }
+.cat-amt { color: var(--muted); font-size: 12px; }
+.cat-pct { color: var(--muted); font-size: 11px; width: 38px; text-align: right; }
