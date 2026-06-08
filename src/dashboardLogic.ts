@@ -73,6 +73,37 @@ export function dailyTotals(transactions: DayTxLike[], yearMonth: string): Recor
   return out
 }
 
+export type FixedDef = {
+  id: string
+  active: boolean
+  name: string
+  amount: number
+  category: string
+  subCategory: string
+  payment: string
+  payDay: number
+  startMonth: string
+  installmentTotal: number | null
+}
+
+function monthIndex(ym: string): number {
+  const [y, m] = String(ym).split('-').map(Number)
+  return y * 12 + (m - 1)
+}
+
+/** 할부 항목의 경과/남은 회차와 금액. 무기한(installmentTotal 없음)이면 null. */
+export function fixedRemaining(
+  def: FixedDef,
+  yearMonth: string,
+): { count: number; total: number; remainingCount: number; remainingAmount: number; done: boolean } | null {
+  if (!def.installmentTotal) return null
+  const total = def.installmentTotal
+  const elapsed = monthIndex(yearMonth) - monthIndex(def.startMonth) + 1
+  const count = Math.max(0, Math.min(total, elapsed))
+  const remainingCount = Math.max(0, total - elapsed)
+  return { count, total, remainingCount, remainingAmount: remainingCount * def.amount, done: remainingCount === 0 }
+}
+
 /** 지출 거래에서 고유 (대분류,소분류) 조합을 빈도 내림차순으로. 미분류/수입 제외. */
 export function distinctCategoryOptions(transactions: TxLike[]): { category: string; subCategory: string }[] {
   const counts = new Map<string, { category: string; subCategory: string; n: number }>()

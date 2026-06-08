@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, type TxLike } from './dashboardLogic'
+import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, type TxLike, type FixedDef } from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
   ({ date, type: 'expense', amount, category, subCategory, payment, fixedType: 'variable' })
@@ -118,5 +118,18 @@ describe('distinctCategoryOptions', () => {
   it('수입 제외, 빈 입력 → []', () => {
     expect(distinctCategoryOptions([])).toEqual([])
     expect(distinctCategoryOptions([tx('수입','급여','income')])).toEqual([])
+  })
+})
+
+describe('fixedRemaining', () => {
+  const base: FixedDef = { id: '1', active: true, name: '맥북 할부', amount: 179354, category: '생활', subCategory: '전자기기', payment: '카드', payDay: 1, startMonth: '2026-03', installmentTotal: 14 }
+  it('진행중 할부: 경과/남은 회차·금액', () => {
+    expect(fixedRemaining(base, '2026-05')).toEqual({ count: 3, total: 14, remainingCount: 11, remainingAmount: 11 * 179354, done: false })
+  })
+  it('완료된 할부: 남은 0, done', () => {
+    expect(fixedRemaining(base, '2027-05')).toEqual({ count: 14, total: 14, remainingCount: 0, remainingAmount: 0, done: true })
+  })
+  it('무기한(할부총회차 null) → null', () => {
+    expect(fixedRemaining({ ...base, installmentTotal: null }, '2026-05')).toBeNull()
   })
 })
