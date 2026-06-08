@@ -35,8 +35,8 @@ import {
   X,
 } from 'lucide-react'
 import { pickNewer, dedupById } from './sync/merge'
-import { getSyncConfig, loadFromServer, saveToServer, loadLedger } from './sync/syncClient'
-import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, type QuickChip } from './dashboardLogic'
+import { getSyncConfig, loadFromServer, saveToServer, loadLedger, assignCategory } from './sync/syncClient'
+import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, type QuickChip } from './dashboardLogic'
 import './App.css'
 
 type Tab = 'dashboard' | 'ledger' | 'assets' | 'insights'
@@ -166,7 +166,7 @@ function App() {
     const isDismissed = window.localStorage.getItem('shiba-pwa-dismissed') === 'true'
     return !!(isIos && !isStandalone && !isDismissed)
   })
-  const history = useLedgerHistory()
+  const [history, refreshHistory] = useLedgerHistory()
   const mergedTransactions = useMemo(
     () =>
       dedupById(history, store.transactions).sort((a, b) =>
@@ -174,6 +174,13 @@ function App() {
       ),
     [history, store.transactions],
   )
+  const categoryOptions = useMemo(() => distinctCategoryOptions(mergedTransactions), [mergedTransactions])
+  async function assignCategoryFor(id: string, category: string, subCategory: string) {
+    setLastMessage('분류 반영 중…')
+    const ok = await assignCategory(id, category, subCategory).catch(() => false)
+    if (ok) { setLastMessage('분류 반영됨'); refreshHistory() }
+    else setLastMessage('분류 실패')
+  }
   const summary = useMemo(
     () => buildSummary({ ...store, transactions: mergedTransactions }),
     [store, mergedTransactions],
@@ -336,7 +343,9 @@ function App() {
         <TabButton tab="insights" activeTab={activeTab} icon={<Sparkles size={18} />} label="인사이트" onClick={setActiveTab} />
       </nav>
 
-      {activeTab === 'dashboard' && <Dashboard summary={summary} transactions={mergedTransactions} />}
+      {activeTab === 'dashboard' && (
+        <Dashboard summary={summary} transactions={mergedTransactions} categoryOptions={categoryOptions} onAssign={assignCategoryFor} />
+      )}
       {activeTab === 'ledger' && (
         <Ledger
           transactions={mergedTransactions}
@@ -410,7 +419,14 @@ function CategoryRing({ total, subtitle, data }: { total: string; subtitle: stri
   )
 }
 
-function CategoryDetailSheet({ category, transactions, onClose }: { category: string; transactions: Transaction[]; onClose: () => void }) {
+function CategoryDetailSheet({ category, transactions, categoryOptions, onAssign, onClose }: {
+  category: string
+  transactions: Transaction[]
+  categoryOptions: { category: string; subCategory: string }[]
+  onAssign: (id: string, category: string, subCategory: string) => void
+  onClose: () => void
+}) {
+  const [pickingId, setPickingId] = useState<string | null>(null)
   const total = transactions.reduce((s, t) => s + t.amount, 0)
   const subMap = new Map<string, number>()
   for (const t of transactions) {
@@ -428,17 +444,12 @@ function CategoryDetailSheet({ category, transactions, onClose }: { category: st
             <h3>{category}</h3>
             <p>{formatMoney(total)} · {transactions.length}건</p>
           </div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="닫기">
-            <X size={18} />
-          </button>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="닫기"><X size={18} /></button>
         </div>
         {subs.length > 0 && (
           <div className="cat-sub-list">
             {subs.map((s) => (
-              <div className="cat-sub-row" key={s.name}>
-                <span>{s.name}</span>
-                <span>{formatMoney(s.value)}</span>
-              </div>
+              <div className="cat-sub-row" key={s.name}><span>{s.name}</span><span>{formatMoney(s.value)}</span></div>
             ))}
           </div>
         )}
@@ -446,11 +457,30 @@ function CategoryDetailSheet({ category, transactions, onClose }: { category: st
           {rows.length === 0 && <p className="cat-empty">거래가 없습니다.</p>}
           {rows.map((t) => (
             <div className="cat-tx-row" key={t.id}>
-              <div>
-                <p className="row-title">{t.memo}</p>
-                <p className="row-meta">{formatDateLabel(t.date)} · {t.subCategory || '미지정'} · {t.payment || '미지정'}</p>
+              <div className="cat-tx-main">
+                <div>
+                  <p className="row-title">{t.memo}</p>
+                  <p className="row-meta">{formatDateLabel(t.date)} · {t.subCategory || '미지정'} · {t.payment || '미지정'}</p>
+                </div>
+                <div className="cat-tx-right">
+                  <span className="cat-tx-amt">{formatMoney(t.amount)}</span>
+                  <button type="button" className="reassign-btn" onClick={() => setPickingId(pickingId === t.id ? null : t.id)}>분류</button>
+                </div>
               </div>
-              <span className="cat-tx-amt">{formatMoney(t.amount)}</span>
+              {pickingId === t.id && (
+                <div className="reassign-picker">
+                  {categoryOptions.map((o) => (
+                    <button
+                      key={o.category + '/' + o.subCategory}
+                      type="button"
+                      className="reassign-opt"
+                      onClick={() => { onAssign(t.id, o.category, o.subCategory); setPickingId(null) }}
+                    >
+                      {o.category}{o.subCategory ? ' · ' + o.subCategory : ''}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -459,7 +489,12 @@ function CategoryDetailSheet({ category, transactions, onClose }: { category: st
   )
 }
 
-function Dashboard({ summary, transactions }: { summary: Summary; transactions: Transaction[] }) {
+function Dashboard({ summary, transactions, categoryOptions, onAssign }: {
+  summary: Summary
+  transactions: Transaction[]
+  categoryOptions: { category: string; subCategory: string }[]
+  onAssign: (id: string, category: string, subCategory: string) => void
+}) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const prev = summary.previousMonth?.realSpend ?? 0
   const rate = changeRate(summary.thisMonth.realSpend, prev)
@@ -503,6 +538,8 @@ function Dashboard({ summary, transactions }: { summary: Summary; transactions: 
         <CategoryDetailSheet
           category={selectedCategory}
           transactions={transactions.filter((t) => t.category === selectedCategory && t.date.slice(0, 7) === summary.monthKey)}
+          categoryOptions={categoryOptions}
+          onAssign={onAssign}
           onClose={() => setSelectedCategory(null)}
         />
       )}
@@ -1029,8 +1066,9 @@ type Summary = {
   budgetUsageRate: number
 }
 
-function useLedgerHistory() {
+function useLedgerHistory(): [Transaction[], () => void] {
   const [history, setHistory] = useState<Transaction[]>([])
+  const [nonce, setNonce] = useState(0)
   useEffect(() => {
     if (!getSyncConfig()) return
     let cancelled = false
@@ -1038,8 +1076,8 @@ function useLedgerHistory() {
       .then((rows) => { if (!cancelled) setHistory(rows) })
       .catch(() => { if (!cancelled) setHistory([]) })
     return () => { cancelled = true }
-  }, [])
-  return history
+  }, [nonce])
+  return [history, () => setNonce((n) => n + 1)]
 }
 
 function usePersistentStore() {

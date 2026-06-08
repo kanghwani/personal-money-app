@@ -910,3 +910,10 @@
 .day-input { margin-bottom: 12px; }
 .day-field { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
 .day-field input { flex: 1; background: var(--surface-solid); border: 1.5px solid var(--accent-tan); border-radius: 14px; padding: 10px 12px; color: var(--ink); font-size: 13px; }
+
+.cat-tx-main { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.cat-tx-right { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.reassign-btn { background: var(--accent-tan-soft); color: var(--accent-tan); border: 1px solid var(--line); border-radius: 10px; padding: 4px 9px; font-size: 11px; font-weight: 600; cursor: pointer; }
+.reassign-picker { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.reassign-opt { background: var(--surface-solid); border: 1px solid var(--line); color: var(--ink); border-radius: 12px; padding: 5px 10px; font-size: 11px; cursor: pointer; }
+.reassign-opt:hover { border-color: var(--accent-tan); }
