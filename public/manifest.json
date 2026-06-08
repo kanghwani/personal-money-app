@@ -5,8 +5,8 @@
   "start_url": "/personal-money-app/",
   "scope": "/personal-money-app/",
   "display": "standalone",
-  "background_color": "#0a120e",
-  "theme_color": "#0a120e",
+  "background_color": "#f1e9db",
+  "theme_color": "#f1e9db",
   "orientation": "portrait",
   "icons": [
     {

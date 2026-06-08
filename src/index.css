@@ -1,25 +1,25 @@
 :root {
-  /* Black Shiba Dark Theme Colors */
-  --bg: #090e0c; /* Deep Charcoal Green background */
-  --surface: rgba(20, 34, 27, 0.55); /* Glassmorphism translucent card */
-  --surface-solid: #121f18;
-  --ink: #f2f5f3; /* White text for crisp readability */
-  --muted: #82948a; /* Soft gray-green for subtexts */
-  --line: rgba(130, 148, 138, 0.15); /* Very thin, soft borders */
-  
-  /* Accent Colors */
-  --accent-tan: #e5c493; /* The signature tan/cream color of a black shiba */
-  --accent-tan-soft: rgba(229, 196, 147, 0.12);
-  --green: #3db881; /* Emerald green for income/positive states */
-  --green-soft: rgba(61, 184, 129, 0.12);
-  --danger: #e26b73; /* Coral red for expense/warning states */
-  --danger-soft: rgba(226, 107, 115, 0.12);
-  --blue: #5aa4e1; /* Soft blue */
-  --blue-soft: rgba(90, 164, 225, 0.12);
-  --amber: #e4983c; /* Warm orange/amber */
-  --amber-soft: rgba(228, 152, 60, 0.12);
+  /* Cozy Beige Light Theme Colors */
+  --bg: #f1e9db;
+  --surface: rgba(251, 247, 239, 0.72);
+  --surface-solid: #fbf7ef;
+  --ink: #352b1f;
+  --muted: #8a7a64;
+  --line: rgba(120, 90, 50, 0.16);
 
-  --soft-shadow: 0 12px 32px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.15);
+  /* Accent Colors */
+  --accent-tan: #c9794f;
+  --accent-tan-soft: rgba(201, 121, 79, 0.12);
+  --green: #7e9b6f;
+  --green-soft: rgba(126, 155, 111, 0.14);
+  --danger: #c0573f;
+  --danger-soft: rgba(192, 87, 63, 0.12);
+  --blue: #5a7d8f;
+  --blue-soft: rgba(90, 125, 143, 0.12);
+  --amber: #d6a85e;
+  --amber-soft: rgba(214, 168, 94, 0.14);
+
+  --soft-shadow: 0 10px 28px rgba(150, 120, 70, 0.14), 0 3px 10px rgba(150, 120, 70, 0.08);
   
   font-family: 'Outfit', 'Noto Sans KR', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: var(--ink);
@@ -39,8 +39,8 @@ body {
   min-width: 320px;
   min-height: 100svh;
   margin: 0;
-  background: 
-    linear-gradient(135deg, rgba(61, 184, 129, 0.05), rgba(229, 196, 147, 0.04)),
+  background:
+    linear-gradient(135deg, rgba(126, 155, 111, 0.06), rgba(201, 121, 79, 0.04)),
     var(--bg);
   background-attachment: fixed;
   /* Prevent bounce effect on mobile */
