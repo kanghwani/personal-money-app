@@ -179,7 +179,10 @@ function App() {
   })
   const history = useLedgerHistory()
   const mergedTransactions = useMemo(
-    () => dedupById(history, store.transactions),
+    () =>
+      dedupById(history, store.transactions).sort((a, b) =>
+        a.date < b.date ? 1 : a.date > b.date ? -1 : 0,
+      ),
     [history, store.transactions],
   )
   const summary = useMemo(
