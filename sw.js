@@ -1,11 +1,11 @@
-const CACHE_NAME = 'shiba-money-v1';
+const CACHE_NAME = 'shiba-money-v2';
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/apple-touch-icon.png',
-  '/icon-192.png',
-  '/icon-512.png'
+  '/personal-money-app/',
+  '/personal-money-app/index.html',
+  '/personal-money-app/manifest.json',
+  '/personal-money-app/apple-touch-icon.png',
+  '/personal-money-app/icon-192.png',
+  '/personal-money-app/icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
