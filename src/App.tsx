@@ -1594,7 +1594,7 @@ function formatSignedMoney(value: number) {
 }
 
 function formatDateLabel(value: string) {
-  const [, month, day] = value.match(/(\d{4})-(\d{2})-(\d{2})/) ?? []
+  const [, , month, day] = value.match(/(\d{4})-(\d{2})-(\d{2})/) ?? []
   if (!month || !day) return value
   return `${Number(month)}월 ${Number(day)}일`
 }
