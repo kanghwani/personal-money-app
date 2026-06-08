@@ -73,6 +73,20 @@ export function dailyTotals(transactions: DayTxLike[], yearMonth: string): Recor
   return out
 }
 
+/** 지출 거래에서 고유 (대분류,소분류) 조합을 빈도 내림차순으로. 미분류/수입 제외. */
+export function distinctCategoryOptions(transactions: TxLike[]): { category: string; subCategory: string }[] {
+  const counts = new Map<string, { category: string; subCategory: string; n: number }>()
+  for (const t of transactions) {
+    if (t.type !== 'expense') continue
+    if (!t.category || t.category === '미분류') continue
+    const key = t.category + ' ' + (t.subCategory || '')
+    const e = counts.get(key)
+    if (e) e.n++
+    else counts.set(key, { category: t.category, subCategory: t.subCategory || '', n: 1 })
+  }
+  return [...counts.values()].sort((a, b) => b.n - a.n).map(({ category, subCategory }) => ({ category, subCategory }))
+}
+
 /** 최근 지출에서 소분류(없으면 대분류)별 빈도 상위 N개를 빠른칩으로. 기본값은 그룹의 최신 거래. */
 export function deriveQuickChips(transactions: TxLike[], limit: number): QuickChip[] {
   const groups = new Map<string, TxLike[]>()

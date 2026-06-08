@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, type TxLike } from './dashboardLogic'
+import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, type TxLike } from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
   ({ date, type: 'expense', amount, category, subCategory, payment, fixedType: 'variable' })
@@ -101,5 +101,22 @@ describe('dailyTotals', () => {
   })
   it('빈 입력 → {}', () => {
     expect(dailyTotals([], '2026-06')).toEqual({})
+  })
+})
+
+describe('distinctCategoryOptions', () => {
+  const tx = (category: string, subCategory: string, type = 'expense') =>
+    ({ date: '2026-06-01', type, amount: 1000, category, subCategory, payment: '카드', fixedType: 'variable' })
+  it('고유 (대분류,소분류) 조합, 빈도 내림차순, 미분류 제외', () => {
+    const txns = [tx('식비','외식'), tx('식비','외식'), tx('생활','잡화'), tx('미분류','')]
+    const res = distinctCategoryOptions(txns)
+    expect(res).toEqual([
+      { category: '식비', subCategory: '외식' },
+      { category: '생활', subCategory: '잡화' },
+    ])
+  })
+  it('수입 제외, 빈 입력 → []', () => {
+    expect(distinctCategoryOptions([])).toEqual([])
+    expect(distinctCategoryOptions([tx('수입','급여','income')])).toEqual([])
   })
 })
