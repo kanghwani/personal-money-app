@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { loadFromServer, saveToServer, loadLedger, assignCategory, type SyncConfig } from './syncClient'
+import { loadFromServer, saveToServer, loadLedger, assignCategory, loadFixedDefs, saveFixedDef, deleteFixedDef, type SyncConfig } from './syncClient'
 
 const cfg: SyncConfig = { url: 'https://script.example/exec', token: 'secret-tok' }
 
@@ -107,6 +107,32 @@ describe('assignCategory', () => {
     const body = JSON.parse(init.body as string)
     expect(body.action).toBe('assignCategory')
     expect(body).toMatchObject({ id: 'id1', category: '식비', subCategory: '외식', token: 'secret-tok' })
+    expect(ok).toBe(true)
+  })
+})
+
+describe('fixed CRUD client', () => {
+  it('loadFixedDefs: defs 배열 반환, cfg 없으면 []', async () => {
+    expect(await loadFixedDefs(null)).toEqual([])
+    ;(fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ json: async () => ({ ok: true, defs: [{ id: '1', name: '월세' }] }) })
+    const defs = await loadFixedDefs(cfg)
+    expect(defs).toEqual([{ id: '1', name: '월세' }])
+  })
+  it('saveFixedDef: fixedSave POST, ok 반환', async () => {
+    ;(fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ json: async () => ({ ok: true }) })
+    const ok = await saveFixedDef({ id: '', name: '월세' } as never, cfg)
+    const body = JSON.parse((fetch as ReturnType<typeof vi.fn>).mock.calls.at(-1)![1].body as string)
+    expect(body.action).toBe('fixedSave')
+    expect(body.def).toMatchObject({ name: '월세' })
+    expect(body.token).toBe('secret-tok')
+    expect(ok).toBe(true)
+  })
+  it('deleteFixedDef: fixedDelete POST, ok 반환', async () => {
+    ;(fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ json: async () => ({ ok: true }) })
+    const ok = await deleteFixedDef('1', cfg)
+    const body = JSON.parse((fetch as ReturnType<typeof vi.fn>).mock.calls.at(-1)![1].body as string)
+    expect(body.action).toBe('fixedDelete')
+    expect(body.id).toBe('1')
     expect(ok).toBe(true)
   })
 })

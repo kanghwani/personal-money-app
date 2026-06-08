@@ -1,3 +1,5 @@
+import type { FixedDef } from '../dashboardLogic'
+
 export type SyncConfig = { url: string; token: string }
 
 export type RemoteSnapshot<T> = { store: T; updatedAt: string }
@@ -82,6 +84,33 @@ export async function assignCategory(
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     redirect: 'follow',
     body: JSON.stringify({ action: 'assignCategory', token: cfg.token, id, category, subCategory }),
+  })
+  const data = await res.json()
+  return !!(data && data.ok)
+}
+
+export async function loadFixedDefs(cfg: SyncConfig | null = getSyncConfig()): Promise<FixedDef[]> {
+  if (!cfg) return []
+  const res = await fetch(`${cfg.url}?action=fixedList&token=${encodeURIComponent(cfg.token)}`, { redirect: 'follow' })
+  const data = await res.json()
+  return data && data.ok && Array.isArray(data.defs) ? data.defs : []
+}
+
+export async function saveFixedDef(def: FixedDef, cfg: SyncConfig | null = getSyncConfig()): Promise<boolean> {
+  if (!cfg) return false
+  const res = await fetch(cfg.url, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, redirect: 'follow',
+    body: JSON.stringify({ action: 'fixedSave', token: cfg.token, def }),
+  })
+  const data = await res.json()
+  return !!(data && data.ok)
+}
+
+export async function deleteFixedDef(id: string, cfg: SyncConfig | null = getSyncConfig()): Promise<boolean> {
+  if (!cfg) return false
+  const res = await fetch(cfg.url, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, redirect: 'follow',
+    body: JSON.stringify({ action: 'fixedDelete', token: cfg.token, id }),
   })
   const data = await res.json()
   return !!(data && data.ok)
