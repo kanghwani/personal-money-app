@@ -6,8 +6,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -368,17 +366,19 @@ function QuickEntry({ onSubmit, lastMessage }: { onSubmit: (raw: string) => void
 const RING_COLORS = ['#c9794f', '#7e9b6f', '#d6a85e', '#9a7bb0', '#5a7d8f', '#cdbf9c']
 
 function CategoryRing({ total, subtitle, data }: { total: string; subtitle: string | null; data: NameValue[] }) {
+  const sum = data.reduce((s, d) => s + d.value, 0) || 1
+  let acc = 0
+  const stops = data
+    .map((d, i) => {
+      const start = (acc / sum) * 100
+      acc += d.value
+      const end = (acc / sum) * 100
+      return `${RING_COLORS[i % RING_COLORS.length]} ${start}% ${end}%`
+    })
+    .join(', ')
   return (
     <div className="cat-ring">
-      <ResponsiveContainer width="100%" height={200}>
-        <PieChart>
-          <Pie data={data} dataKey="value" nameKey="name" innerRadius={66} outerRadius={92} paddingAngle={2} stroke="none">
-            {data.map((_, i) => (
-              <Cell key={i} fill={RING_COLORS[i % RING_COLORS.length]} />
-            ))}
-          </Pie>
-        </PieChart>
-      </ResponsiveContainer>
+      <div className="cat-donut" style={{ background: `conic-gradient(${stops})` }} />
       <div className="cat-ring-center">
         <span className="cr-k">이번 달 실지출</span>
         <strong>{total}</strong>
