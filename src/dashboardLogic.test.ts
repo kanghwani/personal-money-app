@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, type TxLike } from './dashboardLogic'
+import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, type TxLike } from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
   ({ date, type: 'expense', amount, category, subCategory, payment, fixedType: 'variable' })
@@ -82,5 +82,24 @@ describe('topNWithOther', () => {
   it('나머지 합이 0이면 기타 없음', () => {
     const data = [d('a', 5), d('b', 0), d('c', 0)]
     expect(topNWithOther(data, 1)).toEqual([d('a', 5)])
+  })
+})
+
+describe('dailyTotals', () => {
+  const dt = (date: string, amount: number, split = 0, type = 'expense') => ({ date, amount, split, type })
+  it('같은 달 같은 날 실지출(amount-split) 합산', () => {
+    const txns = [dt('2026-06-03', 5000), dt('2026-06-03', 3000, 500)]
+    expect(dailyTotals(txns, '2026-06')).toEqual({ 3: 7500 })
+  })
+  it('수입 제외', () => {
+    const txns = [dt('2026-06-03', 5000), dt('2026-06-03', 1000000, 0, 'income')]
+    expect(dailyTotals(txns, '2026-06')).toEqual({ 3: 5000 })
+  })
+  it('다른 달 제외', () => {
+    const txns = [dt('2026-06-03', 5000), dt('2026-05-03', 9000)]
+    expect(dailyTotals(txns, '2026-06')).toEqual({ 3: 5000 })
+  })
+  it('빈 입력 → {}', () => {
+    expect(dailyTotals([], '2026-06')).toEqual({})
   })
 })

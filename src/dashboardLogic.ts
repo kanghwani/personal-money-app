@@ -58,6 +58,21 @@ export function topNWithOther(data: NV[], n: number): NV[] {
   return otherValue > 0 ? [...top, { name: '기타', value: otherValue }] : top
 }
 
+type DayTxLike = { date: string; type: string; amount: number; split: number }
+
+/** 해당 월(yyyy-MM)의 지출을 날짜(일)별 실지출(amount-split)로 합산. 수입/타월 제외. */
+export function dailyTotals(transactions: DayTxLike[], yearMonth: string): Record<number, number> {
+  const out: Record<number, number> = {}
+  for (const t of transactions) {
+    if (t.type !== 'expense') continue
+    if (t.date.slice(0, 7) !== yearMonth) continue
+    const day = Number(t.date.slice(8, 10))
+    if (!day) continue
+    out[day] = (out[day] || 0) + (t.amount - (t.split || 0))
+  }
+  return out
+}
+
 /** 최근 지출에서 소분류(없으면 대분류)별 빈도 상위 N개를 빠른칩으로. 기본값은 그룹의 최신 거래. */
 export function deriveQuickChips(transactions: TxLike[], limit: number): QuickChip[] {
   const groups = new Map<string, TxLike[]>()
