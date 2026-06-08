@@ -86,6 +86,7 @@ export type FixedDef = {
   installmentTotal: number | null
   variable: boolean
   split: number
+  kind: 'expense' | 'income'
 }
 
 /** 입력 텍스트에서 분담금을 추출한다. "분담 N"/"분담금 N" → N, "반반"/"반띵"/"/2" → 금액의 절반. */

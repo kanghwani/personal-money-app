@@ -886,8 +886,8 @@ function InsightsView({ store, summary }: { store: FinanceStore; summary: Summar
   )
 }
 
-function emptyFixedDef(monthKey: string): FixedDef {
-  return { id: '', active: true, name: '', amount: 0, category: '', subCategory: '', payment: '카드', payDay: 1, startMonth: monthKey, installmentTotal: null, variable: false, split: 0 }
+function emptyFixedDef(monthKey: string, kind: 'expense' | 'income'): FixedDef {
+  return { id: '', active: true, name: '', amount: 0, category: kind === 'income' ? '수입' : '', subCategory: '', payment: kind === 'income' ? '계좌이체' : '카드', payDay: 1, startMonth: monthKey, installmentTotal: null, variable: false, split: 0, kind }
 }
 
 function FixedView({ monthKey }: { monthKey: string }) {
@@ -895,10 +895,12 @@ function FixedView({ monthKey }: { monthKey: string }) {
   const [editing, setEditing] = useState<FixedDef | null>(null)
   const [busy, setBusy] = useState(false)
 
+  const [view, setView] = useState<'expense' | 'income'>('expense')
   const reload = () => { loadFixedDefs().then(setDefs).catch(() => setDefs([])) }
   useEffect(() => { reload() }, [])
 
-  const activeTotal = defs.filter((d) => d.active).reduce((s, d) => s + d.amount, 0)
+  const shown = defs.filter((d) => (d.kind || 'expense') === view)
+  const activeTotal = shown.filter((d) => d.active).reduce((s, d) => s + d.amount, 0)
 
   async function save(def: FixedDef) {
     setBusy(true)
@@ -919,16 +921,20 @@ function FixedView({ monthKey }: { monthKey: string }) {
 
   return (
     <section className="view-stack">
+      <div className="segmented">
+        <button type="button" className={view === 'expense' ? 'active' : ''} onClick={() => setView('expense')}>지출</button>
+        <button type="button" className={view === 'income' ? 'active' : ''} onClick={() => setView('income')}>수입</button>
+      </div>
       <div className="fixed-head">
         <div>
-          <p className="eyebrow">월 고정비</p>
+          <p className="eyebrow">{view === 'income' ? '월 정기수입' : '월 고정비'}</p>
           <h2>{formatMoney(activeTotal)}</h2>
         </div>
-        <button type="button" className="fixed-add" onClick={() => setEditing(emptyFixedDef(monthKey))}>+ 추가</button>
+        <button type="button" className="fixed-add" onClick={() => setEditing(emptyFixedDef(monthKey, view))}>+ 추가</button>
       </div>
 
       <div className="fixed-list">
-        {defs.map((d) => {
+        {shown.map((d) => {
           const rem = fixedRemaining(d, monthKey)
           return (
             <article className={`fixed-row${d.active ? '' : ' off'}`} key={d.id}>
@@ -939,7 +945,7 @@ function FixedView({ monthKey }: { monthKey: string }) {
                     {formatMoney(d.amount)} · 매월 {d.payDay}일
                     {d.split > 0 && ` · 분담 ${formatMoney(d.split)} · 실지출 ${formatMoney(d.amount - d.split)}`}
                     {d.variable && ' · 확인필요'}
-                    {rem && (rem.done ? ' · 완료' : ` · ${rem.count}/${rem.total}회 · 남은 ${formatMoney(rem.remainingAmount)}`)}
+                    {rem && (rem.done ? ' · 완료' : ` · ${rem.count}/${rem.total}회 · ${d.kind === 'income' ? '받을' : '남은'} ${formatMoney(rem.remainingAmount)}`)}
                   </p>
                 </div>
               </button>
@@ -949,7 +955,7 @@ function FixedView({ monthKey }: { monthKey: string }) {
             </article>
           )
         })}
-        {defs.length === 0 && <p className="cat-empty">고정비가 없습니다. + 추가로 등록하세요.</p>}
+        {shown.length === 0 && <p className="cat-empty">{view === 'income' ? '정기수입이' : '고정비가'} 없습니다. + 추가로 등록하세요.</p>}
       </div>
 
       {editing && (
@@ -978,7 +984,7 @@ function FixedEditSheet({ def, busy, onClose, onSave, onDelete }: {
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="cat-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="cat-sheet-head">
-          <div className="cat-sheet-title"><h3>{def.id ? '고정비 수정' : '고정비 추가'}</h3></div>
+          <div className="cat-sheet-title"><h3>{(def.kind === 'income' ? '정기수입 ' : '고정비 ') + (def.id ? '수정' : '추가')}</h3></div>
           <button type="button" className="icon-button" onClick={onClose} aria-label="닫기"><X size={18} /></button>
         </div>
         <div className="fixed-form">
@@ -986,8 +992,10 @@ function FixedEditSheet({ def, busy, onClose, onSave, onDelete }: {
           <label>금액<input type="number" value={draft.amount || ''} onChange={(e) => set({ amount: Number(e.target.value) || 0 })} /></label>
           <label>대분류<input value={draft.category} onChange={(e) => set({ category: e.target.value })} /></label>
           <label>소분류<input value={draft.subCategory} onChange={(e) => set({ subCategory: e.target.value })} /></label>
-          <label>결제수단<input value={draft.payment} onChange={(e) => set({ payment: e.target.value })} /></label>
-          <label>분담금(여친 부담분 등, 없으면 0)<input type="number" value={draft.split || ''} onChange={(e) => set({ split: Number(e.target.value) || 0 })} /></label>
+          <label>{draft.kind === 'income' ? '입금수단' : '결제수단'}<input value={draft.payment} onChange={(e) => set({ payment: e.target.value })} /></label>
+          {draft.kind !== 'income' && (
+            <label>분담금(여친 부담분 등, 없으면 0)<input type="number" value={draft.split || ''} onChange={(e) => set({ split: Number(e.target.value) || 0 })} /></label>
+          )}
           <label>납부일<input type="number" min={1} max={31} value={draft.payDay || ''} onChange={(e) => set({ payDay: Number(e.target.value) || 1 })} /></label>
           <label>시작월(yyyy-MM)<input value={draft.startMonth} onChange={(e) => set({ startMonth: e.target.value })} /></label>
           <label>할부 총회차(없으면 비움)<input type="number" value={draft.installmentTotal ?? ''} onChange={(e) => set({ installmentTotal: e.target.value === '' ? null : Number(e.target.value) })} /></label>
