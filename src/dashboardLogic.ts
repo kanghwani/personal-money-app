@@ -30,6 +30,34 @@ const EMOJI: Record<string, string> = {
   게임: '🎮', 구독: '📺', 관리: '💊', 교육: '📘', 생활잡화: '🧴',
 }
 
+const CATEGORY_ICON: Record<string, string> = {
+  식비: '🍚',
+  '주거/통신': '🏠',
+  '교통/차량': '🚗',
+  취미: '🎮',
+  생활: '🧴',
+  '문화/구독': '📺',
+  건강: '💊',
+  자기계발: '📘',
+  수입: '💰',
+  미분류: '❓',
+}
+
+/** 대분류 → 이모지. 미매핑/빈값은 기본 '💸'. */
+export function categoryIcon(category: string): string {
+  return CATEGORY_ICON[(category || '').trim()] || '💸'
+}
+
+export type NV = { name: string; value: number }
+
+/** 상위 n개 + 나머지를 '기타'로 합산(합 0이면 생략). n 이하면 원본 그대로. */
+export function topNWithOther(data: NV[], n: number): NV[] {
+  if (data.length <= n) return data
+  const top = data.slice(0, n)
+  const otherValue = data.slice(n).reduce((s, d) => s + d.value, 0)
+  return otherValue > 0 ? [...top, { name: '기타', value: otherValue }] : top
+}
+
 /** 최근 지출에서 소분류(없으면 대분류)별 빈도 상위 N개를 빠른칩으로. 기본값은 그룹의 최신 거래. */
 export function deriveQuickChips(transactions: TxLike[], limit: number): QuickChip[] {
   const groups = new Map<string, TxLike[]>()
