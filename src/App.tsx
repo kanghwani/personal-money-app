@@ -36,7 +36,7 @@ import {
 } from 'lucide-react'
 import { pickNewer, dedupById } from './sync/merge'
 import { getSyncConfig, loadFromServer, saveToServer, loadLedger } from './sync/syncClient'
-import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, type QuickChip } from './dashboardLogic'
+import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, type QuickChip } from './dashboardLogic'
 import './App.css'
 
 type Tab = 'dashboard' | 'ledger' | 'assets' | 'insights'
@@ -215,15 +215,29 @@ function App() {
     setLastMessage(resultLabel(parsed))
   }
 
-  function logQuickChip(chip: QuickChip) {
+  function logQuickChipForDate(chip: QuickChip, date: string) {
     const t: Transaction = {
-      id: uid(), date: todayIso(), type: 'expense', amount: chip.amount,
+      id: uid(), date, type: 'expense', amount: chip.amount,
       memo: chip.label, category: chip.category, subCategory: chip.subCategory,
       payment: chip.payment, fixedType: chip.fixedType, split: 0, raw: `${chip.label} ${chip.amount}`,
     }
     setStore((cur) => ({ ...cur, transactions: [t, ...cur.transactions] }))
     setUndoTx(t)
     setLastMessage(`${chip.label} ${formatMoney(chip.amount)} 기록`)
+  }
+  function logQuickChip(chip: QuickChip) {
+    logQuickChipForDate(chip, todayIso())
+  }
+  function quickAddForDate(raw: string, date: string) {
+    const parsed = parseQuickEntry(raw)
+    if (parsed.kind === 'error') { setLastMessage(parsed.message); return }
+    if (parsed.kind === 'transaction') {
+      const t = { ...parsed.transaction, date }
+      setStore((cur) => ({ ...cur, transactions: [t, ...cur.transactions] }))
+      setLastMessage(resultLabel(parsed))
+      return
+    }
+    applyQuickInput(raw)
   }
   function undoLastChip() {
     if (!undoTx) return
@@ -323,7 +337,15 @@ function App() {
       </nav>
 
       {activeTab === 'dashboard' && <Dashboard summary={summary} transactions={mergedTransactions} />}
-      {activeTab === 'ledger' && <Ledger transactions={mergedTransactions} onDelete={deleteTransaction} />}
+      {activeTab === 'ledger' && (
+        <Ledger
+          transactions={mergedTransactions}
+          onDelete={deleteTransaction}
+          quickChips={quickChips}
+          onQuickAddForDate={quickAddForDate}
+          onChipAddForDate={logQuickChipForDate}
+        />
+      )}
       {activeTab === 'assets' && <AssetsView store={store} summary={summary} onSaveAsset={saveAsset} />}
       {activeTab === 'insights' && <InsightsView store={store} summary={summary} />}
     </main>
@@ -488,43 +510,201 @@ function Dashboard({ summary, transactions }: { summary: Summary; transactions: 
   )
 }
 
-function Ledger({ transactions, onDelete }: { transactions: Transaction[]; onDelete: (id: string) => void }) {
+function Ledger({
+  transactions,
+  onDelete,
+  quickChips,
+  onQuickAddForDate,
+  onChipAddForDate,
+}: {
+  transactions: Transaction[]
+  onDelete: (id: string) => void
+  quickChips: QuickChip[]
+  onQuickAddForDate: (raw: string, date: string) => void
+  onChipAddForDate: (chip: QuickChip, date: string) => void
+}) {
+  const [view, setView] = useState<'list' | 'calendar'>('list')
   const [filter, setFilter] = useState<'all' | TransactionType>('all')
+  const now = new Date()
+  const [ym, setYm] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 })
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const filtered = transactions.filter((item) => filter === 'all' || item.type === filter)
+  const yearMonth = `${ym.year}-${String(ym.month).padStart(2, '0')}`
+  const totals = dailyTotals(transactions, yearMonth)
+  const prevMonth = () => setYm((s) => (s.month === 1 ? { year: s.year - 1, month: 12 } : { ...s, month: s.month - 1 }))
+  const nextMonth = () => setYm((s) => (s.month === 12 ? { year: s.year + 1, month: 1 } : { ...s, month: s.month + 1 }))
 
   return (
     <section className="view-stack">
       <div className="segmented">
-        <button type="button" className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>
-          전체
-        </button>
-        <button type="button" className={filter === 'expense' ? 'active' : ''} onClick={() => setFilter('expense')}>
-          지출
-        </button>
-        <button type="button" className={filter === 'income' ? 'active' : ''} onClick={() => setFilter('income')}>
-          수입
-        </button>
+        <button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>목록</button>
+        <button type="button" className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>달력</button>
       </div>
 
-      <section className="ledger-table">
-        {filtered.map((transaction) => (
-          <article className="ledger-row" key={transaction.id}>
-            <div>
-              <p className="row-title">{transaction.memo}</p>
-              <p className="row-meta">
-                {formatDateLabel(transaction.date)} · {transaction.category} · {transaction.payment || '미지정'} · {fixedTypeLabel(transaction.fixedType)}
-              </p>
-            </div>
-            <div className="row-actions">
-              <strong className={transaction.type === 'income' ? 'income' : ''}>{transaction.type === 'income' ? '+' : '-'}{formatMoney(transaction.amount)}</strong>
-              <button type="button" aria-label="삭제" onClick={() => onDelete(transaction.id)}>
-                <Trash2 size={17} />
-              </button>
-            </div>
-          </article>
-        ))}
-      </section>
+      {view === 'list' && (
+        <>
+          <div className="segmented">
+            <button type="button" className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>전체</button>
+            <button type="button" className={filter === 'expense' ? 'active' : ''} onClick={() => setFilter('expense')}>지출</button>
+            <button type="button" className={filter === 'income' ? 'active' : ''} onClick={() => setFilter('income')}>수입</button>
+          </div>
+          <section className="ledger-table">
+            {filtered.map((transaction) => (
+              <article className="ledger-row" key={transaction.id}>
+                <div>
+                  <p className="row-title">{transaction.memo}</p>
+                  <p className="row-meta">
+                    {formatDateLabel(transaction.date)} · {transaction.category} · {transaction.payment || '미지정'} · {fixedTypeLabel(transaction.fixedType)}
+                  </p>
+                </div>
+                <div className="row-actions">
+                  <strong className={transaction.type === 'income' ? 'income' : ''}>{transaction.type === 'income' ? '+' : '-'}{formatMoney(transaction.amount)}</strong>
+                  <button type="button" aria-label="삭제" onClick={() => onDelete(transaction.id)}>
+                    <Trash2 size={17} />
+                  </button>
+                </div>
+              </article>
+            ))}
+          </section>
+        </>
+      )}
+
+      {view === 'calendar' && (
+        <CalendarView
+          year={ym.year}
+          month={ym.month}
+          totals={totals}
+          onPrev={prevMonth}
+          onNext={nextMonth}
+          onSelectDay={setSelectedDate}
+          today={todayIso()}
+        />
+      )}
+
+      {selectedDate && (
+        <DayDetailSheet
+          date={selectedDate}
+          transactions={transactions.filter((t) => t.date === selectedDate)}
+          quickChips={quickChips}
+          onClose={() => setSelectedDate(null)}
+          onQuickAdd={(raw) => onQuickAddForDate(raw, selectedDate)}
+          onChipAdd={(chip) => onChipAddForDate(chip, selectedDate)}
+        />
+      )}
     </section>
+  )
+}
+
+function CalendarView({ year, month, totals, onPrev, onNext, onSelectDay, today }: {
+  year: number
+  month: number
+  totals: Record<number, number>
+  onPrev: () => void
+  onNext: () => void
+  onSelectDay: (iso: string) => void
+  today: string
+}) {
+  const firstDay = new Date(year, month - 1, 1).getDay()
+  const daysInMonth = new Date(year, month, 0).getDate()
+  const maxTotal = Math.max(1, ...Object.values(totals))
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const cells: (number | null)[] = []
+  for (let i = 0; i < firstDay; i++) cells.push(null)
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+  return (
+    <div className="cal">
+      <div className="cal-head">
+        <button type="button" onClick={onPrev} aria-label="이전 달">‹</button>
+        <span>{year}.{month}</span>
+        <button type="button" onClick={onNext} aria-label="다음 달">›</button>
+      </div>
+      <div className="cal-weekdays">
+        {['일', '월', '화', '수', '목', '금', '토'].map((w) => <span key={w}>{w}</span>)}
+      </div>
+      <div className="cal-grid">
+        {cells.map((d, i) => {
+          if (d === null) return <div className="cal-cell empty" key={`e${i}`} />
+          const iso = `${year}-${pad(month)}-${pad(d)}`
+          const amt = totals[d] || 0
+          const alpha = amt > 0 ? 0.12 + 0.5 * (amt / maxTotal) : 0
+          return (
+            <button
+              type="button"
+              key={iso}
+              className={`cal-cell${iso === today ? ' today' : ''}`}
+              style={amt > 0 ? { background: `rgba(201,121,79,${alpha.toFixed(3)})` } : undefined}
+              onClick={() => onSelectDay(iso)}
+            >
+              <span className="cal-day">{d}</span>
+              {amt > 0 && <span className="cal-amt">{compactMoney(amt)}</span>}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function DayDetailSheet({ date, transactions, quickChips, onClose, onQuickAdd, onChipAdd }: {
+  date: string
+  transactions: Transaction[]
+  quickChips: QuickChip[]
+  onClose: () => void
+  onQuickAdd: (raw: string) => void
+  onChipAdd: (chip: QuickChip) => void
+}) {
+  const [draft, setDraft] = useState('')
+  const total = transactions.reduce((s, t) => s + (t.type === 'expense' ? t.amount - t.split : 0), 0)
+  const submit = () => {
+    const v = draft.trim()
+    if (!v) return
+    onQuickAdd(v)
+    setDraft('')
+  }
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <div className="cat-sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="cat-sheet-head">
+          <div className="cat-sheet-title">
+            <h3>{formatDateLabel(date)}</h3>
+            <p>{formatMoney(total)} · {transactions.length}건</p>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="닫기"><X size={18} /></button>
+        </div>
+        <div className="day-input">
+          {quickChips.length > 0 && (
+            <div className="quick-chips">
+              {quickChips.map((c) => (
+                <button key={c.key} type="button" className="quick-chip" onClick={() => onChipAdd(c)}>
+                  <span>{c.emoji}</span>{c.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="day-field">
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
+              placeholder="점심 9000 카드"
+            />
+            <button type="button" className="send-button" onClick={submit} aria-label="입력"><Send size={18} /></button>
+          </div>
+        </div>
+        <div className="cat-tx-list">
+          {transactions.length === 0 && <p className="cat-empty">거래가 없습니다. 위에서 추가하세요.</p>}
+          {transactions.map((t) => (
+            <div className="cat-tx-row" key={t.id}>
+              <div>
+                <p className="row-title">{t.memo}</p>
+                <p className="row-meta">{t.category} · {t.subCategory || '미지정'} · {t.payment || '미지정'}</p>
+              </div>
+              <span className="cat-tx-amt">{formatMoney(t.amount)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   )
 }
 
