@@ -474,31 +474,6 @@ function Dashboard({
         />
       )}
 
-      <section className="wide-section">
-        <SectionHeader icon={<ChartNoAxesCombined size={18} />} title="월별 흐름" aside={summary.monthlyTrend.at(-1)?.month ?? ''} />
-        <div className="chart-frame">
-          <ResponsiveContainer width="100%" height={230}>
-            <AreaChart data={summary.monthlyTrend} margin={{ left: 0, right: 12, top: 14, bottom: 0 }}>
-              <defs>
-                <linearGradient id="spendFill" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="5%" stopColor="var(--accent-tan)" stopOpacity={0.24} />
-                  <stop offset="95%" stopColor="var(--accent-tan)" stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid stroke="var(--line)" vertical={false} />
-              <XAxis dataKey="monthLabel" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: 'var(--muted)' }} />
-              <YAxis tickLine={false} axisLine={false} tickFormatter={compactMoney} width={50} tick={{ fontSize: 11, fill: 'var(--muted)' }} />
-              <Tooltip 
-                contentStyle={{ backgroundColor: '#121f18', borderColor: 'var(--line)', borderRadius: '10px', color: 'var(--ink)' }} 
-                formatter={(value) => [formatMoney(Number(value)), '실지출']} 
-                labelFormatter={(label) => `${label}`} 
-              />
-              <Area type="monotone" dataKey="realSpend" stroke="var(--accent-tan)" strokeWidth={3} fill="url(#spendFill)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </section>
-
       <section className="split-layout">
         <div className="wide-section">
           <SectionHeader icon={<ArrowDownUp size={18} />} title="카테고리" aside={formatMoney(summary.thisMonth.totalSpend)} />
@@ -634,6 +609,31 @@ function InsightsView({ store, summary }: { store: FinanceStore; summary: Summar
 
   return (
     <section className="view-stack">
+      <section className="wide-section">
+        <SectionHeader icon={<ChartNoAxesCombined size={18} />} title="월별 흐름" aside={summary.monthlyTrend.at(-1)?.month ?? ''} />
+        <div className="chart-frame">
+          <ResponsiveContainer width="100%" height={230}>
+            <AreaChart data={summary.monthlyTrend} margin={{ left: 0, right: 12, top: 14, bottom: 0 }}>
+              <defs>
+                <linearGradient id="spendFill" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="5%" stopColor="var(--accent-tan)" stopOpacity={0.24} />
+                  <stop offset="95%" stopColor="var(--accent-tan)" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="var(--line)" vertical={false} />
+              <XAxis dataKey="monthLabel" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: 'var(--muted)' }} />
+              <YAxis tickLine={false} axisLine={false} tickFormatter={compactMoney} width={50} tick={{ fontSize: 11, fill: 'var(--muted)' }} />
+              <Tooltip
+                contentStyle={{ backgroundColor: 'var(--surface-solid)', borderColor: 'var(--line)', borderRadius: '10px', color: 'var(--ink)' }}
+                formatter={(value) => [formatMoney(Number(value)), '실지출']}
+                labelFormatter={(label) => `${label}`}
+              />
+              <Area type="monotone" dataKey="realSpend" stroke="var(--accent-tan)" strokeWidth={3} fill="url(#spendFill)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
+
       <section className="insight-board">
         {insightRows.map((item) => (
           <article className={`insight-card ${item.level}`} key={item.title}>
