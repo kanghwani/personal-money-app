@@ -85,6 +85,20 @@ export type FixedDef = {
   startMonth: string
   installmentTotal: number | null
   variable: boolean
+  split: number
+}
+
+/** 입력 텍스트에서 분담금을 추출한다. "분담 N"/"분담금 N" → N, "반반"/"반띵"/"/2" → 금액의 절반. */
+export function splitFromText(text: string, amount: number): { split: number; remaining: string } {
+  const m = text.match(/분담(?:금)?\s*([\d,]+)/)
+  if (m) {
+    const n = Number(m[1].replace(/,/g, '')) || 0
+    return { split: n, remaining: text.replace(m[0], '').replace(/\s+/g, ' ').trim() }
+  }
+  if (/반반|반띵|\/\s*2(?![\d])/.test(text)) {
+    return { split: Math.floor(amount / 2), remaining: text.replace(/반반|반띵|\/\s*2(?![\d])/, '').replace(/\s+/g, ' ').trim() }
+  }
+  return { split: 0, remaining: text }
 }
 
 function monthIndex(ym: string): number {

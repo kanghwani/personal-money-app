@@ -37,7 +37,7 @@ import {
 } from 'lucide-react'
 import { pickNewer, dedupById } from './sync/merge'
 import { getSyncConfig, loadFromServer, saveToServer, loadLedger, assignCategory, loadFixedDefs, saveFixedDef, deleteFixedDef } from './sync/syncClient'
-import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, fixedRemaining, type QuickChip, type FixedDef } from './dashboardLogic'
+import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, fixedRemaining, splitFromText, type QuickChip, type FixedDef } from './dashboardLogic'
 import './App.css'
 
 type Tab = 'dashboard' | 'ledger' | 'assets' | 'insights' | 'fixed'
@@ -887,7 +887,7 @@ function InsightsView({ store, summary }: { store: FinanceStore; summary: Summar
 }
 
 function emptyFixedDef(monthKey: string): FixedDef {
-  return { id: '', active: true, name: '', amount: 0, category: '', subCategory: '', payment: '카드', payDay: 1, startMonth: monthKey, installmentTotal: null, variable: false }
+  return { id: '', active: true, name: '', amount: 0, category: '', subCategory: '', payment: '카드', payDay: 1, startMonth: monthKey, installmentTotal: null, variable: false, split: 0 }
 }
 
 function FixedView({ monthKey }: { monthKey: string }) {
@@ -937,6 +937,7 @@ function FixedView({ monthKey }: { monthKey: string }) {
                   <p className="row-title">{d.name}{d.variable && <span className="fixed-badge">변동</span>}</p>
                   <p className="row-meta">
                     {formatMoney(d.amount)} · 매월 {d.payDay}일
+                    {d.split > 0 && ` · 분담 ${formatMoney(d.split)} · 실지출 ${formatMoney(d.amount - d.split)}`}
                     {d.variable && ' · 확인필요'}
                     {rem && (rem.done ? ' · 완료' : ` · ${rem.count}/${rem.total}회 · 남은 ${formatMoney(rem.remainingAmount)}`)}
                   </p>
@@ -986,6 +987,7 @@ function FixedEditSheet({ def, busy, onClose, onSave, onDelete }: {
           <label>대분류<input value={draft.category} onChange={(e) => set({ category: e.target.value })} /></label>
           <label>소분류<input value={draft.subCategory} onChange={(e) => set({ subCategory: e.target.value })} /></label>
           <label>결제수단<input value={draft.payment} onChange={(e) => set({ payment: e.target.value })} /></label>
+          <label>분담금(여친 부담분 등, 없으면 0)<input type="number" value={draft.split || ''} onChange={(e) => set({ split: Number(e.target.value) || 0 })} /></label>
           <label>납부일<input type="number" min={1} max={31} value={draft.payDay || ''} onChange={(e) => set({ payDay: Number(e.target.value) || 1 })} /></label>
           <label>시작월(yyyy-MM)<input value={draft.startMonth} onChange={(e) => set({ startMonth: e.target.value })} /></label>
           <label>할부 총회차(없으면 비움)<input type="number" value={draft.installmentTotal ?? ''} onChange={(e) => set({ installmentTotal: e.target.value === '' ? null : Number(e.target.value) })} /></label>
@@ -1485,6 +1487,8 @@ function parseTransactionEntry(raw: string): ParseResult {
 
   const amount = moneyNumber(amountMatch[1])
   text = text.replace(amountMatch[0], '').replace(/\s+/g, ' ').trim()
+  const splitParse = splitFromText(text, amount)
+  text = splitParse.remaining
   const type: TransactionType = /수입|월급|급여|입금|보너스/.test(raw) ? 'income' : 'expense'
   const paymentParse = extractPayment(text)
   text = paymentParse.remaining
@@ -1504,7 +1508,7 @@ function parseTransactionEntry(raw: string): ParseResult {
       subCategory: category.sub,
       payment: paymentParse.payment,
       fixedType: fixedParse.fixedType ?? (isFixed(text) ? 'fixed' : 'variable'),
-      split: 0,
+      split: type === 'expense' ? splitParse.split : 0,
       raw,
     },
   }
