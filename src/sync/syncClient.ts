@@ -76,6 +76,7 @@ export async function assignCategory(
   id: string,
   category: string,
   subCategory: string,
+  memo: string = '',
   cfg: SyncConfig | null = getSyncConfig(),
 ): Promise<boolean> {
   if (!cfg) return false
@@ -83,7 +84,7 @@ export async function assignCategory(
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     redirect: 'follow',
-    body: JSON.stringify({ action: 'assignCategory', token: cfg.token, id, category, subCategory }),
+    body: JSON.stringify({ action: 'assignCategory', token: cfg.token, id, category, subCategory, memo }),
   })
   const data = await res.json()
   return !!(data && data.ok)

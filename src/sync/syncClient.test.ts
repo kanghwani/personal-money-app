@@ -96,17 +96,17 @@ describe('loadLedger', () => {
 
 describe('assignCategory', () => {
   it('cfg 없으면 false', async () => {
-    expect(await assignCategory('id1', '식비', '외식', null)).toBe(false)
+    expect(await assignCategory('id1', '식비', '외식', '메모', null)).toBe(false)
   })
-  it('text/plain POST로 assignCategory 본문 전송, ok 반환', async () => {
+  it('text/plain POST로 assignCategory 본문 전송(memo 포함), ok 반환', async () => {
     ;(fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ json: async () => ({ ok: true, updated: 1 }) })
-    const ok = await assignCategory('id1', '식비', '외식', cfg)
+    const ok = await assignCategory('id1', '식비', '외식', '두부', cfg)
     const [url, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0]
     expect(url).toBe(cfg.url)
     expect(init.headers['Content-Type']).toBe('text/plain;charset=utf-8')
     const body = JSON.parse(init.body as string)
     expect(body.action).toBe('assignCategory')
-    expect(body).toMatchObject({ id: 'id1', category: '식비', subCategory: '외식', token: 'secret-tok' })
+    expect(body).toMatchObject({ id: 'id1', category: '식비', subCategory: '외식', memo: '두부', token: 'secret-tok' })
     expect(ok).toBe(true)
   })
 })

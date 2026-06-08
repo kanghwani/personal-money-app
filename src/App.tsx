@@ -176,10 +176,19 @@ function App() {
     [history, store.transactions],
   )
   const categoryOptions = useMemo(() => distinctCategoryOptions(mergedTransactions), [mergedTransactions])
-  async function assignCategoryFor(id: string, category: string, subCategory: string) {
+  async function assignCategoryFor(id: string, category: string, subCategory: string, memo: string) {
     setLastMessage('분류 반영 중…')
-    const ok = await assignCategory(id, category, subCategory).catch(() => false)
-    if (ok) { setLastMessage('분류 반영됨'); refreshHistory() }
+    // 로컬(store) 거래면 즉시 카테고리 변경 (원장에 없는 최근 입력분 포함)
+    const isLocal = store.transactions.some((t) => t.id === id)
+    if (isLocal) {
+      setStore((cur) => ({
+        ...cur,
+        transactions: cur.transactions.map((t) => (t.id === id ? { ...t, category, subCategory } : t)),
+      }))
+    }
+    // 백엔드: 원장 거래 갱신 + 같은 내역 일괄 + 분류규칙 학습 (memo 전달)
+    const ok = await assignCategory(id, category, subCategory, memo).catch(() => false)
+    if (ok || isLocal) { setLastMessage('분류 반영됨'); refreshHistory() }
     else setLastMessage('분류 실패')
   }
   const summary = useMemo(
@@ -426,7 +435,7 @@ function CategoryDetailSheet({ category, transactions, categoryOptions, onAssign
   category: string
   transactions: Transaction[]
   categoryOptions: { category: string; subCategory: string }[]
-  onAssign: (id: string, category: string, subCategory: string) => void
+  onAssign: (id: string, category: string, subCategory: string, memo: string) => void
   onClose: () => void
 }) {
   const [pickingId, setPickingId] = useState<string | null>(null)
@@ -477,7 +486,7 @@ function CategoryDetailSheet({ category, transactions, categoryOptions, onAssign
                       key={o.category + '/' + o.subCategory}
                       type="button"
                       className="reassign-opt"
-                      onClick={() => { onAssign(t.id, o.category, o.subCategory); setPickingId(null) }}
+                      onClick={() => { onAssign(t.id, o.category, o.subCategory, t.memo); setPickingId(null) }}
                     >
                       {o.category}{o.subCategory ? ' · ' + o.subCategory : ''}
                     </button>
@@ -496,7 +505,7 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign }: {
   summary: Summary
   transactions: Transaction[]
   categoryOptions: { category: string; subCategory: string }[]
-  onAssign: (id: string, category: string, subCategory: string) => void
+  onAssign: (id: string, category: string, subCategory: string, memo: string) => void
 }) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const prev = summary.previousMonth?.realSpend ?? 0
