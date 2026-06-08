@@ -37,8 +37,8 @@ import {
   Wallet,
   X,
 } from 'lucide-react'
-import { pickNewer } from './sync/merge'
-import { getSyncConfig, loadFromServer, saveToServer } from './sync/syncClient'
+import { pickNewer, dedupById } from './sync/merge'
+import { getSyncConfig, loadFromServer, saveToServer, loadLedger } from './sync/syncClient'
 import './App.css'
 
 type Tab = 'dashboard' | 'ledger' | 'assets' | 'insights'
@@ -177,7 +177,15 @@ function App() {
     const isDismissed = window.localStorage.getItem('shiba-pwa-dismissed') === 'true'
     return !!(isIos && !isStandalone && !isDismissed)
   })
-  const summary = useMemo(() => buildSummary(store), [store])
+  const history = useLedgerHistory()
+  const mergedTransactions = useMemo(
+    () => dedupById(history, store.transactions),
+    [history, store.transactions],
+  )
+  const summary = useMemo(
+    () => buildSummary({ ...store, transactions: mergedTransactions }),
+    [store, mergedTransactions],
+  )
 
   function dismissPwaBanner() {
     window.localStorage.setItem('shiba-pwa-dismissed', 'true')
@@ -287,7 +295,7 @@ function App() {
       </nav>
 
       {activeTab === 'dashboard' && <Dashboard store={store} summary={summary} onUpdateBudget={updateBudget} />}
-      {activeTab === 'ledger' && <Ledger transactions={store.transactions} onDelete={deleteTransaction} />}
+      {activeTab === 'ledger' && <Ledger transactions={mergedTransactions} onDelete={deleteTransaction} />}
       {activeTab === 'assets' && <AssetsView store={store} summary={summary} onSaveAsset={saveAsset} />}
       {activeTab === 'insights' && <InsightsView store={store} summary={summary} />}
     </main>
@@ -914,6 +922,19 @@ type Summary = {
   investmentShare: number
   budget: number
   budgetUsageRate: number
+}
+
+function useLedgerHistory() {
+  const [history, setHistory] = useState<Transaction[]>([])
+  useEffect(() => {
+    if (!getSyncConfig()) return
+    let cancelled = false
+    loadLedger<Transaction>()
+      .then((rows) => { if (!cancelled) setHistory(rows) })
+      .catch(() => { if (!cancelled) setHistory([]) })
+    return () => { cancelled = true }
+  }, [])
+  return history
 }
 
 function usePersistentStore() {
