@@ -521,7 +521,7 @@ function AssetsView({ store, summary, onSaveAsset }: { store: FinanceStore; summ
 
 function InsightsView({ store, summary }: { store: FinanceStore; summary: Summary }) {
   const insightRows = buildInsights(store, summary)
-  const colors = ['#e5c493', '#3db881', '#5aa4e1', '#e4983c', '#e26b73', '#9c82c9']
+  const colors = ['#c9794f', '#7e9b6f', '#d6a85e', '#9a7bb0', '#5a7d8f', '#cdbf9c']
 
   return (
     <section className="view-stack">
