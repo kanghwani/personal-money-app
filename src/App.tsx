@@ -655,9 +655,9 @@ function InsightsView({ store, summary }: { store: FinanceStore; summary: Summar
               <XAxis type="number" tickFormatter={compactMoney} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--muted)' }} />
               <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={76} tick={{ fontSize: 11, fill: 'var(--muted)' }} />
               <Tooltip 
-                contentStyle={{ backgroundColor: '#121f18', borderColor: 'rgba(130,148,138,0.25)', borderRadius: '10px', color: '#f2f5f3' }}
-                itemStyle={{ color: '#f2f5f3' }}
-                labelStyle={{ color: '#e5c493', fontWeight: 800 }}
+                contentStyle={{ backgroundColor: 'var(--surface-solid)', borderColor: 'var(--line)', borderRadius: '10px', color: 'var(--ink)' }}
+                itemStyle={{ color: 'var(--ink)' }}
+                labelStyle={{ color: 'var(--accent-tan)', fontWeight: 800 }}
                 formatter={(value) => [formatMoney(Number(value)), '지출액']} 
               />
               <Bar dataKey="value" radius={[0, 6, 6, 0]}>
