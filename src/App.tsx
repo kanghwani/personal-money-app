@@ -36,7 +36,7 @@ import {
 } from 'lucide-react'
 import { pickNewer, dedupById } from './sync/merge'
 import { getSyncConfig, loadFromServer, saveToServer, loadLedger } from './sync/syncClient'
-import { deriveQuickChips, type QuickChip, changeRate } from './dashboardLogic'
+import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, type QuickChip } from './dashboardLogic'
 import './App.css'
 
 type Tab = 'dashboard' | 'ledger' | 'assets' | 'insights'
@@ -322,7 +322,7 @@ function App() {
         <TabButton tab="insights" activeTab={activeTab} icon={<Sparkles size={18} />} label="인사이트" onClick={setActiveTab} />
       </nav>
 
-      {activeTab === 'dashboard' && <Dashboard summary={summary} />}
+      {activeTab === 'dashboard' && <Dashboard summary={summary} transactions={mergedTransactions} />}
       {activeTab === 'ledger' && <Ledger transactions={mergedTransactions} onDelete={deleteTransaction} />}
       {activeTab === 'assets' && <AssetsView store={store} summary={summary} onSaveAsset={saveAsset} />}
       {activeTab === 'insights' && <InsightsView store={store} summary={summary} />}
@@ -388,7 +388,57 @@ function CategoryRing({ total, subtitle, data }: { total: string; subtitle: stri
   )
 }
 
-function Dashboard({ summary }: { summary: Summary }) {
+function CategoryDetailSheet({ category, transactions, onClose }: { category: string; transactions: Transaction[]; onClose: () => void }) {
+  const total = transactions.reduce((s, t) => s + t.amount, 0)
+  const subMap = new Map<string, number>()
+  for (const t of transactions) {
+    const k = t.subCategory || '기타'
+    subMap.set(k, (subMap.get(k) || 0) + t.amount)
+  }
+  const subs = [...subMap.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
+  const rows = [...transactions].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <div className="cat-sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="cat-sheet-head">
+          <span className="cat-ic-lg">{categoryIcon(category)}</span>
+          <div className="cat-sheet-title">
+            <h3>{category}</h3>
+            <p>{formatMoney(total)} · {transactions.length}건</p>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="닫기">
+            <X size={18} />
+          </button>
+        </div>
+        {subs.length > 0 && (
+          <div className="cat-sub-list">
+            {subs.map((s) => (
+              <div className="cat-sub-row" key={s.name}>
+                <span>{s.name}</span>
+                <span>{formatMoney(s.value)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="cat-tx-list">
+          {rows.length === 0 && <p className="cat-empty">거래가 없습니다.</p>}
+          {rows.map((t) => (
+            <div className="cat-tx-row" key={t.id}>
+              <div>
+                <p className="row-title">{t.memo}</p>
+                <p className="row-meta">{formatDateLabel(t.date)} · {t.subCategory || '미지정'} · {t.payment || '미지정'}</p>
+              </div>
+              <span className="cat-tx-amt">{formatMoney(t.amount)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Dashboard({ summary, transactions }: { summary: Summary; transactions: Transaction[] }) {
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const prev = summary.previousMonth?.realSpend ?? 0
   const rate = changeRate(summary.thisMonth.realSpend, prev)
   const ringSubtitle = rate === null ? null : `전월 대비 ${rate >= 0 ? '+' : '−'}${Math.abs(Math.round(rate * 100))}%`
@@ -399,16 +449,25 @@ function Dashboard({ summary }: { summary: Summary }) {
         <CategoryRing
           total={formatMoney(summary.thisMonth.realSpend)}
           subtitle={ringSubtitle}
-          data={summary.categoryTotals.slice(0, 6)}
+          data={topNWithOther(summary.categoryTotals, 7)}
         />
         <div className="cat-rank">
-          {summary.categoryTotals.slice(0, 5).map((c, i) => (
-            <div className="cat-rank-row" key={c.name}>
-              <span className="cat-dot" style={{ background: RING_COLORS[i % RING_COLORS.length] }} />
+          {summary.categoryTotals.map((c, i) => (
+            <button
+              type="button"
+              className="cat-rank-row"
+              key={c.name}
+              onClick={() => setSelectedCategory(c.name)}
+            >
+              <span className="cat-ic" style={{ background: RING_COLORS[i % RING_COLORS.length] }}>
+                {categoryIcon(c.name)}
+              </span>
               <span className="cat-name">{c.name}</span>
               <span className="cat-amt">{formatMoney(c.value)}</span>
-              <span className="cat-pct">{formatPercent(summary.thisMonth.totalSpend ? c.value / summary.thisMonth.totalSpend : 0)}</span>
-            </div>
+              <span className="cat-pct">
+                {formatPercent(summary.thisMonth.totalSpend ? c.value / summary.thisMonth.totalSpend : 0)}
+              </span>
+            </button>
           ))}
         </div>
       </article>
@@ -417,6 +476,14 @@ function Dashboard({ summary }: { summary: Summary }) {
         <SectionHeader icon={<ShieldCheck size={18} />} title="고정비 / 변동비" aside={formatPercent(summary.fixedShare)} />
         <FixedVariablePanel summary={summary} />
       </section>
+
+      {selectedCategory && (
+        <CategoryDetailSheet
+          category={selectedCategory}
+          transactions={transactions.filter((t) => t.category === selectedCategory)}
+          onClose={() => setSelectedCategory(null)}
+        />
+      )}
     </section>
   )
 }
