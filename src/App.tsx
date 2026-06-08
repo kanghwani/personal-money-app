@@ -126,15 +126,6 @@ const categoryRules = [
   { words: ['월급', '급여', '입금', '보너스'], category: '수입', sub: '급여' },
 ]
 
-const quickTemplates = [
-  '오늘 5000 점심밥 국민카드 변동',
-  '오늘 2000 커피 토스 변동',
-  '자산: 현금 950625 토스',
-  '대출: 햇살론 6100000 225779 토스뱅크',
-]
-
-const paymentHints = ['국민카드', '토스', '현금', '계좌이체']
-const fixedHints = ['고정', '변동']
 
 const seedData: FinanceStore = {
   transactions: [
@@ -375,26 +366,7 @@ function QuickEntry({ onSubmit, lastMessage }: { onSubmit: (raw: string) => void
           <Send size={18} />
         </button>
       </div>
-      <div className="template-row">
-        {quickTemplates.map((template) => (
-          <button key={template} type="button" onClick={() => setDraft(template)}>
-            {template}
-          </button>
-        ))}
-      </div>
-      <div className="hint-row" aria-label="빠른 옵션">
-        {paymentHints.map((hint) => (
-          <button key={hint} type="button" onClick={() => setDraft((current) => appendToken(current, hint))}>
-            {hint}
-          </button>
-        ))}
-        {fixedHints.map((hint) => (
-          <button key={hint} type="button" className="fixed-hint" onClick={() => setDraft((current) => appendToken(current, hint))}>
-            {hint}
-          </button>
-        ))}
-      </div>
-      <p className="status-line">{lastMessage}</p>
+<p className="status-line">{lastMessage}</p>
     </section>
   )
 }
@@ -1494,12 +1466,6 @@ function resultLabel(result: Exclude<ParseResult, { kind: 'error' }>) {
   return `${result.loan.name} 대출 갱신`
 }
 
-function appendToken(current: string, token: string) {
-  const trimmed = current.trim()
-  if (!trimmed) return token
-  if (trimmed.includes(token)) return trimmed
-  return `${trimmed} ${token}`
-}
 
 function uid() {
   return crypto.randomUUID()
