@@ -13,6 +13,7 @@ import {
 } from 'recharts'
 import {
   ArrowDownUp,
+  CalendarClock,
   ChartNoAxesCombined,
   CircleDollarSign,
   CreditCard,
@@ -35,11 +36,11 @@ import {
   X,
 } from 'lucide-react'
 import { pickNewer, dedupById } from './sync/merge'
-import { getSyncConfig, loadFromServer, saveToServer, loadLedger, assignCategory } from './sync/syncClient'
-import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, type QuickChip } from './dashboardLogic'
+import { getSyncConfig, loadFromServer, saveToServer, loadLedger, assignCategory, loadFixedDefs, saveFixedDef, deleteFixedDef } from './sync/syncClient'
+import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, fixedRemaining, type QuickChip, type FixedDef } from './dashboardLogic'
 import './App.css'
 
-type Tab = 'dashboard' | 'ledger' | 'assets' | 'insights'
+type Tab = 'dashboard' | 'ledger' | 'assets' | 'insights' | 'fixed'
 type TransactionType = 'expense' | 'income'
 type FixedType = 'fixed' | 'variable'
 
@@ -341,6 +342,7 @@ function App() {
         <TabButton tab="ledger" activeTab={activeTab} icon={<ReceiptText size={18} />} label="원장" onClick={setActiveTab} />
         <TabButton tab="assets" activeTab={activeTab} icon={<Wallet size={18} />} label="자산" onClick={setActiveTab} />
         <TabButton tab="insights" activeTab={activeTab} icon={<Sparkles size={18} />} label="인사이트" onClick={setActiveTab} />
+        <TabButton tab="fixed" activeTab={activeTab} icon={<CalendarClock size={18} />} label="고정비" onClick={setActiveTab} />
       </nav>
 
       {activeTab === 'dashboard' && (
@@ -357,6 +359,7 @@ function App() {
       )}
       {activeTab === 'assets' && <AssetsView store={store} summary={summary} onSaveAsset={saveAsset} />}
       {activeTab === 'insights' && <InsightsView store={store} summary={summary} />}
+      {activeTab === 'fixed' && <FixedView monthKey={summary.monthKey} />}
     </main>
   )
 }
@@ -870,6 +873,118 @@ function InsightsView({ store, summary }: { store: FinanceStore; summary: Summar
         </div>
       </section>
     </section>
+  )
+}
+
+function emptyFixedDef(monthKey: string): FixedDef {
+  return { id: '', active: true, name: '', amount: 0, category: '', subCategory: '', payment: '카드', payDay: 1, startMonth: monthKey, installmentTotal: null }
+}
+
+function FixedView({ monthKey }: { monthKey: string }) {
+  const [defs, setDefs] = useState<FixedDef[]>([])
+  const [editing, setEditing] = useState<FixedDef | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const reload = () => { loadFixedDefs().then(setDefs).catch(() => setDefs([])) }
+  useEffect(() => { reload() }, [])
+
+  const activeTotal = defs.filter((d) => d.active).reduce((s, d) => s + d.amount, 0)
+
+  async function save(def: FixedDef) {
+    setBusy(true)
+    const ok = await saveFixedDef(def).catch(() => false)
+    setBusy(false)
+    if (ok) { setEditing(null); reload() }
+  }
+  async function remove(id: string) {
+    setBusy(true)
+    const ok = await deleteFixedDef(id).catch(() => false)
+    setBusy(false)
+    if (ok) { setEditing(null); reload() }
+  }
+  async function toggle(def: FixedDef) {
+    await saveFixedDef({ ...def, active: !def.active }).catch(() => false)
+    reload()
+  }
+
+  return (
+    <section className="view-stack">
+      <div className="fixed-head">
+        <div>
+          <p className="eyebrow">월 고정비</p>
+          <h2>{formatMoney(activeTotal)}</h2>
+        </div>
+        <button type="button" className="fixed-add" onClick={() => setEditing(emptyFixedDef(monthKey))}>+ 추가</button>
+      </div>
+
+      <div className="fixed-list">
+        {defs.map((d) => {
+          const rem = fixedRemaining(d, monthKey)
+          return (
+            <article className={`fixed-row${d.active ? '' : ' off'}`} key={d.id}>
+              <button type="button" className="fixed-main" onClick={() => setEditing(d)}>
+                <div>
+                  <p className="row-title">{d.name}</p>
+                  <p className="row-meta">
+                    {formatMoney(d.amount)} · 매월 {d.payDay}일
+                    {rem && (rem.done ? ' · 완료' : ` · ${rem.count}/${rem.total}회 · 남은 ${formatMoney(rem.remainingAmount)}`)}
+                  </p>
+                </div>
+              </button>
+              <button type="button" className={`fixed-toggle${d.active ? ' on' : ''}`} onClick={() => toggle(d)} aria-label="활성 토글">
+                {d.active ? 'ON' : 'OFF'}
+              </button>
+            </article>
+          )
+        })}
+        {defs.length === 0 && <p className="cat-empty">고정비가 없습니다. + 추가로 등록하세요.</p>}
+      </div>
+
+      {editing && (
+        <FixedEditSheet
+          def={editing}
+          busy={busy}
+          onClose={() => setEditing(null)}
+          onSave={save}
+          onDelete={remove}
+        />
+      )}
+    </section>
+  )
+}
+
+function FixedEditSheet({ def, busy, onClose, onSave, onDelete }: {
+  def: FixedDef
+  busy: boolean
+  onClose: () => void
+  onSave: (def: FixedDef) => void
+  onDelete: (id: string) => void
+}) {
+  const [draft, setDraft] = useState<FixedDef>(def)
+  const set = (patch: Partial<FixedDef>) => setDraft((d) => ({ ...d, ...patch }))
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <div className="cat-sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="cat-sheet-head">
+          <div className="cat-sheet-title"><h3>{def.id ? '고정비 수정' : '고정비 추가'}</h3></div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="닫기"><X size={18} /></button>
+        </div>
+        <div className="fixed-form">
+          <label>이름<input value={draft.name} onChange={(e) => set({ name: e.target.value })} /></label>
+          <label>금액<input type="number" value={draft.amount || ''} onChange={(e) => set({ amount: Number(e.target.value) || 0 })} /></label>
+          <label>대분류<input value={draft.category} onChange={(e) => set({ category: e.target.value })} /></label>
+          <label>소분류<input value={draft.subCategory} onChange={(e) => set({ subCategory: e.target.value })} /></label>
+          <label>결제수단<input value={draft.payment} onChange={(e) => set({ payment: e.target.value })} /></label>
+          <label>납부일<input type="number" min={1} max={31} value={draft.payDay || ''} onChange={(e) => set({ payDay: Number(e.target.value) || 1 })} /></label>
+          <label>시작월(yyyy-MM)<input value={draft.startMonth} onChange={(e) => set({ startMonth: e.target.value })} /></label>
+          <label>할부 총회차(없으면 비움)<input type="number" value={draft.installmentTotal ?? ''} onChange={(e) => set({ installmentTotal: e.target.value === '' ? null : Number(e.target.value) })} /></label>
+        </div>
+        <div className="fixed-actions">
+          {def.id && <button type="button" className="fixed-del" disabled={busy} onClick={() => onDelete(def.id)}>삭제</button>}
+          <button type="button" className="fixed-save" disabled={busy || !draft.name} onClick={() => onSave(draft)}>{busy ? '저장 중…' : '저장'}</button>
+        </div>
+      </div>
+    </div>
   )
 }
 
