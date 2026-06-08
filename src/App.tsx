@@ -363,7 +363,7 @@ function QuickEntry({ onSubmit, lastMessage }: { onSubmit: (raw: string) => void
   )
 }
 
-const RING_COLORS = ['#c9794f', '#7e9b6f', '#d6a85e', '#9a7bb0', '#5a7d8f', '#cdbf9c']
+const RING_COLORS = ['#c9794f', '#7e9b6f', '#d6a85e', '#9a7bb0', '#5a7d8f', '#cdbf9c', '#b8654a', '#6f8f9c', '#caa06a', '#a98aa0']
 
 function CategoryRing({ total, subtitle, data }: { total: string; subtitle: string | null; data: NameValue[] }) {
   const sum = data.reduce((s, d) => s + d.value, 0) || 1
