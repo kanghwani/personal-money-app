@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { loadFromServer, saveToServer, type SyncConfig } from './syncClient'
+import { loadFromServer, saveToServer, loadLedger, type SyncConfig } from './syncClient'
 
 const cfg: SyncConfig = { url: 'https://script.example/exec', token: 'secret-tok' }
 
@@ -66,5 +66,30 @@ describe('네트워크 오류 계약', () => {
   it('saveToServer는 fetch 거부 시 throw한다', async () => {
     ;(fetch as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('network down'))
     await expect(saveToServer({ n: 1 }, 'x', cfg)).rejects.toThrow('network down')
+  })
+})
+
+describe('loadLedger', () => {
+  it('cfg가 없으면 빈 배열', async () => {
+    expect(await loadLedger(null)).toEqual([])
+  })
+
+  it('action=ledger 쿼리로 GET하고 transactions를 반환', async () => {
+    const txns = [{ id: 'a', amount: 1 }]
+    ;(fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      json: async () => ({ ok: true, transactions: txns }),
+    })
+    const result = await loadLedger(cfg)
+    const url = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string
+    expect(url).toContain('action=ledger')
+    expect(url).toContain('token=secret-tok')
+    expect(result).toEqual(txns)
+  })
+
+  it('ok가 아니면 빈 배열', async () => {
+    ;(fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      json: async () => ({ ok: false }),
+    })
+    expect(await loadLedger(cfg)).toEqual([])
   })
 })

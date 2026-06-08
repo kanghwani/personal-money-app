@@ -51,3 +51,20 @@ export async function saveToServer<T>(
   const data = await res.json()
   return !!(data && data.ok)
 }
+
+/**
+ * 시트 원장(과거 거래 전체)을 읽어온다.
+ * - cfg 없으면(비활성) [] 반환
+ * - ok가 아니거나 transactions 배열이 없으면 []
+ * - 네트워크/파싱 오류는 throw (호출부가 catch해서 [] 처리)
+ */
+export async function loadLedger<T>(
+  cfg: SyncConfig | null = getSyncConfig(),
+): Promise<T[]> {
+  if (!cfg) return []
+  const url = `${cfg.url}?action=ledger&token=${encodeURIComponent(cfg.token)}`
+  const res = await fetch(url, { method: 'GET', redirect: 'follow' })
+  const data = await res.json()
+  if (!data || !data.ok || !Array.isArray(data.transactions)) return []
+  return data.transactions as T[]
+}
