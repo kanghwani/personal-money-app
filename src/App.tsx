@@ -12,11 +12,9 @@ import {
   YAxis,
 } from 'recharts'
 import {
-  ArrowDownUp,
   CalendarClock,
   ChartNoAxesCombined,
   CircleDollarSign,
-  CreditCard,
   Download,
   Home,
   Landmark,
@@ -368,7 +366,7 @@ function App() {
         />
       )}
       {activeTab === 'assets' && <AssetsView store={store} summary={summary} onSaveAsset={saveAsset} />}
-      {activeTab === 'insights' && <InsightsView store={store} summary={summary} />}
+      {activeTab === 'insights' && <InsightsView store={store} summary={summary} transactions={mergedTransactions} />}
       {activeTab === 'fixed' && <FixedView monthKey={summary.monthKey} />}
     </main>
   )
@@ -816,8 +814,8 @@ function AssetsView({ store, summary, onSaveAsset }: { store: FinanceStore; summ
   )
 }
 
-function InsightsView({ store, summary }: { store: FinanceStore; summary: Summary }) {
-  const insightRows = buildInsights(store, summary)
+function InsightsView({ store, summary, transactions }: { store: FinanceStore; summary: Summary; transactions: Transaction[] }) {
+  const insightRows = buildInsights(transactions, summary, store)
   const colors = ['#c9794f', '#7e9b6f', '#d6a85e', '#9a7bb0', '#5a7d8f', '#cdbf9c']
 
   return (
@@ -1187,6 +1185,7 @@ type MonthMetric = {
   realSpend: number
   fixed: number
   variable: number
+  income: number
 }
 
 type Summary = {
@@ -1336,7 +1335,7 @@ function buildSummary(store: FinanceStore): Summary {
   const investmentTotal = store.investments.reduce((sum, item) => sum + item.value, 0)
   const loanTotal = store.loans.filter((item) => item.status === 'active').reduce((sum, item) => sum + item.balance, 0)
   const netWorth = assetTotal + investmentTotal - loanTotal
-  const fixedShare = thisMonth.totalSpend ? thisMonth.fixed / thisMonth.totalSpend : 0
+  const fixedShare = thisMonth.realSpend ? thisMonth.fixed / thisMonth.realSpend : 0
   const investmentShare = assetTotal + investmentTotal ? investmentTotal / (assetTotal + investmentTotal) : 0
   const budget = store.budget ?? 1000000
   const budgetUsageRate = budget ? thisMonth.realSpend / budget : 0
@@ -1364,8 +1363,9 @@ function buildMonthMetric(transactions: Transaction[], month: string): MonthMetr
   const expenseRows = rows.filter((item) => item.type === 'expense')
   const totalSpend = expenseRows.reduce((sum, item) => sum + item.amount, 0)
   const split = expenseRows.reduce((sum, item) => sum + item.split, 0)
-  const fixed = expenseRows.filter((item) => item.fixedType === 'fixed').reduce((sum, item) => sum + item.amount, 0)
-  const variable = expenseRows.filter((item) => item.fixedType === 'variable').reduce((sum, item) => sum + item.amount, 0)
+  const fixed = expenseRows.filter((item) => item.fixedType === 'fixed').reduce((sum, item) => sum + (item.amount - item.split), 0)
+  const variable = expenseRows.filter((item) => item.fixedType === 'variable').reduce((sum, item) => sum + (item.amount - item.split), 0)
+  const income = rows.filter((item) => item.type === 'income').reduce((sum, item) => sum + item.amount, 0)
 
   return {
     month,
@@ -1374,6 +1374,7 @@ function buildMonthMetric(transactions: Transaction[], month: string): MonthMetr
     realSpend: totalSpend - split,
     fixed,
     variable,
+    income,
   }
 }
 
@@ -1395,80 +1396,86 @@ function groupTransactions(rows: Transaction[], key: 'category' | 'payment'): Na
     .sort((a, b) => b.value - a.value)
 }
 
-function buildInsights(store: FinanceStore, summary: Summary) {
+function buildInsights(transactions: Transaction[], summary: Summary, store: FinanceStore) {
   const rows = []
-  const diff = summary.previousMonth ? summary.thisMonth.realSpend - summary.previousMonth.realSpend : 0
-  const topCategory = summary.categoryTotals[0]
-  const topPayment = summary.paymentTotals[0]
-  const worstInvestment = [...store.investments].sort((a, b) => a.returnRate - b.returnRate)[0]
-  const missingPayment = store.transactions.filter((item) => !item.payment).length
+  const m = summary.thisMonth
+  const monthTx = transactions.filter((t) => t.date.startsWith(summary.monthKey))
+  const variableExpense = monthTx.filter((t) => t.type === 'expense' && t.fixedType !== 'fixed')
+  const variableSum = variableExpense.reduce((s, t) => s + (t.amount - t.split), 0)
 
-  // 당월 지출 중 단일 최대 지출 추출
-  const currentMonthTx = store.transactions.filter((item) => item.date.startsWith(summary.monthKey) && item.type === 'expense')
-  const maxTx = currentMonthTx.length > 0 ? [...currentMonthTx].sort((a, b) => b.amount - a.amount)[0] : undefined
-
+  // 1. 이번 달 수지 (수입 − 실지출)
+  const balance = m.income - m.realSpend
   rows.push({
-    level: diff > 0 ? 'warn' : 'good',
-    icon: diff > 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />,
-    title: diff > 0 ? '지출 증가 현황' : '지출 안정',
-    body: summary.previousMonth ? `전월 대비 ${formatSignedMoney(diff)} 썼습니다. ${diff > 0 ? '지갑 끈 바짝 조이세요!' : '좋은 흐름입니다!'}` : '비교할 이전 달이 아직 없습니다.',
+    level: m.income > 0 ? (balance >= 0 ? 'good' : 'danger') : 'good',
+    icon: balance >= 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />,
+    title: '이번 달 수지',
+    body: m.income > 0
+      ? `수입 ${formatMoney(m.income)} − 지출 ${formatMoney(m.realSpend)} = ${formatSignedMoney(balance)}${balance >= 0 ? ` · 저축률 ${formatPercent(balance / m.income)}` : ' · 적자예요'}`
+      : `이번 달 실지출 ${formatMoney(m.realSpend)}. 수입을 등록하면 저축률도 보여드려요.`,
   })
 
-  if (maxTx) {
+  // 2. 변동 지출 (내가 조절 가능한 돈)
+  const prevVar = summary.previousMonth?.variable
+  rows.push({
+    level: prevVar != null && variableSum > prevVar * 1.1 ? 'warn' : 'good',
+    icon: <Wallet size={18} />,
+    title: '쓸 수 있는 돈 (변동 지출)',
+    body: `고정비 빼고 ${formatMoney(variableSum)} 썼어요.${prevVar != null ? ` 전월 변동은 ${formatMoney(prevVar)}.` : ''} 여기가 줄일 수 있는 부분이에요.`,
+  })
+
+  // 3. 최대 변동 지출 (고정비 제외)
+  const maxVar = [...variableExpense].sort((a, b) => (b.amount - b.split) - (a.amount - a.split))[0]
+  if (maxVar) {
+    const amt = maxVar.amount - maxVar.split
     rows.push({
-      level: maxTx.amount >= 150000 ? 'danger' : 'warn',
+      level: amt >= 150000 ? 'warn' : 'good',
       icon: <CircleDollarSign size={18} />,
-      title: '이번 달 최대 지출건',
-      body: `💳 ${maxTx.memo}에 ${formatMoney(maxTx.amount)} 지출. 이거 진짜 평생 쓸 필수품 맞나요? 🤔`,
+      title: '이번 달 최대 변동 지출',
+      body: `${maxVar.memo} · ${formatMoney(amt)} (${maxVar.category}). 고정비 빼고 가장 큰 한 건이에요.`,
     })
   }
 
-  if (topCategory) {
+  // 4. 변동 지출 1위 카테고리
+  const catMap = new Map<string, number>()
+  for (const t of variableExpense) catMap.set(t.category, (catMap.get(t.category) || 0) + (t.amount - t.split))
+  const topVarCat = [...catMap.entries()].sort((a, b) => b[1] - a[1])[0]
+  if (topVarCat) {
     rows.push({
-      level: topCategory.value / Math.max(summary.thisMonth.totalSpend, 1) > 0.35 ? 'warn' : 'good',
+      level: 'good',
       icon: <ReceiptText size={18} />,
-      title: `${topCategory.name} 비중`,
-      body: `${formatMoney(topCategory.value)} · ${formatPercent(topCategory.value / Math.max(summary.thisMonth.totalSpend, 1))} 차지. 이 카테고리만 줄여도 텅장은 면합니다.`,
+      title: '변동 지출 1위',
+      body: `${topVarCat[0]} ${formatMoney(topVarCat[1])} — 변동 지출 중 가장 컸어요. 줄일 여지가 있는지 살펴보세요.`,
     })
   }
 
-  if (topPayment) {
-    rows.push({
-      level: topPayment.name.includes('카드') ? 'warn' : 'good',
-      icon: <CreditCard size={18} />,
-      title: '가장 많이 쓴 결제수단',
-      body: `💳 이번 달은 ${topPayment.name}으로 가장 많이(${formatMoney(topPayment.value)}) 긁었습니다. 영수증 볼 때 가슴 아프지 않으시길 바랍니다. 💸`,
-    })
-  }
-
+  // 5. 고정비 부담 (수입 대비)
   rows.push({
-    level: summary.fixedShare > 0.6 ? 'warn' : 'good',
+    level: m.income > 0 && m.fixed / m.income > 0.7 ? 'warn' : 'good',
     icon: <ShieldCheck size={18} />,
-    title: '고정비 청구',
-    body: `${formatPercent(summary.fixedShare)} · ${summary.fixedShare > 0.6 ? '숨쉬기만 해도 이만큼 나가요. 넷플릭스/구독부터 다 해지하세요.' : '안정적 고정 지출 수준입니다.'}`,
+    title: '고정비 부담',
+    body: m.income > 0
+      ? `고정비 ${formatMoney(m.fixed)} · 수입의 ${formatPercent(m.fixed / m.income)}를 차지해요.`
+      : `이번 달 고정비는 ${formatMoney(m.fixed)}예요.`,
   })
 
-  rows.push({
-    level: summary.thisMonth.variable > summary.thisMonth.fixed ? 'warn' : 'good',
-    icon: <ArrowDownUp size={18} />,
-    title: '변동비 경보',
-    body: `${formatMoney(summary.thisMonth.variable)} · ${topCategory ? `${topCategory.name}에서 안 써도 될 돈이 나갔는지 보세요.` : '데이터가 더 쌓이면 상세 분석해 드릴게요.'}`,
-  })
-
+  // 6. 투자 현황
+  const worstInvestment = [...store.investments].sort((a, b) => a.returnRate - b.returnRate)[0]
   if (worstInvestment) {
     rows.push({
       level: worstInvestment.returnRate < -0.15 ? 'danger' : 'good',
       icon: <LineChart size={18} />,
-      title: worstInvestment.returnRate < 0 ? '투자 현타 상태' : '투자 수익',
-      body: `${worstInvestment.name} ${formatPercent(worstInvestment.returnRate)} ${worstInvestment.returnRate < -0.15 ? '파랗게 질렸습니다. 물타기 금지 🛑' : '수익 보는 중!'}`,
+      title: '투자 현황',
+      body: `${worstInvestment.name} ${formatPercent(worstInvestment.returnRate)}${worstInvestment.returnRate < 0 ? ' — 손실 구간이에요.' : ' — 수익 중이에요.'}`,
     })
   }
 
+  // 7. 입력 성실도
+  const missingPayment = monthTx.filter((t) => t.type === 'expense' && !t.payment).length
   rows.push({
     level: missingPayment > 0 ? 'warn' : 'good',
     icon: <Sparkles size={18} />,
     title: '입력 성실도',
-    body: missingPayment > 0 ? `결제수단 미입력 ${missingPayment}건. 귀찮아도 꼬박꼬박 적어야 현실을 봅니다.` : '완벽한 기록 데이터! 칭찬합니다.',
+    body: missingPayment > 0 ? `이번 달 결제수단 미입력 ${missingPayment}건. 채워두면 더 정확해져요.` : '이번 달 기록 깔끔해요 👍',
   })
 
   return rows
