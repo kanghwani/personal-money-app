@@ -935,6 +935,7 @@
 .day-field input { flex: 1; background: var(--surface-solid); border: 1.5px solid var(--accent-tan); border-radius: 14px; padding: 10px 12px; color: var(--ink); font-size: 13px; }
 
 .cat-tx-main { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.cat-tx-edit { flex: 1; min-width: 0; background: none; border: none; text-align: left; cursor: pointer; padding: 0; }
 .cat-tx-right { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
 .reassign-btn { background: var(--accent-tan-soft); color: var(--accent-tan); border: 1px solid var(--line); border-radius: 10px; padding: 4px 9px; font-size: 11px; font-weight: 600; cursor: pointer; }
 .reassign-picker { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }

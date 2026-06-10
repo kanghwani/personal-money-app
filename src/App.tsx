@@ -369,7 +369,7 @@ function App() {
             )}
             <QuickEntry onSubmit={applyQuickInput} lastMessage={lastMessage} />
           </div>
-          <Dashboard summary={summary} transactions={mergedTransactions} categoryOptions={categoryOptions} onAssign={assignCategoryFor} />
+          <Dashboard summary={summary} transactions={mergedTransactions} categoryOptions={categoryOptions} onAssign={assignCategoryFor} onEdit={editTransaction} />
         </>
       )}
       {activeTab === 'ledger' && (
@@ -447,14 +447,16 @@ function CategoryRing({ total, subtitle, data }: { total: string; subtitle: stri
   )
 }
 
-function CategoryDetailSheet({ category, transactions, categoryOptions, onAssign, onClose }: {
+function CategoryDetailSheet({ category, transactions, categoryOptions, onAssign, onEdit, onClose }: {
   category: string
   transactions: Transaction[]
   categoryOptions: { category: string; subCategory: string }[]
   onAssign: (id: string, category: string, subCategory: string, memo: string) => void
+  onEdit: (updated: Transaction) => void
   onClose: () => void
 }) {
   const [pickingId, setPickingId] = useState<string | null>(null)
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const total = transactions.reduce((s, t) => s + t.amount, 0)
   const subMap = new Map<string, number>()
   for (const t of transactions) {
@@ -464,6 +466,7 @@ function CategoryDetailSheet({ category, transactions, categoryOptions, onAssign
   const subs = [...subMap.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
   const rows = [...transactions].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
   return (
+    <>
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="cat-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="cat-sheet-head">
@@ -486,10 +489,10 @@ function CategoryDetailSheet({ category, transactions, categoryOptions, onAssign
           {rows.map((t) => (
             <div className="cat-tx-row" key={t.id}>
               <div className="cat-tx-main">
-                <div>
+                <button type="button" className="cat-tx-edit" onClick={() => setEditingTx(t)}>
                   <p className="row-title">{t.memo}</p>
                   <p className="row-meta">{formatDateLabel(t.date)} · {t.subCategory || '미지정'} · {t.payment || '미지정'}</p>
-                </div>
+                </button>
                 <div className="cat-tx-right">
                   <span className="cat-tx-amt">{formatMoney(t.amount)}</span>
                   <button type="button" className="reassign-btn" onClick={() => setPickingId(pickingId === t.id ? null : t.id)}>분류</button>
@@ -514,14 +517,23 @@ function CategoryDetailSheet({ category, transactions, categoryOptions, onAssign
         </div>
       </div>
     </div>
+    {editingTx && (
+      <TransactionEditSheet
+        tx={editingTx}
+        onClose={() => setEditingTx(null)}
+        onSave={(updated) => { onEdit(updated); setEditingTx(null) }}
+      />
+    )}
+    </>
   )
 }
 
-function Dashboard({ summary, transactions, categoryOptions, onAssign }: {
+function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit }: {
   summary: Summary
   transactions: Transaction[]
   categoryOptions: { category: string; subCategory: string }[]
   onAssign: (id: string, category: string, subCategory: string, memo: string) => void
+  onEdit: (updated: Transaction) => void
 }) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const prev = summary.previousMonth?.realSpend ?? 0
@@ -568,6 +580,7 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign }: {
           transactions={transactions.filter((t) => t.category === selectedCategory && t.date.slice(0, 7) === summary.monthKey)}
           categoryOptions={categoryOptions}
           onAssign={onAssign}
+          onEdit={onEdit}
           onClose={() => setSelectedCategory(null)}
         />
       )}
