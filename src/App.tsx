@@ -1327,15 +1327,31 @@ type Summary = {
   budgetUsageRate: number
 }
 
+const LEDGER_CACHE_KEY = 'shiba-ledger:v1'
+
+function readLedgerCache(): Transaction[] {
+  try {
+    const raw = window.localStorage.getItem(LEDGER_CACHE_KEY)
+    return raw ? (JSON.parse(raw) as Transaction[]) : []
+  } catch {
+    return []
+  }
+}
+
 function useLedgerHistory(): [Transaction[], () => void] {
-  const [history, setHistory] = useState<Transaction[]>([])
+  // 캐시된 원장으로 즉시 렌더(stale) → 백그라운드에서 서버 갱신(revalidate)
+  const [history, setHistory] = useState<Transaction[]>(() => readLedgerCache())
   const [nonce, setNonce] = useState(0)
   useEffect(() => {
     if (!getSyncConfig()) return
     let cancelled = false
     loadLedger<Transaction>()
-      .then((rows) => { if (!cancelled) setHistory(rows) })
-      .catch(() => { if (!cancelled) setHistory([]) })
+      .then((rows) => {
+        if (cancelled) return
+        setHistory(rows)
+        try { window.localStorage.setItem(LEDGER_CACHE_KEY, JSON.stringify(rows)) } catch { /* 용량 초과 등은 무시 */ }
+      })
+      .catch(() => { /* 오프라인이면 캐시 유지 */ })
     return () => { cancelled = true }
   }, [nonce])
   return [history, () => setNonce((n) => n + 1)]
