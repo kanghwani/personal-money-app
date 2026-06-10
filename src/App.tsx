@@ -932,13 +932,37 @@ function emptyFixedDef(monthKey: string, kind: 'expense' | 'income'): FixedDef {
   return { id: '', active: true, name: '', amount: 0, category: kind === 'income' ? '수입' : '', subCategory: '', payment: kind === 'income' ? '계좌이체' : '카드', payDay: 1, startMonth: monthKey, installmentTotal: null, variable: false, split: 0, kind }
 }
 
+const FIXED_DEFS_CACHE_KEY = 'shiba-fixed-defs:v1'
+
+function readFixedDefsCache(): FixedDef[] {
+  try {
+    const raw = window.localStorage.getItem(FIXED_DEFS_CACHE_KEY)
+    return raw ? (JSON.parse(raw) as FixedDef[]) : []
+  } catch {
+    return []
+  }
+}
+
 function FixedView({ monthKey }: { monthKey: string }) {
-  const [defs, setDefs] = useState<FixedDef[]>([])
+  // 캐시된 값으로 즉시 렌더(stale) → 백그라운드에서 서버 갱신(revalidate)
+  const [defs, setDefs] = useState<FixedDef[]>(() => readFixedDefsCache())
   const [editing, setEditing] = useState<FixedDef | null>(null)
   const [busy, setBusy] = useState(false)
+  // 캐시가 없을 때(첫 방문)만 로딩 표시
+  const [loading, setLoading] = useState(() => readFixedDefsCache().length === 0)
 
   const [view, setView] = useState<'expense' | 'income'>('expense')
-  const reload = () => { loadFixedDefs().then(setDefs).catch(() => setDefs([])) }
+
+  const applyDefs = (next: FixedDef[]) => {
+    setDefs(next)
+    try { window.localStorage.setItem(FIXED_DEFS_CACHE_KEY, JSON.stringify(next)) } catch { /* 용량 초과 등은 무시 */ }
+  }
+  const reload = () => {
+    loadFixedDefs()
+      .then(applyDefs)
+      .catch(() => { /* 오프라인이면 캐시 유지 */ })
+      .finally(() => setLoading(false))
+  }
   useEffect(() => { reload() }, [])
 
   const shown = defs.filter((d) => (d.kind || 'expense') === view)
@@ -946,19 +970,26 @@ function FixedView({ monthKey }: { monthKey: string }) {
 
   async function save(def: FixedDef) {
     setBusy(true)
+    // 낙관적 반영: 서버 응답 전에 화면/캐시 먼저 갱신
+    const exists = defs.some((d) => d.id === def.id)
+    applyDefs(exists ? defs.map((d) => (d.id === def.id ? def : d)) : [...defs, def])
+    setEditing(null)
     const ok = await saveFixedDef(def).catch(() => false)
     setBusy(false)
-    if (ok) { setEditing(null); reload() }
+    if (ok) reload()
   }
   async function remove(id: string) {
     setBusy(true)
+    applyDefs(defs.filter((d) => d.id !== id))
+    setEditing(null)
     const ok = await deleteFixedDef(id).catch(() => false)
     setBusy(false)
-    if (ok) { setEditing(null); reload() }
+    if (ok) reload()
   }
   async function toggle(def: FixedDef) {
-    await saveFixedDef({ ...def, active: !def.active }).catch(() => false)
-    reload()
+    // 낙관적 토글: 재요청 없이 즉시 반영
+    applyDefs(defs.map((d) => (d.id === def.id ? { ...d, active: !d.active } : d)))
+    saveFixedDef({ ...def, active: !def.active }).catch(() => {})
   }
 
   return (
@@ -997,7 +1028,11 @@ function FixedView({ monthKey }: { monthKey: string }) {
             </article>
           )
         })}
-        {shown.length === 0 && <p className="cat-empty">{view === 'income' ? '정기수입이' : '고정비가'} 없습니다. + 추가로 등록하세요.</p>}
+        {shown.length === 0 && (
+          <p className="cat-empty">
+            {loading ? '불러오는 중…' : `${view === 'income' ? '정기수입이' : '고정비가'} 없습니다. + 추가로 등록하세요.`}
+          </p>
+        )}
       </div>
 
       {editing && (
