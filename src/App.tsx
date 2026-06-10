@@ -36,6 +36,7 @@ import {
 import { pickNewer, dedupById } from './sync/merge'
 import { getSyncConfig, loadFromServer, saveToServer, loadLedger, assignCategory, loadFixedDefs, saveFixedDef, deleteFixedDef } from './sync/syncClient'
 import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, fixedRemaining, splitFromText, type QuickChip, type FixedDef } from './dashboardLogic'
+import { loadLearnedRules, classifyByLearned } from './learnedRules'
 import './App.css'
 
 type Tab = 'dashboard' | 'ledger' | 'assets' | 'insights' | 'fixed'
@@ -1647,7 +1648,8 @@ function parseTransactionEntry(raw: string): ParseResult {
   text = paymentParse.remaining
   const fixedParse = extractFixedType(text)
   text = fixedParse.remaining
-  const category = classify(text)
+  const learned = classifyByLearned(text, loadLearnedRules())
+  const category = learned ? { category: learned.category, sub: learned.subCategory } : classify(text)
 
   return {
     kind: 'transaction',
