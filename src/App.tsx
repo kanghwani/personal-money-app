@@ -210,10 +210,10 @@ function App() {
   const quickChips = useMemo(() => deriveQuickChips(mergedTransactions, 4), [mergedTransactions])
   const [undoTx, setUndoTx] = useState<Transaction | null>(null)
   const [pendingUncat, setPendingUncat] = useState<Transaction | null>(null)
-  const fixOptions = useMemo(() => {
-    const opts = distinctCategoryOptions(mergedTransactions)
-    return opts.length ? opts.slice(0, 8) : DEFAULT_FIX_OPTIONS
-  }, [mergedTransactions])
+  const fixOptions = useMemo(
+    () => (categoryOptions.length ? categoryOptions.slice(0, 8) : DEFAULT_FIX_OPTIONS),
+    [categoryOptions],
+  )
 
   useEffect(() => {
     if (!undoTx) return
@@ -396,7 +396,7 @@ function App() {
                       key={o.category + '/' + o.subCategory}
                       type="button"
                       className="fix-chip"
-                      onClick={() => assignAndLearn(pendingUncat, o.category, o.subCategory)}
+                      onClick={() => { if (pendingUncat) assignAndLearn(pendingUncat, o.category, o.subCategory) }}
                     >
                       {categoryIcon(o.category)} {o.category}{o.subCategory ? '·' + o.subCategory : ''}
                     </button>
