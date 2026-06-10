@@ -267,6 +267,22 @@ function App() {
     }))
   }
 
+  function editTransaction(updated: Transaction) {
+    const prev = mergedTransactions.find((t) => t.id === updated.id)
+    setStore((cur) => {
+      const exists = cur.transactions.some((t) => t.id === updated.id)
+      return {
+        ...cur,
+        transactions: exists
+          ? cur.transactions.map((t) => (t.id === updated.id ? updated : t))
+          : [updated, ...cur.transactions],
+      }
+    })
+    if (prev && (prev.category !== updated.category || prev.subCategory !== updated.subCategory)) {
+      assignCategory(updated.id, updated.category, updated.subCategory, updated.memo).catch(() => {})
+    }
+  }
+
   function saveAsset(assetItem: Asset) {
     setStore((current) => ({
       ...current,
@@ -360,6 +376,7 @@ function App() {
         <Ledger
           transactions={mergedTransactions}
           onDelete={deleteTransaction}
+          onEdit={editTransaction}
           quickChips={quickChips}
           onQuickAddForDate={quickAddForDate}
           onChipAddForDate={logQuickChipForDate}
@@ -561,12 +578,14 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign }: {
 function Ledger({
   transactions,
   onDelete,
+  onEdit,
   quickChips,
   onQuickAddForDate,
   onChipAddForDate,
 }: {
   transactions: Transaction[]
   onDelete: (id: string) => void
+  onEdit: (updated: Transaction) => void
   quickChips: QuickChip[]
   onQuickAddForDate: (raw: string, date: string) => void
   onChipAddForDate: (chip: QuickChip, date: string) => void
@@ -576,6 +595,7 @@ function Ledger({
   const now = new Date()
   const [ym, setYm] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 })
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const filtered = transactions.filter((item) => filter === 'all' || item.type === filter)
   const yearMonth = `${ym.year}-${String(ym.month).padStart(2, '0')}`
   const totals = dailyTotals(transactions, yearMonth)
@@ -599,14 +619,17 @@ function Ledger({
           <section className="ledger-table">
             {filtered.map((transaction) => (
               <article className="ledger-row" key={transaction.id}>
-                <div>
+                <button type="button" className="ledger-row-main" onClick={() => setEditingTx(transaction)}>
                   <p className="row-title">{transaction.memo}</p>
                   <p className="row-meta">
                     {formatDateLabel(transaction.date)} · {transaction.category} · {transaction.payment || '미지정'} · {fixedTypeLabel(transaction.fixedType)}
                   </p>
-                </div>
+                </button>
                 <div className="row-actions">
                   <strong className={transaction.type === 'income' ? 'income' : ''}>{transaction.type === 'income' ? '+' : '-'}{formatMoney(transaction.amount)}</strong>
+                  <button type="button" className="edit-btn" aria-label="수정" onClick={() => setEditingTx(transaction)}>
+                    <Pencil size={15} />
+                  </button>
                   <button type="button" aria-label="삭제" onClick={() => onDelete(transaction.id)}>
                     <Trash2 size={17} />
                   </button>
@@ -614,6 +637,14 @@ function Ledger({
               </article>
             ))}
           </section>
+
+          {editingTx && (
+            <TransactionEditSheet
+              tx={editingTx}
+              onClose={() => setEditingTx(null)}
+              onSave={(updated) => { onEdit(updated); setEditingTx(null) }}
+            />
+          )}
         </>
       )}
 
@@ -1005,6 +1036,49 @@ function FixedEditSheet({ def, busy, onClose, onSave, onDelete }: {
         <div className="fixed-actions">
           {def.id && <button type="button" className="fixed-del" disabled={busy} onClick={() => onDelete(def.id)}>삭제</button>}
           <button type="button" className="fixed-save" disabled={busy || !draft.name} onClick={() => onSave(draft)}>{busy ? '저장 중…' : '저장'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TransactionEditSheet({ tx, onClose, onSave }: {
+  tx: Transaction
+  onClose: () => void
+  onSave: (updated: Transaction) => void
+}) {
+  const [draft, setDraft] = useState<Transaction>(tx)
+  const set = (patch: Partial<Transaction>) => setDraft((d) => ({ ...d, ...patch }))
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <div className="cat-sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="cat-sheet-head">
+          <div className="cat-sheet-title"><h3>거래 수정</h3></div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="닫기"><X size={18} /></button>
+        </div>
+        <div className="fixed-form">
+          <label>내역<input value={draft.memo} onChange={(e) => set({ memo: e.target.value })} /></label>
+          <label>금액<input type="number" value={draft.amount || ''} onChange={(e) => set({ amount: Number(e.target.value) || 0 })} /></label>
+          <label>날짜<input type="date" value={draft.date} onChange={(e) => set({ date: e.target.value })} /></label>
+          <label>구분
+            <select value={draft.type} onChange={(e) => set({ type: e.target.value as TransactionType })}>
+              <option value="expense">지출</option>
+              <option value="income">수입</option>
+            </select>
+          </label>
+          <label>대분류<input value={draft.category} onChange={(e) => set({ category: e.target.value })} /></label>
+          <label>소분류<input value={draft.subCategory} onChange={(e) => set({ subCategory: e.target.value })} /></label>
+          <label>결제수단<input value={draft.payment} onChange={(e) => set({ payment: e.target.value })} /></label>
+          <label>고정/변동
+            <select value={draft.fixedType} onChange={(e) => set({ fixedType: e.target.value as FixedType })}>
+              <option value="variable">변동</option>
+              <option value="fixed">고정</option>
+            </select>
+          </label>
+          <label>분담금<input type="number" value={draft.split || ''} onChange={(e) => set({ split: Number(e.target.value) || 0 })} /></label>
+        </div>
+        <div className="fixed-actions">
+          <button type="button" className="fixed-save" onClick={() => onSave(draft)}>저장</button>
         </div>
       </div>
     </div>
