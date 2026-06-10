@@ -36,7 +36,7 @@ import {
 import { pickNewer, dedupById } from './sync/merge'
 import { getSyncConfig, loadFromServer, saveToServer, loadLedger, assignCategory, loadFixedDefs, saveFixedDef, deleteFixedDef } from './sync/syncClient'
 import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, fixedRemaining, splitFromText, type QuickChip, type FixedDef } from './dashboardLogic'
-import { loadLearnedRules, classifyByLearned } from './learnedRules'
+import { loadLearnedRules, saveLearnedRule, classifyByLearned } from './learnedRules'
 import './App.css'
 
 type Tab = 'dashboard' | 'ledger' | 'assets' | 'insights' | 'fixed'
@@ -123,6 +123,19 @@ const categoryRules = [
   { words: ['월급', '급여', '입금', '보너스'], category: '수입', sub: '급여' },
 ]
 
+// 거래 이력이 없을 때 미분류 교정 칩에 보여줄 기본 카테고리 목록
+const DEFAULT_FIX_OPTIONS: { category: string; subCategory: string }[] = [
+  { category: '식비', subCategory: '외식' },
+  { category: '식비', subCategory: '카페/간식' },
+  { category: '식비', subCategory: '장보기' },
+  { category: '생활', subCategory: '생활잡화' },
+  { category: '교통/차량', subCategory: '' },
+  { category: '주거/통신', subCategory: '' },
+  { category: '건강', subCategory: '' },
+  { category: '문화/구독', subCategory: '구독' },
+  { category: '취미', subCategory: '게임' },
+]
+
 
 const seedData: FinanceStore = {
   transactions: [
@@ -196,6 +209,11 @@ function App() {
   )
   const quickChips = useMemo(() => deriveQuickChips(mergedTransactions, 4), [mergedTransactions])
   const [undoTx, setUndoTx] = useState<Transaction | null>(null)
+  const [pendingUncat, setPendingUncat] = useState<Transaction | null>(null)
+  const fixOptions = useMemo(() => {
+    const opts = distinctCategoryOptions(mergedTransactions)
+    return opts.length ? opts.slice(0, 8) : DEFAULT_FIX_OPTIONS
+  }, [mergedTransactions])
 
   useEffect(() => {
     if (!undoTx) return
@@ -229,6 +247,11 @@ function App() {
     })
 
     setLastMessage(resultLabel(parsed))
+    if (parsed.kind === 'transaction' && parsed.transaction.type === 'expense' && parsed.transaction.category === '미분류') {
+      setPendingUncat(parsed.transaction)
+    } else {
+      setPendingUncat(null)
+    }
   }
 
   function logQuickChipForDate(chip: QuickChip, date: string) {
@@ -240,9 +263,6 @@ function App() {
     setStore((cur) => ({ ...cur, transactions: [t, ...cur.transactions] }))
     setUndoTx(t)
     setLastMessage(`${chip.label} ${formatMoney(chip.amount)} 기록`)
-  }
-  function logQuickChip(chip: QuickChip) {
-    logQuickChipForDate(chip, todayIso())
   }
   function quickAddForDate(raw: string, date: string) {
     const parsed = parseQuickEntry(raw)
@@ -259,6 +279,13 @@ function App() {
     if (!undoTx) return
     setStore((cur) => ({ ...cur, transactions: cur.transactions.filter((x) => x.id !== undoTx.id) }))
     setUndoTx(null)
+  }
+
+  function assignAndLearn(tx: Transaction, category: string, subCategory: string) {
+    editTransaction({ ...tx, category, subCategory })   // store/캐시 갱신 + (카테고리 변경 시) 서버 assignCategory 호출
+    saveLearnedRule({ keyword: tx.memo, category, subCategory })
+    setPendingUncat(null)
+    setLastMessage(`${category}${subCategory ? '·' + subCategory : ''}로 분류됨 · 다음부터 자동`)
   }
 
   function deleteTransaction(id: string) {
@@ -359,16 +386,24 @@ function App() {
                 <button type="button" onClick={undoLastChip}>되돌리기</button>
               </div>
             )}
-            {quickChips.length > 0 && (
-              <div className="quick-chips">
-                {quickChips.map((c) => (
-                  <button key={c.key} type="button" className="quick-chip" onClick={() => logQuickChip(c)}>
-                    <span>{c.emoji}</span>{c.label}
-                  </button>
-                ))}
+            <QuickEntry onSubmit={applyQuickInput} lastMessage={lastMessage} />
+            {pendingUncat && (
+              <div className="fix-uncat">
+                <p className="fix-uncat-label">미분류 — 카테고리를 골라주세요</p>
+                <div className="fix-chips">
+                  {fixOptions.map((o) => (
+                    <button
+                      key={o.category + '/' + o.subCategory}
+                      type="button"
+                      className="fix-chip"
+                      onClick={() => assignAndLearn(pendingUncat, o.category, o.subCategory)}
+                    >
+                      {categoryIcon(o.category)} {o.category}{o.subCategory ? '·' + o.subCategory : ''}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
-            <QuickEntry onSubmit={applyQuickInput} lastMessage={lastMessage} />
           </div>
           <Dashboard summary={summary} transactions={mergedTransactions} categoryOptions={categoryOptions} onAssign={assignCategoryFor} onEdit={editTransaction} />
         </>
