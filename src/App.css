@@ -869,6 +869,45 @@
   cursor: pointer;
 }
 
+.fix-uncat {
+  max-width: 1180px;
+  margin: 0 auto 8px;
+}
+
+.fix-uncat-label {
+  margin: 2px 4px 6px;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.fix-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: none;
+}
+
+.fix-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.fix-chip {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--accent-tan-soft);
+  color: var(--accent-tan);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 6px 11px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .undo-toast {
   display: flex;
   justify-content: space-between;
