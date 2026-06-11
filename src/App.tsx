@@ -556,6 +556,7 @@ function CategoryDetailSheet({ category, transactions, categoryOptions, onAssign
     {editingTx && (
       <TransactionEditSheet
         tx={editingTx}
+        categoryOptions={categoryOptions}
         onClose={() => setEditingTx(null)}
         onSave={(updated) => { onEdit(updated); setEditingTx(null) }}
       />
@@ -645,6 +646,7 @@ function Ledger({
   const [ym, setYm] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 })
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
+  const categoryOptions = useMemo(() => distinctCategoryOptions(transactions), [transactions])
   const filtered = transactions.filter((item) => filter === 'all' || item.type === filter)
   const yearMonth = `${ym.year}-${String(ym.month).padStart(2, '0')}`
   const totals = dailyTotals(transactions, yearMonth)
@@ -690,6 +692,7 @@ function Ledger({
           {editingTx && (
             <TransactionEditSheet
               tx={editingTx}
+              categoryOptions={categoryOptions}
               onClose={() => setEditingTx(null)}
               onSave={(updated) => { onEdit(updated); setEditingTx(null) }}
             />
@@ -1126,13 +1129,25 @@ function FixedEditSheet({ def, busy, onClose, onSave, onDelete }: {
   )
 }
 
-function TransactionEditSheet({ tx, onClose, onSave }: {
+function TransactionEditSheet({ tx, categoryOptions, onClose, onSave }: {
   tx: Transaction
+  categoryOptions: { category: string; subCategory: string }[]
   onClose: () => void
   onSave: (updated: Transaction) => void
 }) {
   const [draft, setDraft] = useState<Transaction>(tx)
   const set = (patch: Partial<Transaction>) => setDraft((d) => ({ ...d, ...patch }))
+  // 기존 데이터의 카테고리 + 기본 카테고리를 합쳐 자동완성 후보로 사용 (직접 입력도 가능)
+  const allOptions = useMemo(() => [...categoryOptions, ...DEFAULT_FIX_OPTIONS], [categoryOptions])
+  const categoryList = useMemo(
+    () => [...new Set(allOptions.map((o) => o.category).filter(Boolean))],
+    [allOptions],
+  )
+  const subCategoryList = useMemo(() => {
+    const matched = allOptions.filter((o) => o.category === draft.category && o.subCategory)
+    const pool = matched.length ? matched : allOptions
+    return [...new Set(pool.map((o) => o.subCategory).filter(Boolean))]
+  }, [allOptions, draft.category])
   return (
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="cat-sheet" onClick={(e) => e.stopPropagation()}>
@@ -1150,8 +1165,14 @@ function TransactionEditSheet({ tx, onClose, onSave }: {
               <option value="income">수입</option>
             </select>
           </label>
-          <label>대분류<input value={draft.category} onChange={(e) => set({ category: e.target.value })} /></label>
-          <label>소분류<input value={draft.subCategory} onChange={(e) => set({ subCategory: e.target.value })} /></label>
+          <label>대분류
+            <input list="edit-cat-list" value={draft.category} onChange={(e) => set({ category: e.target.value })} placeholder="선택 또는 직접 입력" />
+            <datalist id="edit-cat-list">{categoryList.map((c) => <option key={c} value={c} />)}</datalist>
+          </label>
+          <label>소분류
+            <input list="edit-sub-list" value={draft.subCategory} onChange={(e) => set({ subCategory: e.target.value })} placeholder="선택 또는 직접 입력" />
+            <datalist id="edit-sub-list">{subCategoryList.map((s) => <option key={s} value={s} />)}</datalist>
+          </label>
           <label>결제수단<input value={draft.payment} onChange={(e) => set({ payment: e.target.value })} /></label>
           <label>고정/변동
             <select value={draft.fixedType} onChange={(e) => set({ fixedType: e.target.value as FixedType })}>
