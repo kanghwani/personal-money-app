@@ -34,7 +34,7 @@ import {
   X,
 } from 'lucide-react'
 import { pickNewer, dedupById } from './sync/merge'
-import { getSyncConfig, loadFromServer, saveToServer, loadLedger, assignCategory, loadFixedDefs, saveFixedDef, deleteFixedDef } from './sync/syncClient'
+import { getSyncConfig, loadFromServer, saveToServer, loadLedger, assignCategory, loadFixedDefs, saveFixedDef, deleteFixedDef, deleteLedger, updateLedger, appendLedger } from './sync/syncClient'
 import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, fixedRemaining, splitFromText, type QuickChip, type FixedDef } from './dashboardLogic'
 import { loadLearnedRules, saveLearnedRule, classifyByLearned } from './learnedRules'
 import './App.css'
@@ -233,18 +233,19 @@ function App() {
       return
     }
 
-    setStore((current) => {
-      if (parsed.kind === 'transaction') {
-        return { ...current, transactions: [parsed.transaction, ...current.transactions] }
-      }
-      if (parsed.kind === 'asset') {
-        return { ...current, assets: upsertByName(current.assets, parsed.asset) }
-      }
-      if (parsed.kind === 'investment') {
-        return { ...current, investments: upsertManyInvestments(current.investments, parsed.investments) }
-      }
-      return { ...current, loans: upsertByName(current.loans, parsed.loan) }
-    })
+    if (parsed.kind === 'transaction') {
+      recordTransaction(parsed.transaction)   // 로컬 + 시트 원장
+    } else {
+      setStore((current) => {
+        if (parsed.kind === 'asset') {
+          return { ...current, assets: upsertByName(current.assets, parsed.asset) }
+        }
+        if (parsed.kind === 'investment') {
+          return { ...current, investments: upsertManyInvestments(current.investments, parsed.investments) }
+        }
+        return { ...current, loans: upsertByName(current.loans, parsed.loan) }
+      })
+    }
 
     setLastMessage(resultLabel(parsed))
     if (parsed.kind === 'transaction' && parsed.transaction.type === 'expense' && parsed.transaction.category === '미분류') {
@@ -260,7 +261,7 @@ function App() {
       memo: chip.label, category: chip.category, subCategory: chip.subCategory,
       payment: chip.payment, fixedType: chip.fixedType, split: 0, raw: `${chip.label} ${chip.amount}`,
     }
-    setStore((cur) => ({ ...cur, transactions: [t, ...cur.transactions] }))
+    recordTransaction(t)
     setUndoTx(t)
     setLastMessage(`${chip.label} ${formatMoney(chip.amount)} 기록`)
   }
@@ -269,7 +270,7 @@ function App() {
     if (parsed.kind === 'error') { setLastMessage(parsed.message); return }
     if (parsed.kind === 'transaction') {
       const t = { ...parsed.transaction, date }
-      setStore((cur) => ({ ...cur, transactions: [t, ...cur.transactions] }))
+      recordTransaction(t)
       setLastMessage(resultLabel(parsed))
       return
     }
@@ -277,7 +278,9 @@ function App() {
   }
   function undoLastChip() {
     if (!undoTx) return
-    setStore((cur) => ({ ...cur, transactions: cur.transactions.filter((x) => x.id !== undoTx.id) }))
+    const id = undoTx.id
+    setStore((cur) => ({ ...cur, transactions: cur.transactions.filter((x) => x.id !== id) }))
+    deleteLedger(id).then((ok) => { if (ok) refreshHistory() }).catch(() => {})
     setUndoTx(null)
   }
 
@@ -289,10 +292,12 @@ function App() {
   }
 
   function deleteTransaction(id: string) {
+    // 로컬 store에서 제거 + 시트 원장에서도 삭제(시리/원장 거래 포함). 성공 시 원장 새로고침.
     setStore((current) => ({
       ...current,
       transactions: current.transactions.filter((item) => item.id !== id),
     }))
+    deleteLedger(id).then((ok) => { if (ok) refreshHistory() }).catch(() => {})
   }
 
   function editTransaction(updated: Transaction) {
@@ -306,9 +311,18 @@ function App() {
           : [updated, ...cur.transactions],
       }
     })
+    // 전체 필드(금액/날짜/내역/분류/결제수단/고정변동/분담금)를 시트 원장에 반영
+    updateLedger(updated).then((ok) => { if (ok) refreshHistory() }).catch(() => {})
+    // 카테고리가 바뀌면 분류규칙도 학습(같은 내역 자동분류용)
     if (prev && (prev.category !== updated.category || prev.subCategory !== updated.subCategory)) {
       assignCategory(updated.id, updated.category, updated.subCategory, updated.memo).catch(() => {})
     }
+  }
+
+  // 인앱 거래를 로컬에 즉시 표시 + 시트 원장에 기록(단일 원천화, 리포트 집계 포함)
+  function recordTransaction(t: Transaction) {
+    setStore((cur) => ({ ...cur, transactions: [t, ...cur.transactions] }))
+    appendLedger(t).catch(() => {})
   }
 
   function saveAsset(assetItem: Asset) {

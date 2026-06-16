@@ -116,3 +116,36 @@ export async function deleteFixedDef(id: string, cfg: SyncConfig | null = getSyn
   const data = await res.json()
   return !!(data && data.ok)
 }
+
+/** 거래원장에서 id로 행 삭제. 원장에 없으면(로컬 전용) 서버는 ok/deleted:0 반환. cfg 없으면 false. */
+export async function deleteLedger(id: string, cfg: SyncConfig | null = getSyncConfig()): Promise<boolean> {
+  if (!cfg) return false
+  const res = await fetch(cfg.url, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, redirect: 'follow',
+    body: JSON.stringify({ action: 'deleteLedger', token: cfg.token, id }),
+  })
+  const data = await res.json()
+  return !!(data && data.ok)
+}
+
+/** 거래원장 행을 id로 찾아 전체 필드 갱신(금액/날짜/내역/분류/결제수단/고정변동/분담금). cfg 없으면 false. */
+export async function updateLedger(tx: unknown, cfg: SyncConfig | null = getSyncConfig()): Promise<boolean> {
+  if (!cfg) return false
+  const res = await fetch(cfg.url, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, redirect: 'follow',
+    body: JSON.stringify({ action: 'updateLedger', token: cfg.token, tx }),
+  })
+  const data = await res.json()
+  return !!(data && data.ok)
+}
+
+/** 앱 거래를 거래원장에 추가(앱 id 그대로 사용, 같은 id 있으면 서버가 스킵). cfg 없으면 false. */
+export async function appendLedger(tx: unknown, cfg: SyncConfig | null = getSyncConfig()): Promise<boolean> {
+  if (!cfg) return false
+  const res = await fetch(cfg.url, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, redirect: 'follow',
+    body: JSON.stringify({ action: 'appendLedger', token: cfg.token, tx }),
+  })
+  const data = await res.json()
+  return !!(data && data.ok)
+}
