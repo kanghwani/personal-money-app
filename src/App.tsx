@@ -1878,6 +1878,7 @@ function extractPayment(memo: string) {
     '현대카드',
     '신한카드',
     '하나카드',
+    '이음카드',
     '우리카드',
     '롯데카드',
     '카카오뱅크',
@@ -1895,6 +1896,7 @@ function extractPayment(memo: string) {
     '네이버',
     '현금',
     '계좌',
+    '이음',
     '카드',
   ]
   const match = paymentPatterns.find((item) => memo.includes(item))
@@ -1915,6 +1917,7 @@ function normalizePayment(value: string) {
     카카오: '카카오페이',
     네이버: '네이버페이',
     계좌: '계좌이체',
+    이음: '이음카드',
     카드: '카드',
   }
   return aliases[value] ?? value
