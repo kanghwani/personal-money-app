@@ -35,7 +35,7 @@ import {
 } from 'lucide-react'
 import { pickNewer, dedupById } from './sync/merge'
 import { getSyncConfig, loadFromServer, saveToServer, loadLedger, assignCategory, loadFixedDefs, saveFixedDef, deleteFixedDef, deleteLedger, updateLedger, appendLedger } from './sync/syncClient'
-import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, fixedRemaining, splitFromText, type QuickChip, type FixedDef } from './dashboardLogic'
+import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, type QuickChip, type FixedDef } from './dashboardLogic'
 import { loadLearnedRules, saveLearnedRule, classifyByLearned } from './learnedRules'
 import './App.css'
 
@@ -461,7 +461,7 @@ function QuickEntry({ onSubmit, lastMessage }: { onSubmit: (raw: string) => void
           onKeyDown={(event) => {
             if (event.key === 'Enter') submit()
           }}
-          placeholder="오늘 5000 점심밥"
+          placeholder="5000 다이소 청소용품 하나카드"
         />
         <button className="send-button" type="button" onClick={submit} aria-label="입력">
           <Send size={18} />
@@ -1151,6 +1151,9 @@ function TransactionEditSheet({ tx, categoryOptions, onClose, onSave }: {
 }) {
   const [draft, setDraft] = useState<Transaction>(tx)
   const set = (patch: Partial<Transaction>) => setDraft((d) => ({ ...d, ...patch }))
+  const [place, setPlace] = useState(() => splitPlaceItem(tx.memo).place)
+  const [item, setItem] = useState(() => splitPlaceItem(tx.memo).item)
+  const [showCat, setShowCat] = useState(false)
   // 기존 데이터의 카테고리 + 기본 카테고리를 합쳐 자동완성 후보로 사용 (직접 입력도 가능)
   const allOptions = useMemo(() => [...categoryOptions, ...DEFAULT_FIX_OPTIONS], [categoryOptions])
   const categoryList = useMemo(
@@ -1170,7 +1173,8 @@ function TransactionEditSheet({ tx, categoryOptions, onClose, onSave }: {
           <button type="button" className="icon-button" onClick={onClose} aria-label="닫기"><X size={18} /></button>
         </div>
         <div className="fixed-form">
-          <label>내역<input value={draft.memo} onChange={(e) => set({ memo: e.target.value })} /></label>
+          <label>장소<input value={place} onChange={(e) => setPlace(e.target.value)} placeholder="예: 다이소" /></label>
+          <label>물건<input value={item} onChange={(e) => setItem(e.target.value)} placeholder="예: 청소용품" /></label>
           <label>금액<input type="number" value={draft.amount || ''} onChange={(e) => set({ amount: Number(e.target.value) || 0 })} /></label>
           <label>날짜<input type="date" value={draft.date} onChange={(e) => set({ date: e.target.value })} /></label>
           <label>구분
@@ -1179,14 +1183,22 @@ function TransactionEditSheet({ tx, categoryOptions, onClose, onSave }: {
               <option value="income">수입</option>
             </select>
           </label>
-          <label>대분류
-            <input list="edit-cat-list" value={draft.category} onChange={(e) => set({ category: e.target.value })} placeholder="선택 또는 직접 입력" />
-            <datalist id="edit-cat-list">{categoryList.map((c) => <option key={c} value={c} />)}</datalist>
-          </label>
-          <label>소분류
-            <input list="edit-sub-list" value={draft.subCategory} onChange={(e) => set({ subCategory: e.target.value })} placeholder="선택 또는 직접 입력" />
-            <datalist id="edit-sub-list">{subCategoryList.map((s) => <option key={s} value={s} />)}</datalist>
-          </label>
+          {!showCat ? (
+            <button type="button" className="cat-toggle" onClick={() => setShowCat(true)}>
+              자동 분류: {draft.category || '미분류'}{draft.subCategory ? ' · ' + draft.subCategory : ''} · 수정 ▾
+            </button>
+          ) : (
+            <>
+              <label>대분류
+                <input list="edit-cat-list" value={draft.category} onChange={(e) => set({ category: e.target.value })} placeholder="선택 또는 직접 입력" />
+                <datalist id="edit-cat-list">{categoryList.map((c) => <option key={c} value={c} />)}</datalist>
+              </label>
+              <label>소분류
+                <input list="edit-sub-list" value={draft.subCategory} onChange={(e) => set({ subCategory: e.target.value })} placeholder="선택 또는 직접 입력" />
+                <datalist id="edit-sub-list">{subCategoryList.map((s) => <option key={s} value={s} />)}</datalist>
+              </label>
+            </>
+          )}
           <label>결제수단<input value={draft.payment} onChange={(e) => set({ payment: e.target.value })} /></label>
           <label>고정/변동
             <select value={draft.fixedType} onChange={(e) => set({ fixedType: e.target.value as FixedType })}>
@@ -1197,7 +1209,7 @@ function TransactionEditSheet({ tx, categoryOptions, onClose, onSave }: {
           <label>분담금<input type="number" value={draft.split || ''} onChange={(e) => set({ split: Number(e.target.value) || 0 })} /></label>
         </div>
         <div className="fixed-actions">
-          <button type="button" className="fixed-save" onClick={() => onSave(draft)}>저장</button>
+          <button type="button" className="fixed-save" onClick={() => onSave({ ...draft, memo: joinPlaceItem(place, item) })}>저장</button>
         </div>
       </div>
     </div>

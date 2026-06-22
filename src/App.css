@@ -993,3 +993,14 @@
 .fixed-save { flex: 1; background: var(--accent-tan); color: #fff; border: none; border-radius: 14px; padding: 11px; font-size: 14px; font-weight: 700; cursor: pointer; }
 .fixed-del { background: none; border: 1px solid var(--line); color: var(--danger, #b8654a); border-radius: 14px; padding: 11px 16px; font-size: 14px; cursor: pointer; }
 .reassign-opt:hover { border-color: var(--accent-tan); }
+
+.cat-toggle {
+  align-self: flex-start;
+  background: var(--surface-solid);
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+}
