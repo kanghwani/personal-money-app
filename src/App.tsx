@@ -576,6 +576,7 @@ function CategoryDetailSheet({ category, transactions, categoryOptions, onAssign
     </div>
     {editingTx && (
       <TransactionEditSheet
+        key={editingTx.id}
         tx={editingTx}
         categoryOptions={categoryOptions}
         onClose={() => setEditingTx(null)}
@@ -715,6 +716,7 @@ function Ledger({
 
           {editingTx && (
             <TransactionEditSheet
+              key={editingTx.id}
               tx={editingTx}
               categoryOptions={categoryOptions}
               onClose={() => setEditingTx(null)}
