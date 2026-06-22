@@ -163,3 +163,17 @@ export function deriveQuickChips(transactions: TxLike[], limit: number): QuickCh
     .slice(0, limit)
     .map((x) => x.chip)
 }
+
+/** memo를 장소(첫 단어)+물건(나머지)로 분리. 공백 정리 후 첫 공백 기준. */
+export function splitPlaceItem(memo: string): { place: string; item: string } {
+  const text = (memo || '').trim().replace(/\s+/g, ' ')
+  if (!text) return { place: '', item: '' }
+  const sp = text.indexOf(' ')
+  if (sp < 0) return { place: text, item: '' }
+  return { place: text.slice(0, sp), item: text.slice(sp + 1) }
+}
+
+/** 장소+물건을 공백으로 합쳐 memo 생성. 빈 값 안전 처리. */
+export function joinPlaceItem(place: string, item: string): string {
+  return `${(place || '').trim()} ${(item || '').trim()}`.trim()
+}

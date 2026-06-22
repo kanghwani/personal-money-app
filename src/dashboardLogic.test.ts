@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, type TxLike, type FixedDef } from './dashboardLogic'
+import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, type TxLike, type FixedDef } from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
   ({ date, type: 'expense', amount, category, subCategory, payment, fixedType: 'variable' })
@@ -146,5 +146,38 @@ describe('splitFromText', () => {
   })
   it('분담 없으면 0, 텍스트 유지', () => {
     expect(splitFromText('점심 김밥', 5000)).toEqual({ split: 0, remaining: '점심 김밥' })
+  })
+})
+
+describe('splitPlaceItem', () => {
+  it('두 단어: 첫 단어=장소, 나머지=물건', () => {
+    expect(splitPlaceItem('다이소 청소용품')).toEqual({ place: '다이소', item: '청소용품' })
+  })
+  it('물건에 공백 여러 단어', () => {
+    expect(splitPlaceItem('투썸플레이스 딸기 라떼')).toEqual({ place: '투썸플레이스', item: '딸기 라떼' })
+  })
+  it('한 단어면 장소만', () => {
+    expect(splitPlaceItem('스타벅스')).toEqual({ place: '스타벅스', item: '' })
+  })
+  it('빈 문자열', () => {
+    expect(splitPlaceItem('')).toEqual({ place: '', item: '' })
+  })
+  it('앞뒤/중복 공백 정리', () => {
+    expect(splitPlaceItem('  다이소   청소용품  ')).toEqual({ place: '다이소', item: '청소용품' })
+  })
+})
+
+describe('joinPlaceItem', () => {
+  it('장소+물건 결합', () => {
+    expect(joinPlaceItem('다이소', '청소용품')).toBe('다이소 청소용품')
+  })
+  it('물건 비면 장소만', () => {
+    expect(joinPlaceItem('스타벅스', '')).toBe('스타벅스')
+  })
+  it('둘 다 비면 빈 문자열', () => {
+    expect(joinPlaceItem('', '')).toBe('')
+  })
+  it('앞뒤 공백 정리', () => {
+    expect(joinPlaceItem(' 다이소 ', ' 청소용품 ')).toBe('다이소 청소용품')
   })
 })
