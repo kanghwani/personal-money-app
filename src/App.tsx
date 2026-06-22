@@ -540,7 +540,10 @@ function CategoryDetailSheet({ category, transactions, categoryOptions, onAssign
             <div className="cat-tx-row" key={t.id}>
               <div className="cat-tx-main">
                 <button type="button" className="cat-tx-edit" onClick={() => setEditingTx(t)}>
-                  <p className="row-title">{t.memo}</p>
+                  <p className="row-title">
+                    <span className="row-place">🏪 {splitPlaceItem(t.memo).place || '미입력'}</span>
+                    {splitPlaceItem(t.memo).item && <span className="row-item"> · {splitPlaceItem(t.memo).item}</span>}
+                  </p>
                   <p className="row-meta">{formatDateLabel(t.date)} · {t.subCategory || '미지정'} · {t.payment || '미지정'}</p>
                 </button>
                 <div className="cat-tx-right">
@@ -685,7 +688,10 @@ function Ledger({
             {filtered.map((transaction) => (
               <article className="ledger-row" key={transaction.id}>
                 <button type="button" className="ledger-row-main" onClick={() => setEditingTx(transaction)}>
-                  <p className="row-title">{transaction.memo}</p>
+                  <p className="row-title">
+                    <span className="row-place">🏪 {splitPlaceItem(transaction.memo).place || '미입력'}</span>
+                    {splitPlaceItem(transaction.memo).item && <span className="row-item"> · {splitPlaceItem(transaction.memo).item}</span>}
+                  </p>
                   <p className="row-meta">
                     {formatDateLabel(transaction.date)} · {transaction.category} · {transaction.payment || '미지정'} · {fixedTypeLabel(transaction.fixedType)}
                   </p>

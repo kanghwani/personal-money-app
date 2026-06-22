@@ -1004,3 +1004,6 @@
   color: var(--muted);
   cursor: pointer;
 }
+
+.row-place { font-weight: 800; }
+.row-item { font-weight: 600; color: var(--muted); }
