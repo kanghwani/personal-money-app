@@ -111,15 +111,19 @@ const UPDATED_AT_KEY = 'personal-money-app:v1:updatedAt'
 export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error'
 
 const categoryRules = [
-  { words: ['점심', '저녁', '밥', '식당', '라멘', '피자', '버거', '김밥'], category: '식비', sub: '외식' },
-  { words: ['커피', '카페', '아메리카노', '라떼'], category: '식비', sub: '카페' },
-  { words: ['마트', '장보기', '식자재', '쿠팡', '컬리'], category: '식비', sub: '장보기' },
+  { words: ['점심', '저녁', '밥', '식당', '라멘', '피자', '버거', '김밥', '마라탕'], category: '식비', sub: '외식' },
+  { words: ['커피', '카페', '아메리카노', '라떼', '스타벅스', '투썸', '이디야', '빽다방', '컴포즈', '메가커피'], category: '식비', sub: '카페' },
+  { words: ['마트', '장보기', '식자재', '쿠팡', '컬리', '코스트코', '홈플러스', '롯데마트', '이마트', '노브랜드', '와마트'], category: '식비', sub: '장보기' },
+  { words: ['편의점', 'CU', 'GS25', '세븐일레븐'], category: '식비', sub: '간편식' },
+  { words: ['다이소'], category: '생활', sub: '생활잡화' },
+  { words: ['올리브영'], category: '생활', sub: '뷰티/미용' },
   { words: ['월세', '관리비', '전기', '가스', '인터넷', '통신'], category: '주거/통신', sub: '고정비' },
   { words: ['주차', '택시', '버스', '지하철', '자동차', '기름'], category: '교통/차량', sub: '이동' },
   { words: ['병원', '약', '수영', '헬스', '운동'], category: '건강', sub: '관리' },
   { words: ['넷플릭스', '구독', '애플', '네이버', '스포티파이'], category: '문화/구독', sub: '구독' },
   { words: ['게임', '스팀', '플레이', '취미'], category: '취미', sub: '게임' },
-  { words: ['책', '강의', '학원', '공부'], category: '자기계발', sub: '교육' },
+  { words: ['유니클로'], category: '쇼핑', sub: '의류' },
+  { words: ['책', '강의', '학원', '공부', '교보문고'], category: '자기계발', sub: '교육' },
   { words: ['월급', '급여', '입금', '보너스'], category: '수입', sub: '급여' },
 ]
 
