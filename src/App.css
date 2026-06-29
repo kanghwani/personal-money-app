@@ -1007,3 +1007,14 @@
 
 .row-place { font-weight: 800; }
 .row-item { font-weight: 600; color: var(--muted); }
+
+.delta-list { display: flex; flex-direction: column; gap: 10px; }
+.delta-row { display: grid; grid-template-columns: 64px 1fr auto; align-items: center; gap: 10px; }
+.delta-name { font-weight: 700; font-size: 13px; color: var(--ink); }
+.delta-bar-wrap { background: var(--line); border-radius: 6px; height: 8px; overflow: hidden; }
+.delta-bar { display: block; height: 100%; border-radius: 6px; }
+.delta-bar.up { background: #c9554f; }
+.delta-bar.down { background: #7e9b6f; }
+.delta-val { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.delta-val.up { color: #c9554f; }
+.delta-val.down { color: #7e9b6f; }

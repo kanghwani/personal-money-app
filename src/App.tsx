@@ -35,7 +35,7 @@ import {
 } from 'lucide-react'
 import { pickNewer, dedupById } from './sync/merge'
 import { getSyncConfig, loadFromServer, saveToServer, loadLedger, assignCategory, loadFixedDefs, saveFixedDef, deleteFixedDef, deleteLedger, updateLedger, appendLedger } from './sync/syncClient'
-import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, type QuickChip, type FixedDef } from './dashboardLogic'
+import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, type QuickChip, type FixedDef } from './dashboardLogic'
 import { loadLearnedRules, saveLearnedRule, classifyByLearned } from './learnedRules'
 import './App.css'
 
@@ -926,6 +926,9 @@ function AssetsView({ store, summary, onSaveAsset }: { store: FinanceStore; summ
 function InsightsView({ store, summary, transactions }: { store: FinanceStore; summary: Summary; transactions: Transaction[] }) {
   const insightRows = buildInsights(transactions, summary, store)
   const colors = ['#c9794f', '#7e9b6f', '#d6a85e', '#9a7bb0', '#5a7d8f', '#cdbf9c']
+  const places = placeTotals(transactions, summary.monthKey, 7)
+  const deltas = categoryDeltas(transactions, summary.monthKey, summary.previousMonth?.month).slice(0, 5)
+  const maxDelta = Math.max(1, ...deltas.map((d) => Math.abs(d.delta)))
 
   return (
     <section className="view-stack">
@@ -952,6 +955,30 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
             </AreaChart>
           </ResponsiveContainer>
         </div>
+      </section>
+
+      <section className="wide-section">
+        <SectionHeader icon={<ChartNoAxesCombined size={18} />} title="전월대비" aside={summary.previousMonth?.monthLabel ?? ''} />
+        {deltas.length === 0 ? (
+          <p className="row-meta" style={{ padding: '8px 2px' }}>비교할 전월 데이터가 쌓이는 중이에요.</p>
+        ) : (
+          <div className="delta-list">
+            {deltas.map((d) => {
+              const up = d.delta > 0
+              return (
+                <div className="delta-row" key={d.name}>
+                  <span className="delta-name">{d.name}</span>
+                  <div className="delta-bar-wrap">
+                    <span className={`delta-bar ${up ? 'up' : 'down'}`} style={{ width: `${(Math.abs(d.delta) / maxDelta) * 100}%` }} />
+                  </div>
+                  <span className={`delta-val ${up ? 'up' : 'down'}`}>
+                    {d.rate == null ? 'NEW' : `${up ? '↑' : '↓'}${formatPercent(Math.abs(d.rate))}`} ({formatSignedMoney(d.delta)})
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </section>
 
       <section className="insight-board">
@@ -989,6 +1016,32 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
           </ResponsiveContainer>
         </div>
       </section>
+
+      {places.length > 0 && (
+        <section className="wide-section">
+          <SectionHeader icon={<CircleDollarSign size={18} />} title="장소 TOP" aside={summary.monthKey} />
+          <div className="chart-frame">
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={places} layout="vertical" margin={{ left: 0, right: 20, top: 12, bottom: 8 }}>
+                <CartesianGrid stroke="var(--line)" horizontal={false} />
+                <XAxis type="number" tickFormatter={compactMoney} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--muted)' }} />
+                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={76} tick={{ fontSize: 11, fill: 'var(--muted)' }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: 'var(--surface-solid)', borderColor: 'var(--line)', borderRadius: '10px', color: 'var(--ink)' }}
+                  itemStyle={{ color: 'var(--ink)' }}
+                  labelStyle={{ color: 'var(--accent-tan)', fontWeight: 800 }}
+                  formatter={(value) => [formatMoney(Number(value)), '지출액']}
+                />
+                <Bar dataKey="value" radius={[0, 6, 6, 0]}>
+                  {places.map((entry, index) => (
+                    <Cell key={entry.name} fill={colors[index % colors.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+      )}
     </section>
   )
 }
