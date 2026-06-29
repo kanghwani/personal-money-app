@@ -465,7 +465,7 @@ function QuickEntry({ onSubmit, lastMessage }: { onSubmit: (raw: string) => void
           onKeyDown={(event) => {
             if (event.key === 'Enter') submit()
           }}
-          placeholder="5000 다이소 청소용품 하나카드"
+          placeholder="금액 장소 물건 결제수단"
         />
         <button className="send-button" type="button" onClick={submit} aria-label="입력">
           <Send size={18} />
