@@ -177,3 +177,46 @@ export function splitPlaceItem(memo: string): { place: string; item: string } {
 export function joinPlaceItem(place: string, item: string): string {
   return `${(place || '').trim()} ${(item || '').trim()}`.trim()
 }
+
+type PlaceTxLike = { date: string; type: string; amount: number; split: number; fixedType: string; memo: string }
+
+/** 해당 월 변동지출을 장소(memo 첫 단어)별 실지출 합산 → 내림차순 TOP n + 기타. 빈 장소는 '기타'. */
+export function placeTotals(transactions: PlaceTxLike[], yearMonth: string, n: number): NV[] {
+  const map = new Map<string, number>()
+  for (const t of transactions) {
+    if (t.type !== 'expense' || t.fixedType === 'fixed') continue
+    if (t.date.slice(0, 7) !== yearMonth) continue
+    const place = splitPlaceItem(t.memo).place || '기타'
+    map.set(place, (map.get(place) || 0) + (t.amount - t.split))
+  }
+  const rows = [...map.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
+  return topNWithOther(rows, n)
+}
+
+export type CategoryDelta = { name: string; cur: number; prev: number; delta: number; rate: number | null }
+type CatTxLike = { date: string; type: string; amount: number; split: number; category: string; fixedType: string }
+
+/** 두 달 변동지출을 카테고리별 실지출 합산 → {cur,prev,delta,rate}, |delta| 내림차순. prevMonth 없으면 prev=0. */
+export function categoryDeltas(transactions: CatTxLike[], curMonth: string, prevMonth: string | undefined): CategoryDelta[] {
+  const sum = (month: string | undefined) => {
+    const m = new Map<string, number>()
+    if (!month) return m
+    for (const t of transactions) {
+      if (t.type !== 'expense' || t.fixedType === 'fixed') continue
+      if (t.date.slice(0, 7) !== month) continue
+      const c = t.category || '미분류'
+      m.set(c, (m.get(c) || 0) + (t.amount - t.split))
+    }
+    return m
+  }
+  const cur = sum(curMonth)
+  const prev = sum(prevMonth)
+  const names = new Set([...cur.keys(), ...prev.keys()])
+  return [...names]
+    .map((name) => {
+      const c = cur.get(name) || 0
+      const p = prev.get(name) || 0
+      return { name, cur: c, prev: p, delta: c - p, rate: changeRate(c, p) }
+    })
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+}

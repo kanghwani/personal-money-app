@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, type TxLike, type FixedDef } from './dashboardLogic'
+import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, type TxLike, type FixedDef } from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
   ({ date, type: 'expense', amount, category, subCategory, payment, fixedType: 'variable' })
@@ -179,5 +179,73 @@ describe('joinPlaceItem', () => {
   })
   it('앞뒤 공백 정리', () => {
     expect(joinPlaceItem(' 다이소 ', ' 청소용품 ')).toBe('다이소 청소용품')
+  })
+})
+
+describe('placeTotals', () => {
+  const txs = [
+    { date: '2026-06-01', type: 'expense', amount: 10000, split: 0, fixedType: 'variable', memo: '코스트코 우유' },
+    { date: '2026-06-02', type: 'expense', amount: 5000, split: 0, fixedType: 'variable', memo: '코스트코 빵' },
+    { date: '2026-06-03', type: 'expense', amount: 3000, split: 0, fixedType: 'variable', memo: '다이소 수세미' },
+    { date: '2026-06-04', type: 'expense', amount: 99000, split: 0, fixedType: 'fixed', memo: '월세' },     // 고정 제외
+    { date: '2026-06-05', type: 'income', amount: 200000, split: 0, fixedType: 'variable', memo: '용돈' },  // 수입 제외
+    { date: '2026-05-09', type: 'expense', amount: 7000, split: 0, fixedType: 'variable', memo: '코스트코 과자' }, // 타월 제외
+  ]
+
+  it('변동지출만 장소별 합산, 실지출 기준', () => {
+    expect(placeTotals(txs, '2026-06', 7)).toEqual([
+      { name: '코스트코', value: 15000 },
+      { name: '다이소', value: 3000 },
+    ])
+  })
+
+  it('split을 뺀 실지출로 합산', () => {
+    expect(placeTotals(
+      [{ date: '2026-06-01', type: 'expense', amount: 10000, split: 6000, fixedType: 'variable', memo: '코스트코 우유' }],
+      '2026-06', 7,
+    )).toEqual([{ name: '코스트코', value: 4000 }])
+  })
+
+  it('빈 메모는 기타로 합산', () => {
+    expect(placeTotals(
+      [{ date: '2026-06-01', type: 'expense', amount: 1000, split: 0, fixedType: 'variable', memo: '' }],
+      '2026-06', 7,
+    )).toEqual([{ name: '기타', value: 1000 }])
+  })
+
+  it('n 초과 시 나머지는 기타로', () => {
+    const many = ['가', '나', '다'].map((p, i) => ({
+      date: '2026-06-01', type: 'expense', amount: (3 - i) * 1000, split: 0, fixedType: 'variable', memo: `${p} 물건`,
+    }))
+    expect(placeTotals(many, '2026-06', 2)).toEqual([
+      { name: '가', value: 3000 },
+      { name: '나', value: 2000 },
+      { name: '기타', value: 1000 },
+    ])
+  })
+})
+
+describe('categoryDeltas', () => {
+  const txs = [
+    { date: '2026-06-01', type: 'expense', amount: 12000, split: 0, category: '식비', fixedType: 'variable' },
+    { date: '2026-06-02', type: 'expense', amount: 3000, split: 0, category: '생활', fixedType: 'variable' },
+    { date: '2026-06-03', type: 'expense', amount: 50000, split: 0, category: '주거', fixedType: 'fixed' }, // 고정 제외
+    { date: '2026-05-01', type: 'expense', amount: 10000, split: 0, category: '식비', fixedType: 'variable' },
+    { date: '2026-05-02', type: 'expense', amount: 8000, split: 0, category: '교통', fixedType: 'variable' },
+  ]
+
+  it('두 달 합집합 카테고리, 변화량 절대값 내림차순', () => {
+    expect(categoryDeltas(txs, '2026-06', '2026-05')).toEqual([
+      { name: '교통', cur: 0, prev: 8000, delta: -8000, rate: -1 },
+      { name: '생활', cur: 3000, prev: 0, delta: 3000, rate: null },
+      { name: '식비', cur: 12000, prev: 10000, delta: 2000, rate: 0.2 },
+    ])
+  })
+
+  it('전월 없으면(undefined) 이번달만, prev 0 rate null', () => {
+    expect(categoryDeltas(txs, '2026-06', undefined)).toEqual([
+      { name: '식비', cur: 12000, prev: 0, delta: 12000, rate: null },
+      { name: '생활', cur: 3000, prev: 0, delta: 3000, rate: null },
+    ])
   })
 })
