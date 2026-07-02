@@ -465,7 +465,7 @@ function QuickEntry({ onSubmit, lastMessage }: { onSubmit: (raw: string) => void
           onKeyDown={(event) => {
             if (event.key === 'Enter') submit()
           }}
-          placeholder="금액 장소 물건 결제수단"
+          placeholder="금액 장소 물건 · +면 수입"
         />
         <button className="send-button" type="button" onClick={submit} aria-label="입력">
           <Send size={18} />
@@ -1780,6 +1780,8 @@ function parseQuickEntry(raw: string): ParseResult {
 
 function parseTransactionEntry(raw: string): ParseResult {
   let text = raw.replace(/\s+/g, ' ').trim()
+  const forcedIncome = /^\+/.test(text)   // 맨 앞 '+'면 수입
+  text = text.replace(/^\+\s*/, '')
   const date = extractDate(text)
   text = date.remaining
 
@@ -1790,13 +1792,17 @@ function parseTransactionEntry(raw: string): ParseResult {
   text = text.replace(amountMatch[0], '').replace(/\s+/g, ' ').trim()
   const splitParse = splitFromText(text, amount)
   text = splitParse.remaining
-  const type: TransactionType = /수입|월급|급여|입금|보너스/.test(raw) ? 'income' : 'expense'
+  const type: TransactionType = forcedIncome || /수입|월급|급여|입금|보너스/.test(raw) ? 'income' : 'expense'
   const paymentParse = extractPayment(text)
   text = paymentParse.remaining
   const fixedParse = extractFixedType(text)
   text = fixedParse.remaining
   const learned = classifyByLearned(text, loadLearnedRules())
-  const category = learned ? { category: learned.category, sub: learned.subCategory } : classify(text)
+  const guessed = learned ? { category: learned.category, sub: learned.subCategory } : classify(text)
+  // 수입은 지출용 분류가 오분류(예: '월세'→주거/통신)하므로 대분류를 '수입'으로 강제
+  const category = type === 'income'
+    ? { category: '수입', sub: guessed.category === '수입' ? guessed.sub : '' }
+    : guessed
 
   return {
     kind: 'transaction',
