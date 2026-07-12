@@ -38,6 +38,7 @@ import { getSyncConfig, loadFromServer, saveToServer, loadLedger, assignCategory
 import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, type QuickChip, type FixedDef } from './dashboardLogic'
 import { loadLearnedRules, saveLearnedRule, classifyByLearned } from './learnedRules'
 import { RULES, LANG, classifyMemo } from './classifyRules'
+import { t } from './i18n'
 import './App.css'
 
 type Tab = 'dashboard' | 'ledger' | 'assets' | 'insights' | 'fixed'
@@ -160,7 +161,7 @@ const seedData: FinanceStore = {
 function App() {
   const [store, setStore, syncStatus, syncNow] = usePersistentStore()
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
-  const [lastMessage, setLastMessage] = useState('준비됨')
+  const [lastMessage, setLastMessage] = useState(t('status_ready'))
   const [showPwaBanner, setShowPwaBanner] = useState(() => {
     if (typeof window === 'undefined' || typeof navigator === 'undefined') return false
     const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !('MSStream' in window)
@@ -179,7 +180,7 @@ function App() {
   )
   const categoryOptions = useMemo(() => distinctCategoryOptions(mergedTransactions), [mergedTransactions])
   async function assignCategoryFor(id: string, category: string, subCategory: string, memo: string) {
-    setLastMessage('분류 반영 중…')
+    setLastMessage(t('status_classifying'))
     // 로컬(store) 거래면 즉시 카테고리 변경 (원장에 없는 최근 입력분 포함)
     const isLocal = store.transactions.some((t) => t.id === id)
     if (isLocal) {
@@ -190,8 +191,8 @@ function App() {
     }
     // 백엔드: 원장 거래 갱신 + 같은 내역 일괄 + 분류규칙 학습 (memo 전달)
     const ok = await assignCategory(id, category, subCategory, memo).catch(() => false)
-    if (ok || isLocal) { setLastMessage('분류 반영됨'); refreshHistory() }
-    else setLastMessage('분류 실패')
+    if (ok || isLocal) { setLastMessage(t('status_classified')); refreshHistory() }
+    else setLastMessage(t('status_classify_failed'))
   }
   const summary = useMemo(
     () => buildSummary({ ...store, transactions: mergedTransactions }),
@@ -246,14 +247,14 @@ function App() {
   }
 
   function logQuickChipForDate(chip: QuickChip, date: string) {
-    const t: Transaction = {
+    const tx: Transaction = {
       id: uid(), date, type: 'expense', amount: chip.amount,
       memo: chip.label, category: chip.category, subCategory: chip.subCategory,
       payment: chip.payment, fixedType: chip.fixedType, split: 0, raw: `${chip.label} ${chip.amount}`,
     }
-    recordTransaction(t)
-    setUndoTx(t)
-    setLastMessage(`${chip.label} ${formatMoney(chip.amount)} 기록`)
+    recordTransaction(tx)
+    setUndoTx(tx)
+    setLastMessage(t('toast_chip_recorded', { label: chip.label, amt: formatMoney(chip.amount) }))
   }
   function quickAddForDate(raw: string, date: string) {
     const parsed = parseQuickEntry(raw)
@@ -278,7 +279,7 @@ function App() {
     editTransaction({ ...tx, category, subCategory })   // store/캐시 갱신 + (카테고리 변경 시) 서버 assignCategory 호출
     saveLearnedRule({ keyword: tx.memo, category, subCategory })
     setPendingUncat(null)
-    setLastMessage(`${category}${subCategory ? '·' + subCategory : ''}로 분류됨 · 다음부터 자동`)
+    setLastMessage(t('toast_classified_auto', { cat: `${category}${subCategory ? '·' + subCategory : ''}` }))
   }
 
   function deleteTransaction(id: string) {
@@ -320,7 +321,7 @@ function App() {
       ...current,
       assets: upsertAssetList(current.assets, assetItem),
     }))
-    setLastMessage(`${assetItem.name} 자산 저장`)
+    setLastMessage(t('toast_asset_saved', { name: assetItem.name }))
   }
 
   function exportData() {
@@ -338,22 +339,22 @@ function App() {
       <header className="app-header">
         <div>
           <p className="eyebrow">{formatDateLabel(todayIso())}</p>
-          <h1>돈 정리</h1>
+          <h1>{t('app_title')}</h1>
         </div>
         <button
           className="icon-button"
           type="button"
           onClick={syncNow}
-          aria-label="동기화"
+          aria-label={t('btn_sync')}
           title={
-            syncStatus === 'syncing' ? '동기화 중' :
-            syncStatus === 'offline' ? '오프라인' :
-            syncStatus === 'error' ? '동기화 오류' : '동기화됨'
+            syncStatus === 'syncing' ? t('sync_syncing') :
+            syncStatus === 'offline' ? t('sync_offline') :
+            syncStatus === 'error' ? t('sync_error') : t('sync_synced')
           }
         >
           <RefreshCw size={18} className={syncStatus === 'syncing' ? 'spin' : undefined} />
         </button>
-        <button className="icon-button" type="button" onClick={exportData} aria-label="내보내기">
+        <button className="icon-button" type="button" onClick={exportData} aria-label={t('btn_export')}>
           <Download size={19} />
         </button>
       </header>
@@ -361,24 +362,24 @@ function App() {
       {showPwaBanner && (
         <section className="pwa-install-banner">
           <div className="pwa-install-content">
-            <img src="/apple-touch-icon.png" alt="돈 정리" className="pwa-install-icon" />
+            <img src="/apple-touch-icon.png" alt={t('app_title')} className="pwa-install-icon" />
             <div className="pwa-install-text">
-              <h4>홈 화면에 '돈 정리' 추가하기</h4>
-              <p>하단 <strong>공유 버튼</strong>을 누른 후, <strong>'홈 화면에 추가'</strong>를 탭하면 완전한 앱으로 사용할 수 있습니다.</p>
+              <h4>{t('pwa_add_title')}</h4>
+              <p>{t('pwa_pre')}<strong>{t('pwa_share_button')}</strong>{t('pwa_mid')}<strong>{t('pwa_add_home')}</strong>{t('pwa_post')}</p>
             </div>
           </div>
-          <button className="pwa-install-close" onClick={dismissPwaBanner} aria-label="닫기">
+          <button className="pwa-install-close" onClick={dismissPwaBanner} aria-label={t('btn_close')}>
             <X size={18} />
           </button>
         </section>
       )}
 
-      <nav className="tab-bar" aria-label="화면">
-        <TabButton tab="dashboard" activeTab={activeTab} icon={<Home size={18} />} label="홈" onClick={setActiveTab} />
-        <TabButton tab="ledger" activeTab={activeTab} icon={<ReceiptText size={18} />} label="원장" onClick={setActiveTab} />
-        <TabButton tab="assets" activeTab={activeTab} icon={<Wallet size={18} />} label="자산" onClick={setActiveTab} />
-        <TabButton tab="insights" activeTab={activeTab} icon={<Sparkles size={18} />} label="인사이트" onClick={setActiveTab} />
-        <TabButton tab="fixed" activeTab={activeTab} icon={<CalendarClock size={18} />} label="고정비" onClick={setActiveTab} />
+      <nav className="tab-bar" aria-label={t('nav_screens')}>
+        <TabButton tab="dashboard" activeTab={activeTab} icon={<Home size={18} />} label={t('tab_home')} onClick={setActiveTab} />
+        <TabButton tab="ledger" activeTab={activeTab} icon={<ReceiptText size={18} />} label={t('tab_ledger')} onClick={setActiveTab} />
+        <TabButton tab="assets" activeTab={activeTab} icon={<Wallet size={18} />} label={t('tab_assets')} onClick={setActiveTab} />
+        <TabButton tab="insights" activeTab={activeTab} icon={<Sparkles size={18} />} label={t('tab_insights')} onClick={setActiveTab} />
+        <TabButton tab="fixed" activeTab={activeTab} icon={<CalendarClock size={18} />} label={t('tab_fixed')} onClick={setActiveTab} />
       </nav>
 
       {activeTab === 'dashboard' && (
@@ -386,14 +387,14 @@ function App() {
           <div className="home-input">
             {undoTx && (
               <div className="undo-toast">
-                <span>{undoTx.memo} {formatMoney(undoTx.amount)} 기록됨</span>
-                <button type="button" onClick={undoLastChip}>되돌리기</button>
+                <span>{t('toast_recorded_done', { memo: undoTx.memo, amt: formatMoney(undoTx.amount) })}</span>
+                <button type="button" onClick={undoLastChip}>{t('btn_undo')}</button>
               </div>
             )}
             <QuickEntry onSubmit={applyQuickInput} lastMessage={lastMessage} />
             {pendingUncat && (
               <div className="fix-uncat">
-                <p className="fix-uncat-label">미분류 — 카테고리를 골라주세요</p>
+                <p className="fix-uncat-label">{t('uncategorized_prompt')}</p>
                 <div className="fix-chips">
                   {fixOptions.map((o) => (
                     <button
@@ -442,7 +443,7 @@ function QuickEntry({ onSubmit, lastMessage }: { onSubmit: (raw: string) => void
   return (
     <section className="quick-panel">
       <div className="quick-input-row">
-        <button className="quick-leading" type="button" aria-label="빠른입력">
+        <button className="quick-leading" type="button" aria-label={t('quick_input_aria')}>
           <Plus size={20} />
         </button>
         <input
@@ -451,9 +452,9 @@ function QuickEntry({ onSubmit, lastMessage }: { onSubmit: (raw: string) => void
           onKeyDown={(event) => {
             if (event.key === 'Enter') submit()
           }}
-          placeholder="금액 장소 물건 · +면 수입"
+          placeholder={t('qe_placeholder')}
         />
-        <button className="send-button" type="button" onClick={submit} aria-label="입력">
+        <button className="send-button" type="button" onClick={submit} aria-label={t('btn_input')}>
           <Send size={18} />
         </button>
       </div>
@@ -479,7 +480,7 @@ function CategoryRing({ total, subtitle, data }: { total: string; subtitle: stri
     <div className="cat-ring">
       <div className="cat-donut" style={{ background: `conic-gradient(${stops})` }} />
       <div className="cat-ring-center">
-        <span className="cr-k">이번 달 실지출</span>
+        <span className="cr-k">{t('this_month_real_spend')}</span>
         <strong>{total}</strong>
         {subtitle && <span className="cr-s">{subtitle}</span>}
       </div>
@@ -497,11 +498,11 @@ function CategoryDetailSheet({ category, transactions, categoryOptions, onAssign
 }) {
   const [pickingId, setPickingId] = useState<string | null>(null)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
-  const total = transactions.reduce((s, t) => s + t.amount, 0)
+  const total = transactions.reduce((s, item) => s + item.amount, 0)
   const subMap = new Map<string, number>()
-  for (const t of transactions) {
-    const k = t.subCategory || '기타'
-    subMap.set(k, (subMap.get(k) || 0) + t.amount)
+  for (const item of transactions) {
+    const k = item.subCategory || t('sub_other')
+    subMap.set(k, (subMap.get(k) || 0) + item.amount)
   }
   const subs = [...subMap.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
   const rows = [...transactions].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
@@ -513,9 +514,9 @@ function CategoryDetailSheet({ category, transactions, categoryOptions, onAssign
           <span className="cat-ic-lg">{categoryIcon(category)}</span>
           <div className="cat-sheet-title">
             <h3>{category}</h3>
-            <p>{formatMoney(total)} · {transactions.length}건</p>
+            <p>{t('amount_count', { amt: formatMoney(total), n: transactions.length })}</p>
           </div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="닫기"><X size={18} /></button>
+          <button type="button" className="icon-button" onClick={onClose} aria-label={t('btn_close')}><X size={18} /></button>
         </div>
         {subs.length > 0 && (
           <div className="cat-sub-list">
@@ -525,30 +526,30 @@ function CategoryDetailSheet({ category, transactions, categoryOptions, onAssign
           </div>
         )}
         <div className="cat-tx-list">
-          {rows.length === 0 && <p className="cat-empty">거래가 없습니다.</p>}
-          {rows.map((t) => (
-            <div className="cat-tx-row" key={t.id}>
+          {rows.length === 0 && <p className="cat-empty">{t('no_transactions')}</p>}
+          {rows.map((tx) => (
+            <div className="cat-tx-row" key={tx.id}>
               <div className="cat-tx-main">
-                <button type="button" className="cat-tx-edit" onClick={() => setEditingTx(t)}>
+                <button type="button" className="cat-tx-edit" onClick={() => setEditingTx(tx)}>
                   <p className="row-title">
-                    <span className="row-place">🏪 {splitPlaceItem(t.memo).place || '미입력'}</span>
-                    {splitPlaceItem(t.memo).item && <span className="row-item"> · {splitPlaceItem(t.memo).item}</span>}
+                    <span className="row-place">🏪 {splitPlaceItem(tx.memo).place || t('not_entered')}</span>
+                    {splitPlaceItem(tx.memo).item && <span className="row-item"> · {splitPlaceItem(tx.memo).item}</span>}
                   </p>
-                  <p className="row-meta">{formatDateLabel(t.date)} · {t.subCategory || '미지정'} · {t.payment || '미지정'}</p>
+                  <p className="row-meta">{formatDateLabel(tx.date)} · {tx.subCategory || t('unspecified')} · {tx.payment || t('unspecified')}</p>
                 </button>
                 <div className="cat-tx-right">
-                  <span className="cat-tx-amt">{formatMoney(t.amount)}</span>
-                  <button type="button" className="reassign-btn" onClick={() => setPickingId(pickingId === t.id ? null : t.id)}>분류</button>
+                  <span className="cat-tx-amt">{formatMoney(tx.amount)}</span>
+                  <button type="button" className="reassign-btn" onClick={() => setPickingId(pickingId === tx.id ? null : tx.id)}>{t('btn_classify')}</button>
                 </div>
               </div>
-              {pickingId === t.id && (
+              {pickingId === tx.id && (
                 <div className="reassign-picker">
                   {categoryOptions.map((o) => (
                     <button
                       key={o.category + '/' + o.subCategory}
                       type="button"
                       className="reassign-opt"
-                      onClick={() => { onAssign(t.id, o.category, o.subCategory, t.memo); setPickingId(null) }}
+                      onClick={() => { onAssign(tx.id, o.category, o.subCategory, tx.memo); setPickingId(null) }}
                     >
                       {o.category}{o.subCategory ? ' · ' + o.subCategory : ''}
                     </button>
@@ -583,7 +584,7 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit }:
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const prev = summary.previousMonth?.realSpend ?? 0
   const rate = changeRate(summary.thisMonth.realSpend, prev)
-  const ringSubtitle = rate === null ? null : `전월 대비 ${rate >= 0 ? '+' : '−'}${Math.abs(Math.round(rate * 100))}%`
+  const ringSubtitle = rate === null ? null : t('vs_prev_month', { sign: rate >= 0 ? '+' : '−', pct: Math.abs(Math.round(rate * 100)) })
 
   return (
     <section className="view-stack">
@@ -615,7 +616,7 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit }:
       </article>
 
       <section className="wide-section">
-        <SectionHeader icon={<ShieldCheck size={18} />} title="고정비 / 변동비" aside={formatPercent(summary.fixedShare)} />
+        <SectionHeader icon={<ShieldCheck size={18} />} title={t('sec_fixed_variable')} aside={formatPercent(summary.fixedShare)} />
         <FixedVariablePanel summary={summary} />
       </section>
 
@@ -664,35 +665,35 @@ function Ledger({
   return (
     <section className="view-stack">
       <div className="segmented">
-        <button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>목록</button>
-        <button type="button" className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>달력</button>
+        <button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>{t('view_list')}</button>
+        <button type="button" className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>{t('view_calendar')}</button>
       </div>
 
       {view === 'list' && (
         <>
           <div className="segmented">
-            <button type="button" className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>전체</button>
-            <button type="button" className={filter === 'expense' ? 'active' : ''} onClick={() => setFilter('expense')}>지출</button>
-            <button type="button" className={filter === 'income' ? 'active' : ''} onClick={() => setFilter('income')}>수입</button>
+            <button type="button" className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>{t('filter_all')}</button>
+            <button type="button" className={filter === 'expense' ? 'active' : ''} onClick={() => setFilter('expense')}>{t('filter_expense')}</button>
+            <button type="button" className={filter === 'income' ? 'active' : ''} onClick={() => setFilter('income')}>{t('filter_income')}</button>
           </div>
           <section className="ledger-table">
             {filtered.map((transaction) => (
               <article className="ledger-row" key={transaction.id}>
                 <button type="button" className="ledger-row-main" onClick={() => setEditingTx(transaction)}>
                   <p className="row-title">
-                    <span className="row-place">🏪 {splitPlaceItem(transaction.memo).place || '미입력'}</span>
+                    <span className="row-place">🏪 {splitPlaceItem(transaction.memo).place || t('not_entered')}</span>
                     {splitPlaceItem(transaction.memo).item && <span className="row-item"> · {splitPlaceItem(transaction.memo).item}</span>}
                   </p>
                   <p className="row-meta">
-                    {formatDateLabel(transaction.date)} · {transaction.category} · {transaction.payment || '미지정'} · {fixedTypeLabel(transaction.fixedType)}
+                    {formatDateLabel(transaction.date)} · {transaction.category} · {transaction.payment || t('unspecified')} · {fixedTypeLabel(transaction.fixedType)}
                   </p>
                 </button>
                 <div className="row-actions">
                   <strong className={transaction.type === 'income' ? 'income' : ''}>{transaction.type === 'income' ? '+' : '-'}{formatMoney(transaction.amount)}</strong>
-                  <button type="button" className="edit-btn" aria-label="수정" onClick={() => setEditingTx(transaction)}>
+                  <button type="button" className="edit-btn" aria-label={t('btn_edit')} onClick={() => setEditingTx(transaction)}>
                     <Pencil size={15} />
                   </button>
-                  <button type="button" aria-label="삭제" onClick={() => onDelete(transaction.id)}>
+                  <button type="button" aria-label={t('btn_delete')} onClick={() => onDelete(transaction.id)}>
                     <Trash2 size={17} />
                   </button>
                 </div>
@@ -757,12 +758,12 @@ function CalendarView({ year, month, totals, onPrev, onNext, onSelectDay, today 
   return (
     <div className="cal">
       <div className="cal-head">
-        <button type="button" onClick={onPrev} aria-label="이전 달">‹</button>
+        <button type="button" onClick={onPrev} aria-label={t('prev_month')}>‹</button>
         <span>{year}.{month}</span>
-        <button type="button" onClick={onNext} aria-label="다음 달">›</button>
+        <button type="button" onClick={onNext} aria-label={t('next_month')}>›</button>
       </div>
       <div className="cal-weekdays">
-        {['일', '월', '화', '수', '목', '금', '토'].map((w) => <span key={w}>{w}</span>)}
+        {[t('wd_sun'), t('wd_mon'), t('wd_tue'), t('wd_wed'), t('wd_thu'), t('wd_fri'), t('wd_sat')].map((w, i) => <span key={i}>{w}</span>)}
       </div>
       <div className="cal-grid">
         {cells.map((d, i) => {
@@ -810,9 +811,9 @@ function DayDetailSheet({ date, transactions, quickChips, onClose, onQuickAdd, o
         <div className="cat-sheet-head">
           <div className="cat-sheet-title">
             <h3>{formatDateLabel(date)}</h3>
-            <p>{formatMoney(total)} · {transactions.length}건</p>
+            <p>{t('amount_count', { amt: formatMoney(total), n: transactions.length })}</p>
           </div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="닫기"><X size={18} /></button>
+          <button type="button" className="icon-button" onClick={onClose} aria-label={t('btn_close')}><X size={18} /></button>
         </div>
         <div className="day-input">
           {quickChips.length > 0 && (
@@ -829,20 +830,20 @@ function DayDetailSheet({ date, transactions, quickChips, onClose, onQuickAdd, o
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
-              placeholder="점심 9000 카드"
+              placeholder={t('day_input_placeholder')}
             />
-            <button type="button" className="send-button" onClick={submit} aria-label="입력"><Send size={18} /></button>
+            <button type="button" className="send-button" onClick={submit} aria-label={t('btn_input')}><Send size={18} /></button>
           </div>
         </div>
         <div className="cat-tx-list">
-          {transactions.length === 0 && <p className="cat-empty">거래가 없습니다. 위에서 추가하세요.</p>}
-          {transactions.map((t) => (
-            <div className="cat-tx-row" key={t.id}>
+          {transactions.length === 0 && <p className="cat-empty">{t('no_transactions_add_above')}</p>}
+          {transactions.map((tx) => (
+            <div className="cat-tx-row" key={tx.id}>
               <div>
-                <p className="row-title">{t.memo}</p>
-                <p className="row-meta">{t.category} · {t.subCategory || '미지정'} · {t.payment || '미지정'}</p>
+                <p className="row-title">{tx.memo}</p>
+                <p className="row-meta">{tx.category} · {tx.subCategory || t('unspecified')} · {tx.payment || t('unspecified')}</p>
               </div>
-              <span className="cat-tx-amt">{formatMoney(t.amount)}</span>
+              <span className="cat-tx-amt">{formatMoney(tx.amount)}</span>
             </div>
           ))}
         </div>
@@ -858,32 +859,32 @@ function AssetsView({ store, summary, onSaveAsset }: { store: FinanceStore; summ
     <section className="view-stack">
       <div className="balance-band">
         <div>
-          <p className="eyebrow">순자산</p>
+          <p className="eyebrow">{t('net_worth')}</p>
           <h2>{formatMoney(summary.netWorth)}</h2>
         </div>
         <div className="balance-pair">
-          <span>자산 {formatMoney(summary.assetTotal + summary.investmentTotal)}</span>
-          <span>부채 {formatMoney(summary.loanTotal)}</span>
+          <span>{t('assets_label_amt', { amt: formatMoney(summary.assetTotal + summary.investmentTotal) })}</span>
+          <span>{t('liabilities_label_amt', { amt: formatMoney(summary.loanTotal) })}</span>
         </div>
       </div>
 
       <AssetEditor key={editingAsset?.id ?? 'new'} asset={editingAsset} onSave={onSaveAsset} onDone={() => setEditingAsset(null)} />
 
       <section className="split-layout">
-        <AssetColumn title="자산" icon={<Wallet size={18} />}>
+        <AssetColumn title={t('tab_assets')} icon={<Wallet size={18} />}>
           {store.assets.map((item) => (
             <ValueRow
               key={item.id}
               title={item.name}
               meta={`${item.kind} · ${item.institution}`}
               value={item.amount}
-              actionLabel="수정"
+              actionLabel={t('btn_edit')}
               onAction={() => setEditingAsset(item)}
             />
           ))}
         </AssetColumn>
 
-        <AssetColumn title="투자" icon={<TrendingUp size={18} />}>
+        <AssetColumn title={t('investments_title')} icon={<TrendingUp size={18} />}>
           {store.investments.map((item) => (
             <ValueRow key={item.id} title={item.name} meta={item.account} value={item.value} badge={formatPercent(item.returnRate)} negative={item.returnRate < 0} />
           ))}
@@ -891,7 +892,7 @@ function AssetsView({ store, summary, onSaveAsset }: { store: FinanceStore; summ
       </section>
 
       <section className="wide-section">
-        <SectionHeader icon={<Landmark size={18} />} title="대출" aside={formatMoney(summary.loanTotal)} />
+        <SectionHeader icon={<Landmark size={18} />} title={t('loans_title')} aside={formatMoney(summary.loanTotal)} />
         <div className="recent-list">
           {store.loans.map((loanItem) => (
             <ValueRow
@@ -899,7 +900,7 @@ function AssetsView({ store, summary, onSaveAsset }: { store: FinanceStore; summ
               title={loanItem.name}
               meta={`${loanItem.institution} · ${loanItem.dueDay}`}
               value={loanItem.balance}
-              badge={`월 ${formatMoney(loanItem.monthlyPayment)}`}
+              badge={t('monthly_amt', { amt: formatMoney(loanItem.monthlyPayment) })}
               negative
             />
           ))}
@@ -919,7 +920,7 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
   return (
     <section className="view-stack">
       <section className="wide-section">
-        <SectionHeader icon={<ChartNoAxesCombined size={18} />} title="월별 흐름" aside={summary.monthlyTrend.at(-1)?.month ?? ''} />
+        <SectionHeader icon={<ChartNoAxesCombined size={18} />} title={t('sec_month_flow')} aside={summary.monthlyTrend.at(-1)?.month ?? ''} />
         <div className="chart-frame">
           <ResponsiveContainer width="100%" height={230}>
             <AreaChart data={summary.monthlyTrend} margin={{ left: 0, right: 12, top: 14, bottom: 0 }}>
@@ -934,7 +935,7 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
               <YAxis tickLine={false} axisLine={false} tickFormatter={compactMoney} width={50} tick={{ fontSize: 11, fill: 'var(--muted)' }} />
               <Tooltip
                 contentStyle={{ backgroundColor: 'var(--surface-solid)', borderColor: 'var(--line)', borderRadius: '10px', color: 'var(--ink)' }}
-                formatter={(value) => [formatMoney(Number(value)), '실지출']}
+                formatter={(value) => [formatMoney(Number(value)), t('real_spend')]}
                 labelFormatter={(label) => `${label}`}
               />
               <Area type="monotone" dataKey="realSpend" stroke="var(--accent-tan)" strokeWidth={3} fill="url(#spendFill)" />
@@ -944,9 +945,9 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
       </section>
 
       <section className="wide-section">
-        <SectionHeader icon={<ChartNoAxesCombined size={18} />} title="전월대비" aside={summary.previousMonth?.monthLabel ?? ''} />
+        <SectionHeader icon={<ChartNoAxesCombined size={18} />} title={t('sec_delta')} aside={summary.previousMonth?.monthLabel ?? ''} />
         {deltas.length === 0 ? (
-          <p className="row-meta" style={{ padding: '8px 2px' }}>비교할 전월 데이터가 쌓이는 중이에요.</p>
+          <p className="row-meta" style={{ padding: '8px 2px' }}>{t('delta_no_data')}</p>
         ) : (
           <div className="delta-list">
             {deltas.map((d) => {
@@ -958,7 +959,7 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
                     <span className={`delta-bar ${up ? 'up' : 'down'}`} style={{ width: `${(Math.abs(d.delta) / maxDelta) * 100}%` }} />
                   </div>
                   <span className={`delta-val ${up ? 'up' : 'down'}`}>
-                    {d.rate == null ? 'NEW' : `${up ? '↑' : '↓'}${formatPercent(Math.abs(d.rate))}`} ({formatSignedMoney(d.delta)})
+                    {d.rate == null ? t('new_badge') : `${up ? '↑' : '↓'}${formatPercent(Math.abs(d.rate))}`} ({formatSignedMoney(d.delta)})
                   </span>
                 </div>
               )
@@ -980,7 +981,7 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
       </section>
 
       <section className="wide-section">
-        <SectionHeader icon={<CircleDollarSign size={18} />} title="지출 비중" aside={summary.monthKey} />
+        <SectionHeader icon={<CircleDollarSign size={18} />} title={t('sec_spend_ratio')} aside={summary.monthKey} />
         <div className="chart-frame">
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={summary.categoryTotals.slice(0, 7)} layout="vertical" margin={{ left: 0, right: 20, top: 12, bottom: 8 }}>
@@ -991,7 +992,7 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
                 contentStyle={{ backgroundColor: 'var(--surface-solid)', borderColor: 'var(--line)', borderRadius: '10px', color: 'var(--ink)' }}
                 itemStyle={{ color: 'var(--ink)' }}
                 labelStyle={{ color: 'var(--accent-tan)', fontWeight: 800 }}
-                formatter={(value) => [formatMoney(Number(value)), '지출액']} 
+                formatter={(value) => [formatMoney(Number(value)), t('spend_amount')]}
               />
               <Bar dataKey="value" radius={[0, 6, 6, 0]}>
                 {summary.categoryTotals.slice(0, 7).map((entry, index) => (
@@ -1005,7 +1006,7 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
 
       {places.length > 0 && (
         <section className="wide-section">
-          <SectionHeader icon={<CircleDollarSign size={18} />} title="장소 TOP" aside={summary.monthKey} />
+          <SectionHeader icon={<CircleDollarSign size={18} />} title={t('sec_place_top')} aside={summary.monthKey} />
           <div className="chart-frame">
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={places} layout="vertical" margin={{ left: 0, right: 20, top: 12, bottom: 8 }}>
@@ -1016,7 +1017,7 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
                   contentStyle={{ backgroundColor: 'var(--surface-solid)', borderColor: 'var(--line)', borderRadius: '10px', color: 'var(--ink)' }}
                   itemStyle={{ color: 'var(--ink)' }}
                   labelStyle={{ color: 'var(--accent-tan)', fontWeight: 800 }}
-                  formatter={(value) => [formatMoney(Number(value)), '지출액']}
+                  formatter={(value) => [formatMoney(Number(value)), t('spend_amount')]}
                 />
                 <Bar dataKey="value" radius={[0, 6, 6, 0]}>
                   {places.map((entry, index) => (
@@ -1099,15 +1100,15 @@ function FixedView({ monthKey }: { monthKey: string }) {
   return (
     <section className="view-stack">
       <div className="segmented">
-        <button type="button" className={view === 'expense' ? 'active' : ''} onClick={() => setView('expense')}>지출</button>
-        <button type="button" className={view === 'income' ? 'active' : ''} onClick={() => setView('income')}>수입</button>
+        <button type="button" className={view === 'expense' ? 'active' : ''} onClick={() => setView('expense')}>{t('filter_expense')}</button>
+        <button type="button" className={view === 'income' ? 'active' : ''} onClick={() => setView('income')}>{t('filter_income')}</button>
       </div>
       <div className="fixed-head">
         <div>
-          <p className="eyebrow">{view === 'income' ? '월 정기수입' : '월 고정비'}</p>
+          <p className="eyebrow">{t(view === 'income' ? 'fixed_income_title' : 'fixed_expense_title')}</p>
           <h2>{formatMoney(activeTotal)}</h2>
         </div>
-        <button type="button" className="fixed-add" onClick={() => setEditing(emptyFixedDef(monthKey, view))}>+ 추가</button>
+        <button type="button" className="fixed-add" onClick={() => setEditing(emptyFixedDef(monthKey, view))}>{t('btn_add')}</button>
       </div>
 
       <div className="fixed-list">
@@ -1117,16 +1118,16 @@ function FixedView({ monthKey }: { monthKey: string }) {
             <article className={`fixed-row${d.active ? '' : ' off'}`} key={d.id}>
               <button type="button" className="fixed-main" onClick={() => setEditing(d)}>
                 <div>
-                  <p className="row-title">{d.name}{d.variable && <span className="fixed-badge">변동</span>}</p>
+                  <p className="row-title">{d.name}{d.variable && <span className="fixed-badge">{t('fixed_type_variable')}</span>}</p>
                   <p className="row-meta">
-                    {formatMoney(d.amount)} · 매월 {d.payDay}일
-                    {d.split > 0 && ` · 분담 ${formatMoney(d.split)} · 실지출 ${formatMoney(d.amount - d.split)}`}
-                    {d.variable && ' · 확인필요'}
-                    {rem && (rem.done ? ' · 완료' : ` · ${rem.count}/${rem.total}회 · ${d.kind === 'income' ? '받을' : '남은'} ${formatMoney(rem.remainingAmount)}`)}
+                    {formatMoney(d.amount)} · {t('monthly_day', { day: d.payDay })}
+                    {d.split > 0 && t('split_and_real', { split: formatMoney(d.split), real: formatMoney(d.amount - d.split) })}
+                    {d.variable && t('need_check')}
+                    {rem && (rem.done ? t('done_suffix') : t('remaining_progress', { count: rem.count, total: rem.total, label: t(d.kind === 'income' ? 'label_to_receive' : 'label_remaining'), amt: formatMoney(rem.remainingAmount) }))}
                   </p>
                 </div>
               </button>
-              <button type="button" className={`fixed-toggle${d.active ? ' on' : ''}`} onClick={() => toggle(d)} aria-label="활성 토글">
+              <button type="button" className={`fixed-toggle${d.active ? ' on' : ''}`} onClick={() => toggle(d)} aria-label={t('toggle_active_aria')}>
                 {d.active ? 'ON' : 'OFF'}
               </button>
             </article>
@@ -1134,7 +1135,7 @@ function FixedView({ monthKey }: { monthKey: string }) {
         })}
         {shown.length === 0 && (
           <p className="cat-empty">
-            {loading ? '불러오는 중…' : `${view === 'income' ? '정기수입이' : '고정비가'} 없습니다. + 추가로 등록하세요.`}
+            {loading ? t('loading') : t(view === 'income' ? 'empty_income' : 'empty_fixed')}
           </p>
         )}
       </div>
@@ -1165,29 +1166,29 @@ function FixedEditSheet({ def, busy, onClose, onSave, onDelete }: {
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="cat-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="cat-sheet-head">
-          <div className="cat-sheet-title"><h3>{(def.kind === 'income' ? '정기수입 ' : '고정비 ') + (def.id ? '수정' : '추가')}</h3></div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="닫기"><X size={18} /></button>
+          <div className="cat-sheet-title"><h3>{t('fixed_sheet_title', { kind: t(def.kind === 'income' ? 'fixed_kind_income' : 'fixed_kind_expense'), action: t(def.id ? 'btn_edit' : 'fixed_action_add') })}</h3></div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label={t('btn_close')}><X size={18} /></button>
         </div>
         <div className="fixed-form">
-          <label>이름<input value={draft.name} onChange={(e) => set({ name: e.target.value })} /></label>
-          <label>금액<input type="number" value={draft.amount || ''} onChange={(e) => set({ amount: Number(e.target.value) || 0 })} /></label>
-          <label>대분류<input value={draft.category} onChange={(e) => set({ category: e.target.value })} /></label>
-          <label>소분류<input value={draft.subCategory} onChange={(e) => set({ subCategory: e.target.value })} /></label>
-          <label>{draft.kind === 'income' ? '입금수단' : '결제수단'}<input value={draft.payment} onChange={(e) => set({ payment: e.target.value })} /></label>
+          <label>{t('field_name')}<input value={draft.name} onChange={(e) => set({ name: e.target.value })} /></label>
+          <label>{t('field_amount')}<input type="number" value={draft.amount || ''} onChange={(e) => set({ amount: Number(e.target.value) || 0 })} /></label>
+          <label>{t('field_category')}<input value={draft.category} onChange={(e) => set({ category: e.target.value })} /></label>
+          <label>{t('field_subcategory')}<input value={draft.subCategory} onChange={(e) => set({ subCategory: e.target.value })} /></label>
+          <label>{t(draft.kind === 'income' ? 'field_deposit_method' : 'field_payment_method')}<input value={draft.payment} onChange={(e) => set({ payment: e.target.value })} /></label>
           {draft.kind !== 'income' && (
-            <label>분담금(여친 부담분 등, 없으면 0)<input type="number" value={draft.split || ''} onChange={(e) => set({ split: Number(e.target.value) || 0 })} /></label>
+            <label>{t('field_split_amount')}<input type="number" value={draft.split || ''} onChange={(e) => set({ split: Number(e.target.value) || 0 })} /></label>
           )}
-          <label>납부일<input type="number" min={1} max={31} value={draft.payDay || ''} onChange={(e) => set({ payDay: Number(e.target.value) || 1 })} /></label>
-          <label>시작월(yyyy-MM)<input value={draft.startMonth} onChange={(e) => set({ startMonth: e.target.value })} /></label>
-          <label>할부 총회차(없으면 비움)<input type="number" value={draft.installmentTotal ?? ''} onChange={(e) => set({ installmentTotal: e.target.value === '' ? null : Number(e.target.value) })} /></label>
+          <label>{t('field_pay_day')}<input type="number" min={1} max={31} value={draft.payDay || ''} onChange={(e) => set({ payDay: Number(e.target.value) || 1 })} /></label>
+          <label>{t('field_start_month')}<input value={draft.startMonth} onChange={(e) => set({ startMonth: e.target.value })} /></label>
+          <label>{t('field_installment_total')}<input type="number" value={draft.installmentTotal ?? ''} onChange={(e) => set({ installmentTotal: e.target.value === '' ? null : Number(e.target.value) })} /></label>
           <label className="fixed-check">
             <input type="checkbox" checked={draft.variable} onChange={(e) => set({ variable: e.target.checked })} />
-            <span>변동 항목 (금액이 매달 바뀜 — 자동입력 시 ‘확인필요’ 표시)</span>
+            <span>{t('field_variable_note')}</span>
           </label>
         </div>
         <div className="fixed-actions">
-          {def.id && <button type="button" className="fixed-del" disabled={busy} onClick={() => onDelete(def.id)}>삭제</button>}
-          <button type="button" className="fixed-save" disabled={busy || !draft.name} onClick={() => onSave(draft)}>{busy ? '저장 중…' : '저장'}</button>
+          {def.id && <button type="button" className="fixed-del" disabled={busy} onClick={() => onDelete(def.id)}>{t('btn_delete')}</button>}
+          <button type="button" className="fixed-save" disabled={busy || !draft.name} onClick={() => onSave(draft)}>{busy ? t('saving') : t('btn_save')}</button>
         </div>
       </div>
     </div>
@@ -1220,47 +1221,47 @@ function TransactionEditSheet({ tx, categoryOptions, onClose, onSave }: {
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="cat-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="cat-sheet-head">
-          <div className="cat-sheet-title"><h3>거래 수정</h3></div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="닫기"><X size={18} /></button>
+          <div className="cat-sheet-title"><h3>{t('tx_edit_title')}</h3></div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label={t('btn_close')}><X size={18} /></button>
         </div>
         <div className="fixed-form">
-          <label>장소<input value={place} onChange={(e) => setPlace(e.target.value)} placeholder="예: 다이소" /></label>
-          <label>물건<input value={item} onChange={(e) => setItem(e.target.value)} placeholder="예: 청소용품" /></label>
-          <label>금액<input type="number" value={draft.amount || ''} onChange={(e) => set({ amount: Number(e.target.value) || 0 })} /></label>
-          <label>날짜<input type="date" value={draft.date} onChange={(e) => set({ date: e.target.value })} /></label>
-          <label>구분
+          <label>{t('field_place')}<input value={place} onChange={(e) => setPlace(e.target.value)} placeholder={t('placeholder_place_example')} /></label>
+          <label>{t('field_item')}<input value={item} onChange={(e) => setItem(e.target.value)} placeholder={t('placeholder_item_example')} /></label>
+          <label>{t('field_amount')}<input type="number" value={draft.amount || ''} onChange={(e) => set({ amount: Number(e.target.value) || 0 })} /></label>
+          <label>{t('field_date')}<input type="date" value={draft.date} onChange={(e) => set({ date: e.target.value })} /></label>
+          <label>{t('field_type')}
             <select value={draft.type} onChange={(e) => set({ type: e.target.value as TransactionType })}>
-              <option value="expense">지출</option>
-              <option value="income">수입</option>
+              <option value="expense">{t('filter_expense')}</option>
+              <option value="income">{t('filter_income')}</option>
             </select>
           </label>
           {!showCat ? (
             <button type="button" className="cat-toggle" onClick={() => setShowCat(true)}>
-              자동 분류: {draft.category || '미분류'}{draft.subCategory ? ' · ' + draft.subCategory : ''} · 수정 ▾
+              {t('auto_classify_prefix')}{draft.category || t('uncategorized')}{draft.subCategory ? ' · ' + draft.subCategory : ''}{t('edit_suffix')}
             </button>
           ) : (
             <>
-              <label>대분류
-                <input list="edit-cat-list" value={draft.category} onChange={(e) => set({ category: e.target.value })} placeholder="선택 또는 직접 입력" />
+              <label>{t('field_category')}
+                <input list="edit-cat-list" value={draft.category} onChange={(e) => set({ category: e.target.value })} placeholder={t('placeholder_select_or_type')} />
                 <datalist id="edit-cat-list">{categoryList.map((c) => <option key={c} value={c} />)}</datalist>
               </label>
-              <label>소분류
-                <input list="edit-sub-list" value={draft.subCategory} onChange={(e) => set({ subCategory: e.target.value })} placeholder="선택 또는 직접 입력" />
+              <label>{t('field_subcategory')}
+                <input list="edit-sub-list" value={draft.subCategory} onChange={(e) => set({ subCategory: e.target.value })} placeholder={t('placeholder_select_or_type')} />
                 <datalist id="edit-sub-list">{subCategoryList.map((s) => <option key={s} value={s} />)}</datalist>
               </label>
             </>
           )}
-          <label>결제수단<input value={draft.payment} onChange={(e) => set({ payment: e.target.value })} /></label>
-          <label>고정/변동
+          <label>{t('field_payment_method')}<input value={draft.payment} onChange={(e) => set({ payment: e.target.value })} /></label>
+          <label>{t('field_fixed_variable')}
             <select value={draft.fixedType} onChange={(e) => set({ fixedType: e.target.value as FixedType })}>
-              <option value="variable">변동</option>
-              <option value="fixed">고정</option>
+              <option value="variable">{t('opt_variable')}</option>
+              <option value="fixed">{t('opt_fixed')}</option>
             </select>
           </label>
-          <label>분담금<input type="number" value={draft.split || ''} onChange={(e) => set({ split: Number(e.target.value) || 0 })} /></label>
+          <label>{t('field_split')}<input type="number" value={draft.split || ''} onChange={(e) => set({ split: Number(e.target.value) || 0 })} /></label>
         </div>
         <div className="fixed-actions">
-          <button type="button" className="fixed-save" onClick={() => onSave({ ...draft, memo: joinPlaceItem(place, item) })}>저장</button>
+          <button type="button" className="fixed-save" onClick={() => onSave({ ...draft, memo: joinPlaceItem(place, item) })}>{t('btn_save')}</button>
         </div>
       </div>
     </div>
@@ -1285,18 +1286,18 @@ function FixedVariablePanel({ summary }: { summary: Summary }) {
 
   return (
     <div className="fixed-panel">
-      <div className="fixed-track" aria-label="고정비 변동비 비중">
+      <div className="fixed-track" aria-label={t('fixed_variable_ratio_aria')}>
         <span className="fixed-part" style={{ width: `${fixedWidth}%` }} />
         <span className="variable-part" style={{ width: `${variableWidth}%` }} />
       </div>
       <div className="fixed-grid">
         <div>
-          <p>고정비</p>
+          <p>{t('label_fixed_cost')}</p>
           <strong>{formatMoney(summary.thisMonth.fixed)}</strong>
           <span>{formatPercent(summary.fixedShare)}</span>
         </div>
         <div>
-          <p>변동비</p>
+          <p>{t('label_variable_cost')}</p>
           <strong>{formatMoney(summary.thisMonth.variable)}</strong>
           <span>{formatPercent(summary.thisMonth.totalSpend ? summary.thisMonth.variable / summary.thisMonth.totalSpend : 0)}</span>
         </div>
@@ -1339,15 +1340,15 @@ function AssetEditor({ asset, onSave, onDone }: { asset: Asset | null; onSave: (
 
   return (
     <section className="asset-editor">
-      <SectionHeader icon={asset ? <Pencil size={18} /> : <Plus size={18} />} title={asset ? '자산 수정' : '자산 추가'} aside={asset ? asset.name : '직접 입력'} />
+      <SectionHeader icon={asset ? <Pencil size={18} /> : <Plus size={18} />} title={asset ? t('asset_edit_title') : t('asset_add_title')} aside={asset ? asset.name : t('manual_input')} />
       <div className="asset-form">
-        <input value={draft.kind} onChange={(event) => update('kind', event.target.value)} placeholder="구분" />
-        <input value={draft.name} onChange={(event) => update('name', event.target.value)} placeholder="이름" />
-        <input value={draft.institution} onChange={(event) => update('institution', event.target.value)} placeholder="기관" />
-        <input value={draft.amount} onChange={(event) => update('amount', event.target.value.replace(/[^\d,]/g, ''))} inputMode="numeric" placeholder="금액" />
+        <input value={draft.kind} onChange={(event) => update('kind', event.target.value)} placeholder={t('placeholder_kind')} />
+        <input value={draft.name} onChange={(event) => update('name', event.target.value)} placeholder={t('field_name')} />
+        <input value={draft.institution} onChange={(event) => update('institution', event.target.value)} placeholder={t('placeholder_institution')} />
+        <input value={draft.amount} onChange={(event) => update('amount', event.target.value.replace(/[^\d,]/g, ''))} inputMode="numeric" placeholder={t('field_amount')} />
         <button type="button" onClick={submit}>
           <Save size={17} />
-          저장
+          {t('btn_save')}
         </button>
       </div>
     </section>
@@ -1658,7 +1659,7 @@ function groupTransactions(rows: Transaction[], key: 'category' | 'payment'): Na
   const grouped = rows
     .filter((item) => item.type === 'expense')
     .reduce<Record<string, number>>((acc, item) => {
-      const name = item[key] || '미지정'
+      const name = item[key] || t('unspecified')
       acc[name] = (acc[name] ?? 0) + item.amount
       return acc
     }, {})
@@ -1680,10 +1681,10 @@ function buildInsights(transactions: Transaction[], summary: Summary, store: Fin
   rows.push({
     level: m.income > 0 ? (balance >= 0 ? 'good' : 'danger') : 'good',
     icon: balance >= 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />,
-    title: '이번 달 수지',
+    title: t('insight_balance_title'),
     body: m.income > 0
-      ? `수입 ${formatMoney(m.income)} − 지출 ${formatMoney(m.realSpend)} = ${formatSignedMoney(balance)}${balance >= 0 ? ` · 저축률 ${formatPercent(balance / m.income)}` : ' · 적자예요'}`
-      : `이번 달 실지출 ${formatMoney(m.realSpend)}. 수입을 등록하면 저축률도 보여드려요.`,
+      ? t(balance >= 0 ? 'insight_balance_body_pos' : 'insight_balance_body_neg', { income: formatMoney(m.income), spend: formatMoney(m.realSpend), net: formatSignedMoney(balance), rate: formatPercent(balance / m.income) })
+      : t('insight_balance_body_noincome', { spend: formatMoney(m.realSpend) }),
   })
 
   // 2. 변동 지출 (내가 조절 가능한 돈)
@@ -1691,8 +1692,8 @@ function buildInsights(transactions: Transaction[], summary: Summary, store: Fin
   rows.push({
     level: prevVar != null && variableSum > prevVar * 1.1 ? 'warn' : 'good',
     icon: <Wallet size={18} />,
-    title: '쓸 수 있는 돈 (변동 지출)',
-    body: `고정비 빼고 ${formatMoney(variableSum)} 썼어요.${prevVar != null ? ` 전월 변동은 ${formatMoney(prevVar)}.` : ''} 여기가 줄일 수 있는 부분이에요.`,
+    title: t('insight_variable_title'),
+    body: `${t('insight_variable_body_base', { amt: formatMoney(variableSum) })}${prevVar != null ? t('insight_variable_body_prev', { amt: formatMoney(prevVar) }) : ''}${t('insight_variable_body_tail')}`,
   })
 
   // 3. 최대 변동 지출 (고정비 제외)
@@ -1702,21 +1703,21 @@ function buildInsights(transactions: Transaction[], summary: Summary, store: Fin
     rows.push({
       level: amt >= 150000 ? 'warn' : 'good',
       icon: <CircleDollarSign size={18} />,
-      title: '이번 달 최대 변동 지출',
-      body: `${maxVar.memo} · ${formatMoney(amt)} (${maxVar.category}). 고정비 빼고 가장 큰 한 건이에요.`,
+      title: t('insight_max_var_title'),
+      body: t('insight_max_var_body', { memo: maxVar.memo, amt: formatMoney(amt), cat: maxVar.category }),
     })
   }
 
   // 4. 변동 지출 1위 카테고리
   const catMap = new Map<string, number>()
-  for (const t of variableExpense) catMap.set(t.category, (catMap.get(t.category) || 0) + (t.amount - t.split))
+  for (const tx of variableExpense) catMap.set(tx.category, (catMap.get(tx.category) || 0) + (tx.amount - tx.split))
   const topVarCat = [...catMap.entries()].sort((a, b) => b[1] - a[1])[0]
   if (topVarCat) {
     rows.push({
       level: 'good',
       icon: <ReceiptText size={18} />,
-      title: '변동 지출 1위',
-      body: `${topVarCat[0]} ${formatMoney(topVarCat[1])} — 변동 지출 중 가장 컸어요. 줄일 여지가 있는지 살펴보세요.`,
+      title: t('insight_top_var_cat_title'),
+      body: t('insight_top_var_cat_body', { cat: topVarCat[0], amt: formatMoney(topVarCat[1]) }),
     })
   }
 
@@ -1724,10 +1725,10 @@ function buildInsights(transactions: Transaction[], summary: Summary, store: Fin
   rows.push({
     level: m.income > 0 && m.fixed / m.income > 0.7 ? 'warn' : 'good',
     icon: <ShieldCheck size={18} />,
-    title: '고정비 부담',
+    title: t('insight_fixed_burden_title'),
     body: m.income > 0
-      ? `고정비 ${formatMoney(m.fixed)} · 수입의 ${formatPercent(m.fixed / m.income)}를 차지해요.`
-      : `이번 달 고정비는 ${formatMoney(m.fixed)}예요.`,
+      ? t('insight_fixed_burden_body_income', { amt: formatMoney(m.fixed), pct: formatPercent(m.fixed / m.income) })
+      : t('insight_fixed_burden_body_noincome', { amt: formatMoney(m.fixed) }),
   })
 
   // 6. 투자 현황
@@ -1736,18 +1737,18 @@ function buildInsights(transactions: Transaction[], summary: Summary, store: Fin
     rows.push({
       level: worstInvestment.returnRate < -0.15 ? 'danger' : 'good',
       icon: <LineChart size={18} />,
-      title: '투자 현황',
-      body: `${worstInvestment.name} ${formatPercent(worstInvestment.returnRate)}${worstInvestment.returnRate < 0 ? ' — 손실 구간이에요.' : ' — 수익 중이에요.'}`,
+      title: t('insight_investment_title'),
+      body: `${worstInvestment.name} ${formatPercent(worstInvestment.returnRate)}${worstInvestment.returnRate < 0 ? t('insight_investment_body_loss') : t('insight_investment_body_gain')}`,
     })
   }
 
   // 7. 입력 성실도
-  const missingPayment = monthTx.filter((t) => t.type === 'expense' && !t.payment).length
+  const missingPayment = monthTx.filter((tx) => tx.type === 'expense' && !tx.payment).length
   rows.push({
     level: missingPayment > 0 ? 'warn' : 'good',
     icon: <Sparkles size={18} />,
-    title: '입력 성실도',
-    body: missingPayment > 0 ? `이번 달 결제수단 미입력 ${missingPayment}건. 채워두면 더 정확해져요.` : '이번 달 기록 깔끔해요 👍',
+    title: t('insight_diligence_title'),
+    body: missingPayment > 0 ? t('insight_diligence_body_missing', { n: missingPayment }) : t('insight_diligence_body_clean'),
   })
 
   return rows
@@ -1755,7 +1756,7 @@ function buildInsights(transactions: Transaction[], summary: Summary, store: Fin
 
 function parseQuickEntry(raw: string): ParseResult {
   const text = raw.trim()
-  if (!text) return { kind: 'error', message: '입력값 없음' }
+  if (!text) return { kind: 'error', message: t('err_no_input') }
 
   if (/^\s*자산\s*[:：]?/.test(text)) return parseAssetEntry(text)
   if (/^\s*(투자|주식)\s*[:：]?/.test(text)) return parseInvestmentEntry(text)
@@ -1772,7 +1773,7 @@ function parseTransactionEntry(raw: string): ParseResult {
   text = date.remaining
 
   const amountMatch = text.match(/(\d{1,3}(?:,\d{3})+|\d+)/)
-  if (!amountMatch) return { kind: 'error', message: '금액을 찾지 못함' }
+  if (!amountMatch) return { kind: 'error', message: t('err_amount_not_found') }
 
   const amount = moneyNumber(amountMatch[1])
   text = text.replace(amountMatch[0], '').replace(/\s+/g, ' ').trim()
@@ -1811,7 +1812,7 @@ function parseTransactionEntry(raw: string): ParseResult {
 function parseAssetEntry(raw: string): ParseResult {
   const body = raw.replace(/^\s*자산\s*[:：]?\s*/, '').replace(/\s+/g, ' ').trim()
   const amountMatch = body.match(/(\d{1,3}(?:,\d{3})+|\d+)/)
-  if (!amountMatch) return { kind: 'error', message: '자산 금액을 찾지 못함' }
+  if (!amountMatch) return { kind: 'error', message: t('err_asset_amount_not_found') }
 
   const before = body.slice(0, amountMatch.index).trim()
   const after = body.slice((amountMatch.index ?? 0) + amountMatch[0].length).trim()
@@ -1859,14 +1860,14 @@ function parseInvestmentEntry(raw: string): ParseResult {
     })
   })
 
-  if (!investments.length) return { kind: 'error', message: '투자 항목을 찾지 못함' }
+  if (!investments.length) return { kind: 'error', message: t('err_investment_not_found') }
   return { kind: 'investment', investments }
 }
 
 function parseLoanEntry(raw: string): ParseResult {
   const body = raw.replace(/^\s*대출\s*[:：]?\s*/, '').replace(/\s+/g, ' ').trim()
   const numbers = [...body.matchAll(/(\d{1,3}(?:,\d{3})+|\d+)/g)]
-  if (!numbers.length) return { kind: 'error', message: '대출 잔액을 찾지 못함' }
+  if (!numbers.length) return { kind: 'error', message: t('err_loan_balance_not_found') }
 
   const name = body.slice(0, numbers[0].index).trim() || '대출'
   const tail = body.slice((numbers[1]?.index ?? numbers[0].index ?? 0) + (numbers[1]?.[0].length ?? numbers[0][0].length)).trim()
@@ -1945,7 +1946,7 @@ function isFixed(memo: string) {
 }
 
 function fixedTypeLabel(value: FixedType) {
-  return value === 'fixed' ? '고정' : '변동'
+  return value === 'fixed' ? t('fixed_type_fixed') : t('fixed_type_variable')
 }
 
 function upsertByName<T extends { id: string; name: string }>(items: T[], item: T) {
@@ -1980,9 +1981,9 @@ function loan(date: string, name: string, institution: string, balance: number, 
 
 function resultLabel(result: Exclude<ParseResult, { kind: 'error' }>) {
   if (result.kind === 'transaction') return `${result.transaction.memo} ${formatMoney(result.transaction.amount)}`
-  if (result.kind === 'asset') return `${result.asset.name} 자산 갱신`
-  if (result.kind === 'investment') return `투자 ${result.investments.length}건 갱신`
-  return `${result.loan.name} 대출 갱신`
+  if (result.kind === 'asset') return t('toast_asset_updated', { name: result.asset.name })
+  if (result.kind === 'investment') return t('toast_investment_updated', { n: result.investments.length })
+  return t('toast_loan_updated', { name: result.loan.name })
 }
 
 
@@ -2027,7 +2028,7 @@ function formatSignedMoney(value: number) {
 function formatDateLabel(value: string) {
   const [, , month, day] = value.match(/(\d{4})-(\d{2})-(\d{2})/) ?? []
   if (!month || !day) return value
-  return `${Number(month)}월 ${Number(day)}일`
+  return t('date_label', { month: Number(month), day: Number(day) })
 }
 
 export default App
