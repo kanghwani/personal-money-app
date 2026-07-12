@@ -158,6 +158,11 @@ const seedData: FinanceStore = {
   budget: 1000000,
 }
 
+// 프로필 인스턴스(예: 브리 es)는 데모 시드 없이 빈 상태로 시작한다.
+// 빈 백엔드에 처음 접속할 때 seedData(한국어 데모)가 업로드되어 오염되는 것을 막는다.
+const emptyStore: FinanceStore = { transactions: [], assets: [], investments: [], loans: [], budget: seedData.budget }
+const initialStore: FinanceStore = import.meta.env.VITE_PROFILE ? emptyStore : seedData
+
 function App() {
   const [store, setStore, syncStatus, syncNow] = usePersistentStore()
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
@@ -1495,7 +1500,7 @@ function useLedgerHistory(): [Transaction[], () => void] {
 function usePersistentStore() {
   const [store, setStore] = useState<FinanceStore>(() => {
     const saved = window.localStorage.getItem(STORAGE_KEY)
-    if (!saved) return seedData
+    if (!saved) return initialStore
     try {
       const parsed = JSON.parse(saved) as FinanceStore
       if (typeof parsed.budget !== 'number') {
@@ -1503,7 +1508,7 @@ function usePersistentStore() {
       }
       return parsed
     } catch {
-      return seedData
+      return initialStore
     }
   })
   const storeRef = useRef(store)
