@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { loadFromServer, saveToServer, loadLedger, assignCategory, loadFixedDefs, saveFixedDef, deleteFixedDef, type SyncConfig } from './syncClient'
 
-const cfg: SyncConfig = { url: 'https://script.example/exec', token: 'secret-tok' }
+const cfg: SyncConfig = { url: 'https://script.example/exec', token: 'secret-tok', profile: '' }
 
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn())

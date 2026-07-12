@@ -37,6 +37,7 @@ import { pickNewer, dedupById } from './sync/merge'
 import { getSyncConfig, loadFromServer, saveToServer, loadLedger, assignCategory, loadFixedDefs, saveFixedDef, deleteFixedDef, deleteLedger, updateLedger, appendLedger } from './sync/syncClient'
 import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, type QuickChip, type FixedDef } from './dashboardLogic'
 import { loadLearnedRules, saveLearnedRule, classifyByLearned } from './learnedRules'
+import { RULES, LANG, classifyMemo } from './classifyRules'
 import './App.css'
 
 type Tab = 'dashboard' | 'ledger' | 'assets' | 'insights' | 'fixed'
@@ -110,22 +111,7 @@ const STORAGE_KEY = 'personal-money-app:v1'
 const UPDATED_AT_KEY = 'personal-money-app:v1:updatedAt'
 export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error'
 
-const categoryRules = [
-  { words: ['점심', '저녁', '밥', '식당', '라멘', '피자', '버거', '김밥', '마라탕'], category: '식비', sub: '외식' },
-  { words: ['커피', '카페', '아메리카노', '라떼', '스타벅스', '투썸', '이디야', '빽다방', '컴포즈', '메가커피'], category: '식비', sub: '카페' },
-  { words: ['마트', '장보기', '식자재', '쿠팡', '컬리', '코스트코', '홈플러스', '롯데마트', '이마트', '노브랜드', '와마트'], category: '식비', sub: '장보기' },
-  { words: ['편의점', 'CU', 'GS25', '세븐일레븐'], category: '식비', sub: '간편식' },
-  { words: ['다이소'], category: '생활', sub: '생활잡화' },
-  { words: ['올리브영'], category: '생활', sub: '뷰티/미용' },
-  { words: ['월세', '관리비', '전기', '가스', '인터넷', '통신'], category: '주거/통신', sub: '고정비' },
-  { words: ['주차', '택시', '버스', '지하철', '자동차', '기름'], category: '교통/차량', sub: '이동' },
-  { words: ['병원', '약', '수영', '헬스', '운동'], category: '건강', sub: '관리' },
-  { words: ['넷플릭스', '구독', '애플', '네이버', '스포티파이'], category: '문화/구독', sub: '구독' },
-  { words: ['게임', '스팀', '플레이', '취미'], category: '취미', sub: '게임' },
-  { words: ['유니클로'], category: '쇼핑', sub: '의류' },
-  { words: ['책', '강의', '학원', '공부', '교보문고'], category: '자기계발', sub: '교육' },
-  { words: ['월급', '급여', '입금', '보너스'], category: '수입', sub: '급여' },
-]
+const R = RULES[LANG]
 
 // 거래 이력이 없을 때 미분류 교정 칩에 보여줄 기본 카테고리 목록
 const DEFAULT_FIX_OPTIONS: { category: string; subCategory: string }[] = [
@@ -1792,7 +1778,7 @@ function parseTransactionEntry(raw: string): ParseResult {
   text = text.replace(amountMatch[0], '').replace(/\s+/g, ' ').trim()
   const splitParse = splitFromText(text, amount)
   text = splitParse.remaining
-  const type: TransactionType = forcedIncome || /수입|월급|급여|입금|보너스/.test(raw) ? 'income' : 'expense'
+  const type: TransactionType = forcedIncome || R.incomeRe.test(raw) ? 'income' : 'expense'
   const paymentParse = extractPayment(text)
   text = paymentParse.remaining
   const fixedParse = extractFixedType(text)
@@ -1801,7 +1787,7 @@ function parseTransactionEntry(raw: string): ParseResult {
   const guessed = learned ? { category: learned.category, sub: learned.subCategory } : classify(text)
   // 수입은 지출용 분류가 오분류(예: '월세'→주거/통신)하므로 대분류를 '수입'으로 강제
   const category = type === 'income'
-    ? { category: '수입', sub: guessed.category === '수입' ? guessed.sub : '' }
+    ? { category: R.incomeCategory, sub: guessed.category === R.incomeCategory ? guessed.sub : '' }
     : guessed
 
   return {
@@ -1905,11 +1891,11 @@ function extractDate(text: string) {
   let date = new Date()
   let remaining = text
 
-  if (remaining.includes('어제')) {
+  if (remaining.includes(R.yesterday)) {
     date.setDate(date.getDate() - 1)
-    remaining = remaining.replace('어제', '')
+    remaining = remaining.replace(R.yesterday, '')
   }
-  if (remaining.includes('오늘')) remaining = remaining.replace('오늘', '')
+  if (remaining.includes(R.today)) remaining = remaining.replace(R.today, '')
 
   const ymd = remaining.match(/(20\d{2})[./-](\d{1,2})[./-](\d{1,2})/)
   const md = remaining.match(/(^|\s)(\d{1,2})[./-](\d{1,2})(\s|$)/)
@@ -1926,38 +1912,11 @@ function extractDate(text: string) {
 }
 
 function classify(memo: string) {
-  const hit = categoryRules.find((rule) => rule.words.some((word) => memo.toLowerCase().includes(word.toLowerCase())))
-  return hit ? { category: hit.category, sub: hit.sub } : { category: '미분류', sub: '' }
+  return classifyMemo(memo, R)
 }
 
 function extractPayment(memo: string) {
-  const paymentPatterns = [
-    '국민카드',
-    '삼성카드',
-    '현대카드',
-    '신한카드',
-    '하나카드',
-    '이음카드',
-    '우리카드',
-    '롯데카드',
-    '카카오뱅크',
-    '토스뱅크',
-    '네이버페이',
-    '카카오페이',
-    '계좌이체',
-    '체크카드',
-    '토스',
-    '국민',
-    '삼성',
-    '현대',
-    '신한',
-    '카카오',
-    '네이버',
-    '현금',
-    '계좌',
-    '이음',
-    '카드',
-  ]
+  const paymentPatterns = R.payments
   const match = paymentPatterns.find((item) => memo.includes(item))
   if (!match) return { payment: '', remaining: memo }
 
@@ -1968,18 +1927,7 @@ function extractPayment(memo: string) {
 }
 
 function normalizePayment(value: string) {
-  const aliases: Record<string, string> = {
-    국민: '국민카드',
-    삼성: '삼성카드',
-    현대: '현대카드',
-    신한: '신한카드',
-    카카오: '카카오페이',
-    네이버: '네이버페이',
-    계좌: '계좌이체',
-    이음: '이음카드',
-    카드: '카드',
-  }
-  return aliases[value] ?? value
+  return R.paymentAlias[value] ?? value
 }
 
 function extractFixedType(memo: string) {
