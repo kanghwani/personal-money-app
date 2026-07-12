@@ -39,7 +39,7 @@
 - `src/i18n.ts`: `type Lang = 'ko' | 'es'`, `const LANG: Lang = (import.meta.env.VITE_LANG === 'es') ? 'es' : 'ko'`, `t(key)` 룩업.
 - `src/i18n/ko.ts`, `src/i18n/es.ts`: 키→문자열 사전. 고유 UI 문자열(~150개: 탭·버튼·헤더·플레이스홀더·시트 제목·빈상태·인사이트 카드 제목 등)을 키로 추출.
 - `App.tsx`의 하드코딩 한글 문자열을 `t('key')`로 치환. 동적 문장(템플릿)은 파라미터화한 t 함수(`t('savingsRate', {pct})`) 또는 조합.
-- 숫자·통화: 기존 `formatMoney`(₩)를 `VITE_CURRENCY` 기반으로 일반화(`Intl.NumberFormat`). 네 빌드 기본 KRW. 그녀 빌드 통화·로케일은 **배포 전 사용자 확정 필요**(브리 거주국: 스페인=EUR/es-ES, 중남미=해당 통화). env 한 줄로 설정.
+- 숫자·통화: **브리도 한국 거주·원화(₩)** → 기존 `formatMoney`(₩, 콤마 구분) 그대로. 통화 일반화·`VITE_CURRENCY` 불필요(범위 제거).
 
 ### 4. 프론트 — 스페인어 분류기
 - 현재 `App.tsx`의 `categoryRules`, `paymentPatterns`, 날짜(`어제/오늘`), 수입 키워드(`수입|월급|급여|입금|보너스`)가 한글 하드코딩.
@@ -52,7 +52,7 @@
 - 학습 규칙(localStorage `learnedRules`)은 언어무관(문자열 매칭) → 그대로 동작.
 
 ### 5. 배포
-- 두 번째 Vercel 프로젝트(또는 동일 프로젝트의 별도 도메인). 빌드 env: `VITE_PROFILE=es`, `VITE_LANG=es`, `VITE_CURRENCY=EUR`, `VITE_SYNC_URL`(동일), `VITE_SYNC_TOKEN`(동일).
+- 두 번째 Vercel 프로젝트(또는 동일 프로젝트의 별도 도메인). 빌드 env: `VITE_PROFILE=es`, `VITE_LANG=es`, `VITE_SYNC_URL`(동일), `VITE_SYNC_TOKEN`(동일).
 - 그녀 전용 URL 발급.
 
 ### 6. 스페인어 사용 가이드
@@ -68,7 +68,7 @@
 ## 에러/엣지
 - `profile` 미전달(네 기존 앱) → 백엔드 `v2_` 기본. 하위호환 유지.
 - es 탭 최초 접근 → `ensureSheet_`가 헤더 포함 생성.
-- 통화: 그녀 EUR, 너 KRW. `VITE_CURRENCY`로 분리.
+- 통화: 브리도 원화(₩) → 기존 formatMoney 그대로, 통화 분기 없음.
 - 분류기 미매칭 → `Sin categoría`(미분류) + 기존 인라인 교정/학습으로 커버.
 - 같은 토큰 노출: 그녀 빌드 env에 토큰 포함(기존 네 빌드도 동일 구조). 공개 저장소 아님(.env gitignore).
 
