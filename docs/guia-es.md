@@ -2,9 +2,11 @@
 
 ¡Hola Bri! Esta es tu app personal para llevar el control de tus gastos e ingresos. Es solo tuya: tus datos no se mezclan con los de nadie.
 
+**Tu app: https://bri-gastos.vercel.app**
+
 ## 1. Abrir la app y ponerla en tu pantalla de inicio
 
-1. Abre el enlace que te pasé en el navegador del móvil (Safari o Chrome).
+1. Abre **https://bri-gastos.vercel.app** en el navegador del móvil (Safari o Chrome).
 2. Añádela a la pantalla de inicio para usarla como una app normal:
    - **iPhone (Safari):** botón *Compartir* → **Añadir a pantalla de inicio**.
    - **Android (Chrome):** menú ⋮ → **Añadir a pantalla de inicio**.
