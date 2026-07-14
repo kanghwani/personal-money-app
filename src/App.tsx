@@ -114,18 +114,8 @@ export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error'
 
 const R = RULES[LANG]
 
-// 거래 이력이 없을 때 미분류 교정 칩에 보여줄 기본 카테고리 목록
-const DEFAULT_FIX_OPTIONS: { category: string; subCategory: string }[] = [
-  { category: '식비', subCategory: '외식' },
-  { category: '식비', subCategory: '카페/간식' },
-  { category: '식비', subCategory: '장보기' },
-  { category: '생활', subCategory: '생활잡화' },
-  { category: '교통/차량', subCategory: '' },
-  { category: '주거/통신', subCategory: '' },
-  { category: '건강', subCategory: '' },
-  { category: '문화/구독', subCategory: '구독' },
-  { category: '취미', subCategory: '게임' },
-]
+// 거래 이력이 없을 때 미분류 교정 칩에 보여줄 기본 카테고리 목록(언어별 RuleSet.defaultOptions — F2)
+const DEFAULT_FIX_OPTIONS = R.defaultOptions
 
 
 const seedData: FinanceStore = {
@@ -244,7 +234,7 @@ function App() {
     }
 
     setLastMessage(resultLabel(parsed))
-    if (parsed.kind === 'transaction' && parsed.transaction.type === 'expense' && parsed.transaction.category === '미분류') {
+    if (parsed.kind === 'transaction' && parsed.transaction.type === 'expense' && parsed.transaction.category === R.uncategorized) {
       setPendingUncat(parsed.transaction)
     } else {
       setPendingUncat(null)
@@ -597,7 +587,7 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit }:
         <CategoryRing
           total={formatMoney(summary.thisMonth.realSpend)}
           subtitle={ringSubtitle}
-          data={topNWithOther(summary.categoryTotals, 7)}
+          data={topNWithOther(summary.categoryTotals, 7, t('sub_other'))}
         />
         <div className="cat-rank">
           {summary.categoryTotals.map((c, i) => (
@@ -1803,7 +1793,7 @@ function parseTransactionEntry(raw: string): ParseResult {
       date: date.date,
       type,
       amount,
-      memo: text || (type === 'income' ? '수입' : '지출'),
+      memo: text || (type === 'income' ? t('filter_income') : t('filter_expense')),
       category: category.category,
       subCategory: category.sub,
       payment: paymentParse.payment,
@@ -1893,15 +1883,36 @@ function parseLoanEntry(raw: string): ParseResult {
   }
 }
 
+// 정규식 메타문자를 이스케이프해 키워드를 안전하게 정규식에 끼워 넣는다.
+function escapeRegExp(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+// 대소문자 무시하고 keyword가 text에 포함되는지(모바일 자동 대문자화 대응 — F4).
+// 한글에는 대소문자 개념이 없어 ko 결과는 바뀌지 않는다.
+function includesCI(text: string, keyword: string) {
+  return new RegExp(escapeRegExp(keyword), 'i').test(text)
+}
+
+// 대소문자 무시하고 첫 매치를 제거.
+function removeCI(text: string, keyword: string) {
+  return text.replace(new RegExp(escapeRegExp(keyword), 'i'), '')
+}
+
+// 공백/문장 경계로 둘러싸인 토큰을 대소문자 무시하고 찾는 정규식(F-minor-a: 고정/변동 수동 태그).
+function wordRegexCI(token: string) {
+  return new RegExp(`(^|\\s)${escapeRegExp(token)}(\\s|$)`, 'i')
+}
+
 function extractDate(text: string) {
   let date = new Date()
   let remaining = text
 
-  if (remaining.includes(R.yesterday)) {
+  if (includesCI(remaining, R.yesterday)) {
     date.setDate(date.getDate() - 1)
-    remaining = remaining.replace(R.yesterday, '')
+    remaining = removeCI(remaining, R.yesterday)
   }
-  if (remaining.includes(R.today)) remaining = remaining.replace(R.today, '')
+  if (includesCI(remaining, R.today)) remaining = removeCI(remaining, R.today)
 
   const ymd = remaining.match(/(20\d{2})[./-](\d{1,2})[./-](\d{1,2})/)
   const md = remaining.match(/(^|\s)(\d{1,2})[./-](\d{1,2})(\s|$)/)
@@ -1923,12 +1934,12 @@ function classify(memo: string) {
 
 function extractPayment(memo: string) {
   const paymentPatterns = R.payments
-  const match = paymentPatterns.find((item) => memo.includes(item))
+  const match = paymentPatterns.find((item) => includesCI(memo, item))
   if (!match) return { payment: '', remaining: memo }
 
   return {
     payment: normalizePayment(match),
-    remaining: memo.replace(match, '').replace(/\s+/g, ' ').trim(),
+    remaining: removeCI(memo, match).replace(/\s+/g, ' ').trim(),
   }
 }
 
@@ -1937,17 +1948,19 @@ function normalizePayment(value: string) {
 }
 
 function extractFixedType(memo: string) {
-  if (/(^|\s)고정(\s|$)/.test(memo)) {
-    return { fixedType: 'fixed' as FixedType, remaining: memo.replace(/(^|\s)고정(\s|$)/, ' ').replace(/\s+/g, ' ').trim() }
+  const fixedRe = wordRegexCI(R.fixedToken)
+  if (fixedRe.test(memo)) {
+    return { fixedType: 'fixed' as FixedType, remaining: memo.replace(fixedRe, ' ').replace(/\s+/g, ' ').trim() }
   }
-  if (/(^|\s)변동(\s|$)/.test(memo)) {
-    return { fixedType: 'variable' as FixedType, remaining: memo.replace(/(^|\s)변동(\s|$)/, ' ').replace(/\s+/g, ' ').trim() }
+  const variableRe = wordRegexCI(R.variableToken)
+  if (variableRe.test(memo)) {
+    return { fixedType: 'variable' as FixedType, remaining: memo.replace(variableRe, ' ').replace(/\s+/g, ' ').trim() }
   }
   return { fixedType: undefined, remaining: memo }
 }
 
 function isFixed(memo: string) {
-  return /월세|관리비|통신|인터넷|구독|보험|대출|할부|국민연금|건강보험/.test(memo)
+  return R.fixedKeywordsRe.test(memo)
 }
 
 function fixedTypeLabel(value: FixedType) {

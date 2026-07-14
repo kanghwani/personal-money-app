@@ -65,6 +65,11 @@ describe('categoryIcon', () => {
     expect(categoryIcon('알수없음')).toBe('💸')
     expect(categoryIcon('')).toBe('💸')
   })
+  it('es 카테고리도 매핑 이모지(F-minor-b)', () => {
+    expect(categoryIcon('Comida')).toBe('🍚')
+    expect(categoryIcon('Vivienda')).toBe('🏠')
+    expect(categoryIcon('Sin categoría')).toBe('❓')
+  })
 })
 
 describe('topNWithOther', () => {
@@ -82,6 +87,11 @@ describe('topNWithOther', () => {
   it('나머지 합이 0이면 기타 없음', () => {
     const data = [d('a', 5), d('b', 0), d('c', 0)]
     expect(topNWithOther(data, 1)).toEqual([d('a', 5)])
+  })
+  it('otherLabel을 넘기면 그 라벨로 합산(F-minor-b, es 호출부용)', () => {
+    const data = [d('a', 5), d('b', 4), d('c', 3), d('d', 2), d('e', 1)]
+    const res = topNWithOther(data, 3, 'Otro')
+    expect(res[3]).toEqual({ name: 'Otro', value: 3 })
   })
 })
 
@@ -118,6 +128,10 @@ describe('distinctCategoryOptions', () => {
   it('수입 제외, 빈 입력 → []', () => {
     expect(distinctCategoryOptions([])).toEqual([])
     expect(distinctCategoryOptions([tx('수입','급여','income')])).toEqual([])
+  })
+  it('es의 Sin categoría도 기본으로 제외(F-minor-b)', () => {
+    const txns = [tx('Comida','Cafetería'), tx('Sin categoría','')]
+    expect(distinctCategoryOptions(txns)).toEqual([{ category: 'Comida', subCategory: 'Cafetería' }])
   })
 })
 

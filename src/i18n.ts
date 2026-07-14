@@ -224,7 +224,7 @@ export const es: Record<string, string> = {
 
   not_entered: 'Sin especificar',
   unspecified: 'Sin especificar',
-  uncategorized: 'Sin clasificar',
+  uncategorized: 'Sin categoría',
   sub_other: 'Otro',
   no_transactions: 'No hay movimientos.',
   no_transactions_add_above: 'No hay movimientos. Añade uno arriba.',

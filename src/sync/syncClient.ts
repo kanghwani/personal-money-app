@@ -1,4 +1,5 @@
 import type { FixedDef } from '../dashboardLogic'
+import { PROFILE } from '../classifyRules'
 
 export type SyncConfig = { url: string; token: string; profile: string }
 
@@ -9,8 +10,9 @@ export function getSyncConfig(): SyncConfig | null {
   const url = import.meta.env.VITE_SYNC_URL
   const token = import.meta.env.VITE_SYNC_TOKEN
   if (!url || !token) return null
-  const profile = import.meta.env.VITE_PROFILE || ''
-  return { url, token, profile }
+  // VITE_PROFILE을 독립적으로 다시 읽지 않고 classifyRules의 단일 출처를 그대로 사용(F5:
+  // VITE_PROFILE만 빠지거나 오타가 나도 LANG과 profile이 항상 함께 ko로 fail-closed됨)
+  return { url, token, profile: PROFILE }
 }
 
 /** profile이 있으면 &profile=... 반환, 없으면 빈 문자열. */

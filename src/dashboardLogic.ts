@@ -41,6 +41,17 @@ const CATEGORY_ICON: Record<string, string> = {
   자기계발: '📘',
   수입: '💰',
   미분류: '❓',
+  // es 카테고리(F-minor-b)
+  Comida: '🍚',
+  Vivienda: '🏠',
+  Transporte: '🚗',
+  Ocio: '🎮',
+  Vida: '🧴',
+  Salud: '💊',
+  Compras: '🛍️',
+  Desarrollo: '📘',
+  Ingreso: '💰',
+  'Sin categoría': '❓',
 }
 
 /** 대분류 → 이모지. 미매핑/빈값은 기본 '💸'. */
@@ -50,12 +61,12 @@ export function categoryIcon(category: string): string {
 
 export type NV = { name: string; value: number }
 
-/** 상위 n개 + 나머지를 '기타'로 합산(합 0이면 생략). n 이하면 원본 그대로. */
-export function topNWithOther(data: NV[], n: number): NV[] {
+/** 상위 n개 + 나머지를 otherLabel(기본 '기타')로 합산(합 0이면 생략). n 이하면 원본 그대로. */
+export function topNWithOther(data: NV[], n: number, otherLabel: string = '기타'): NV[] {
   if (data.length <= n) return data
   const top = data.slice(0, n)
   const otherValue = data.slice(n).reduce((s, d) => s + d.value, 0)
-  return otherValue > 0 ? [...top, { name: '기타', value: otherValue }] : top
+  return otherValue > 0 ? [...top, { name: otherLabel, value: otherValue }] : top
 }
 
 type DayTxLike = { date: string; type: string; amount: number; split: number }
@@ -120,12 +131,19 @@ export function fixedRemaining(
   return { count, total, remainingCount, remainingAmount: remainingCount * def.amount, done: remainingCount === 0 }
 }
 
+// ko/es 미분류 라벨 둘 다 기본으로 걸러낸다(F-minor-b: es에서 'Sin categoría'가 선택 가능한
+// 카테고리로 노출되던 문제). 필요하면 호출부에서 다른 라벨 목록을 넘길 수 있다.
+const DEFAULT_UNCATEGORIZED_LABELS = ['미분류', 'Sin categoría']
+
 /** 지출 거래에서 고유 (대분류,소분류) 조합을 빈도 내림차순으로. 미분류/수입 제외. */
-export function distinctCategoryOptions(transactions: TxLike[]): { category: string; subCategory: string }[] {
+export function distinctCategoryOptions(
+  transactions: TxLike[],
+  uncategorizedLabels: string[] = DEFAULT_UNCATEGORIZED_LABELS,
+): { category: string; subCategory: string }[] {
   const counts = new Map<string, { category: string; subCategory: string; n: number }>()
   for (const t of transactions) {
     if (t.type !== 'expense') continue
-    if (!t.category || t.category === '미분류') continue
+    if (!t.category || uncategorizedLabels.includes(t.category)) continue
     const key = t.category + ' ' + (t.subCategory || '')
     const e = counts.get(key)
     if (e) e.n++

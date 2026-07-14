@@ -1,5 +1,8 @@
 export type Lang = 'ko' | 'es'
-export const LANG: Lang = import.meta.env.VITE_LANG === 'es' ? 'es' : 'ko'
+// 프로필(VITE_PROFILE)이 유일한 진실 공급원. VITE_LANG은 더 이상 언어를 독립적으로 결정하지 않는다.
+// (VITE_PROFILE만 빠지거나 오타가 나도 항상 ko로 안전하게 fail-closed되도록 — F5)
+export const PROFILE: string = import.meta.env.VITE_PROFILE || ''
+export const LANG: Lang = PROFILE === 'es' ? 'es' : 'ko'
 
 export type CatRule = { words: string[]; category: string; sub: string }
 export type RuleSet = {
@@ -11,6 +14,10 @@ export type RuleSet = {
   incomeRe: RegExp                // 수입 키워드
   uncategorized: string           // 미분류 라벨
   incomeCategory: string          // 수입 강제 분류 시 대분류
+  defaultOptions: { category: string; subCategory: string }[]  // 거래 이력 없을 때 카테고리 후보 기본값
+  fixedToken: string              // "고정" 수동 태그 토큰
+  variableToken: string           // "변동" 수동 태그 토큰
+  fixedKeywordsRe: RegExp         // 메모에 포함되면 자동으로 고정비로 추정되는 키워드
 }
 
 const ko: RuleSet = {
@@ -38,6 +45,21 @@ const ko: RuleSet = {
   incomeRe: /수입|월급|급여|입금|보너스/,
   uncategorized: '미분류',
   incomeCategory: '수입',
+  // 기존 App.tsx DEFAULT_FIX_OPTIONS와 완전히 동일(ko 회귀 방지)
+  defaultOptions: [
+    { category: '식비', subCategory: '외식' },
+    { category: '식비', subCategory: '카페/간식' },
+    { category: '식비', subCategory: '장보기' },
+    { category: '생활', subCategory: '생활잡화' },
+    { category: '교통/차량', subCategory: '' },
+    { category: '주거/통신', subCategory: '' },
+    { category: '건강', subCategory: '' },
+    { category: '문화/구독', subCategory: '구독' },
+    { category: '취미', subCategory: '게임' },
+  ],
+  fixedToken: '고정',
+  variableToken: '변동',
+  fixedKeywordsRe: /월세|관리비|통신|인터넷|구독|보험|대출|할부|국민연금|건강보험/i,
 }
 
 const es: RuleSet = {
@@ -62,6 +84,22 @@ const es: RuleSet = {
   incomeRe: /salario|nómina|sueldo|ingreso/i,
   uncategorized: 'Sin categoría',
   incomeCategory: 'Ingreso',
+  // es의 categoryRules에 이미 있는 카테고리명을 사용(F2)
+  defaultOptions: [
+    { category: 'Comida', subCategory: 'Cafetería' },
+    { category: 'Comida', subCategory: 'Supermercado' },
+    { category: 'Comida', subCategory: 'Restaurante' },
+    { category: 'Vida', subCategory: 'Varios' },
+    { category: 'Transporte', subCategory: 'Movilidad' },
+    { category: 'Vivienda', subCategory: 'Fijos' },
+    { category: 'Salud', subCategory: 'Cuidado' },
+    { category: 'Ocio', subCategory: 'Suscripción' },
+    { category: 'Ocio', subCategory: 'Juegos' },
+    { category: 'Compras', subCategory: 'Ropa' },
+  ],
+  fixedToken: 'fijo',
+  variableToken: 'variable',
+  fixedKeywordsRe: /alquiler|renta|suscripci[oó]n|seguro|internet|tel[eé]fono|luz|gas|pr[eé]stamo/i,
 }
 
 export const RULES: Record<Lang, RuleSet> = { ko, es }
