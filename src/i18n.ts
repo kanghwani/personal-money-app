@@ -95,6 +95,8 @@ export const ko: Record<string, string> = {
 
   // 카테고리 상세 시트
   this_month_real_spend: '이번 달 실지출',
+  this_month_variable_spend: '이번 달 쓴 돈 (고정비 제외)',
+  total_with_fixed: '고정비 포함 총지출',
   vs_prev_month: '전월 대비 {sign}{pct}%',
 
   // 자산 화면
@@ -252,6 +254,8 @@ export const es: Record<string, string> = {
   wd_sun: 'D', wd_mon: 'L', wd_tue: 'M', wd_wed: 'X', wd_thu: 'J', wd_fri: 'V', wd_sat: 'S',
 
   this_month_real_spend: 'Gasto real este mes',
+  this_month_variable_spend: 'Gastado este mes (sin fijos)',
+  total_with_fixed: 'Total con gastos fijos',
   vs_prev_month: '{sign}{pct}% vs. mes anterior',
 
   net_worth: 'Patrimonio neto',

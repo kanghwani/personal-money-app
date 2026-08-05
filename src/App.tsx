@@ -475,7 +475,7 @@ function CategoryRing({ total, subtitle, data }: { total: string; subtitle: stri
     <div className="cat-ring">
       <div className="cat-donut" style={{ background: `conic-gradient(${stops})` }} />
       <div className="cat-ring-center">
-        <span className="cr-k">{t('this_month_real_spend')}</span>
+        <span className="cr-k">{t('this_month_variable_spend')}</span>
         <strong>{total}</strong>
         {subtitle && <span className="cr-s">{subtitle}</span>}
       </div>
@@ -577,20 +577,21 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit }:
   onEdit: (updated: Transaction) => void
 }) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const prev = summary.previousMonth?.realSpend ?? 0
-  const rate = changeRate(summary.thisMonth.realSpend, prev)
+  // 홈 대표 숫자는 '고정비 뺀 내가 쓴 돈'(변동지출). 총지출은 아래 고정/변동 패널에서 확인.
+  const prev = summary.previousMonth?.variable ?? 0
+  const rate = changeRate(summary.thisMonth.variable, prev)
   const ringSubtitle = rate === null ? null : t('vs_prev_month', { sign: rate >= 0 ? '+' : '−', pct: Math.abs(Math.round(rate * 100)) })
 
   return (
     <section className="view-stack">
       <article className="ring-card">
         <CategoryRing
-          total={formatMoney(summary.thisMonth.realSpend)}
+          total={formatMoney(summary.thisMonth.variable)}
           subtitle={ringSubtitle}
-          data={topNWithOther(summary.categoryTotals, 7, t('sub_other'))}
+          data={topNWithOther(summary.variableTotals, 7, t('sub_other'))}
         />
         <div className="cat-rank">
-          {summary.categoryTotals.map((c, i) => (
+          {summary.variableTotals.map((c, i) => (
             <button
               type="button"
               className="cat-rank-row"
@@ -603,7 +604,7 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit }:
               <span className="cat-name">{c.name}</span>
               <span className="cat-amt">{formatMoney(c.value)}</span>
               <span className="cat-pct">
-                {formatPercent(summary.thisMonth.totalSpend ? c.value / summary.thisMonth.totalSpend : 0)}
+                {formatPercent(summary.thisMonth.variable ? c.value / summary.thisMonth.variable : 0)}
               </span>
             </button>
           ))}
@@ -1297,6 +1298,10 @@ function FixedVariablePanel({ summary }: { summary: Summary }) {
           <span>{formatPercent(summary.thisMonth.totalSpend ? summary.thisMonth.variable / summary.thisMonth.totalSpend : 0)}</span>
         </div>
       </div>
+      <div className="fixed-total">
+        <span>{t('total_with_fixed')}</span>
+        <strong>{formatMoney(summary.thisMonth.realSpend)}</strong>
+      </div>
     </div>
   )
 }
@@ -1446,6 +1451,7 @@ type Summary = {
   previousMonth?: MonthMetric
   monthlyTrend: MonthMetric[]
   categoryTotals: NameValue[]
+  variableTotals: NameValue[]   // 고정비 제외·분담금 차감(홈 대표 숫자와 합이 일치)
   paymentTotals: NameValue[]
   assetTotal: number
   investmentTotal: number
@@ -1598,6 +1604,9 @@ function buildSummary(store: FinanceStore): Summary {
   const thisMonth = buildMonthMetric(store.transactions, monthKey)
   const previousMonth = months.length > 1 ? buildMonthMetric(store.transactions, months.at(-2) as string) : undefined
   const categoryTotals = groupTransactions(thisMonthRows(store.transactions, monthKey), 'category')
+  // 홈 대표 숫자용: 고정비 제외 + 분담금 차감 → 합이 thisMonth.variable과 정확히 일치
+  const variableTotals = groupTransactions(
+    thisMonthRows(store.transactions, monthKey).filter((item) => item.fixedType !== 'fixed'), 'category', true)
   const paymentTotals = groupTransactions(thisMonthRows(store.transactions, monthKey), 'payment')
   const assetTotal = store.assets.reduce((sum, item) => sum + item.amount, 0)
   const investmentTotal = store.investments.reduce((sum, item) => sum + item.value, 0)
@@ -1614,6 +1623,7 @@ function buildSummary(store: FinanceStore): Summary {
     previousMonth,
     monthlyTrend,
     categoryTotals,
+    variableTotals,
     paymentTotals,
     assetTotal,
     investmentTotal,
@@ -1650,12 +1660,13 @@ function thisMonthRows(transactions: Transaction[], month: string) {
   return transactions.filter((item) => item.date.startsWith(month))
 }
 
-function groupTransactions(rows: Transaction[], key: 'category' | 'payment'): NameValue[] {
+// net=true면 분담금을 뺀 실지출로 합산한다(홈 변동지출 집계용).
+function groupTransactions(rows: Transaction[], key: 'category' | 'payment', net = false): NameValue[] {
   const grouped = rows
     .filter((item) => item.type === 'expense')
     .reduce<Record<string, number>>((acc, item) => {
       const name = item[key] || t('unspecified')
-      acc[name] = (acc[name] ?? 0) + item.amount
+      acc[name] = (acc[name] ?? 0) + (net ? item.amount - item.split : item.amount)
       return acc
     }, {})
 
