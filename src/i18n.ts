@@ -41,6 +41,7 @@ export const ko: Record<string, string> = {
   day_input_placeholder: '점심 9000 카드',
 
   // 섹션 타이틀
+  sec_by_payment: '결제수단별',
   sec_fixed_variable: '고정비 / 변동비', sec_place_top: '장소 TOP', sec_delta: '전월대비', sec_month_flow: '월별 흐름', sec_spend_ratio: '지출 비중',
 
   // 고정비 화면
@@ -138,7 +139,9 @@ export const ko: Record<string, string> = {
   insight_investment_body_loss: ' — 손실 구간이에요.',
   insight_investment_body_gain: ' — 수익 중이에요.',
   insight_split_title: '받을 돈 (분담금)',
-  insight_split_body: '이번 달 분담·환급 {amt} · {n}건. 최대는 {top} {topAmt}. 정산하면 돌려받는 금액이에요.',
+  insight_split_body: '정산하면 받을 돈 {amt} — {who}.',
+  insight_split_refund: ' 그 외 자동 환급 {amt}.',
+  insight_split_refund_only: '이번 달은 자동 환급 {amt}뿐이에요. 정산할 건 없어요.',
   insight_diligence_title: '입력 성실도',
   insight_diligence_body_missing: '이번 달 결제수단 미입력 {n}건. 채워두면 더 정확해져요.',
   insight_diligence_body_clean: '이번 달 기록 깔끔해요 👍',
@@ -208,6 +211,7 @@ export const es: Record<string, string> = {
   quick_input_aria: 'Entrada rápida',
   day_input_placeholder: 'Almuerzo 9000 tarjeta',
 
+  sec_by_payment: 'Por método de pago',
   sec_fixed_variable: 'Fijos / Variables', sec_place_top: 'Lugares TOP', sec_delta: 'vs. mes anterior', sec_month_flow: 'Flujo mensual', sec_spend_ratio: 'Distribución de gastos',
 
   fixed_income_title: 'Ingresos fijos', fixed_expense_title: 'Gastos fijos',
@@ -296,7 +300,9 @@ export const es: Record<string, string> = {
   insight_investment_body_loss: ' — en pérdida.',
   insight_investment_body_gain: ' — en ganancia.',
   insight_split_title: 'Por cobrar (compartido)',
-  insight_split_body: 'Este mes {amt} compartido en {n} gastos. El mayor: {top} {topAmt}.',
+  insight_split_body: 'Por cobrar {amt} — {who}.',
+  insight_split_refund: ' Además {amt} reembolsado automáticamente.',
+  insight_split_refund_only: 'Este mes solo hay {amt} de reembolso automático.',
   insight_diligence_title: 'Constancia de registro',
   insight_diligence_body_missing: 'Método de pago sin registrar en {n} movimientos este mes. Complétalo para más precisión.',
   insight_diligence_body_clean: '¡Tus registros de este mes están impecables! 👍',

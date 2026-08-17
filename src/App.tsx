@@ -35,7 +35,7 @@ import {
 } from 'lucide-react'
 import { pickNewer, dedupById } from './sync/merge'
 import { getSyncConfig, loadFromServer, saveToServer, loadLedger, assignCategory, loadFixedDefs, saveFixedDef, deleteFixedDef, deleteLedger, updateLedger, appendLedger } from './sync/syncClient'
-import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, type QuickChip, type FixedDef } from './dashboardLogic'
+import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, type QuickChip, type FixedDef } from './dashboardLogic'
 import { loadLearnedRules, saveLearnedRule, classifyByLearned } from './learnedRules'
 import { RULES, LANG, classifyMemo } from './classifyRules'
 import { t } from './i18n'
@@ -154,6 +154,8 @@ const emptyStore: FinanceStore = { transactions: [], assets: [], investments: []
 const initialStore: FinanceStore = import.meta.env.VITE_PROFILE ? emptyStore : seedData
 
 function App() {
+  // 브라우저 탭 제목도 언어에 맞춘다(index.html은 ko 고정이라 es 빌드에서 어긋났음)
+  useEffect(() => { document.title = t('app_title') }, [])
   const [store, setStore, syncStatus, syncNow] = usePersistentStore()
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
   const [lastMessage, setLastMessage] = useState(t('status_ready'))
@@ -1000,6 +1002,23 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
         </div>
       </section>
 
+      {summary.paymentTotals.length > 0 && (
+        <section className="wide-section">
+          <SectionHeader icon={<Wallet size={18} />} title={t('sec_by_payment')} aside={summary.monthKey} />
+          <div className="delta-list">
+            {topNWithOther(summary.paymentTotals, 6, t('sub_other')).map((p) => (
+              <div className="delta-row" key={p.name}>
+                <span className="delta-name">{p.name}</span>
+                <div className="delta-bar-wrap">
+                  <span className="delta-bar down" style={{ width: `${(p.value / summary.paymentTotals[0].value) * 100}%` }} />
+                </div>
+                <span className="delta-val">{formatMoney(p.value)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {places.length > 0 && (
         <section className="wide-section">
           <SectionHeader icon={<CircleDollarSign size={18} />} title={t('sec_place_top')} aside={summary.monthKey} />
@@ -1749,18 +1768,17 @@ function buildInsights(transactions: Transaction[], summary: Summary, store: Fin
   }
 
   // 7. 분담금 — 내가 결제했지만 남이 부담하는 몫(정산해서 받을 돈) + 환급분
-  const splitRows = monthTx.filter((tx) => tx.type === 'expense' && tx.split > 0)
-  const splitSum = splitRows.reduce((s, tx) => s + tx.split, 0)
-  if (splitSum > 0) {
-    const topSplit = [...splitRows].sort((a, b) => b.split - a.split)[0]
+  const sb = splitBreakdown(monthTx, summary.monthKey)
+  if (sb.total > 0) {
+    const who = sb.byPerson.map((p) => `${p.name} ${formatMoney(p.value)}`).join(' · ')
     rows.push({
       level: 'good',
       icon: <Wallet size={18} />,
       title: t('insight_split_title'),
-      body: t('insight_split_body', {
-        amt: formatMoney(splitSum), n: splitRows.length,
-        top: splitPlaceItem(topSplit.memo).place || topSplit.memo, topAmt: formatMoney(topSplit.split),
-      }),
+      body: sb.settle > 0
+        ? t('insight_split_body', { amt: formatMoney(sb.settle), who }) +
+          (sb.refund > 0 ? t('insight_split_refund', { amt: formatMoney(sb.refund) }) : '')
+        : t('insight_split_refund_only', { amt: formatMoney(sb.refund) }),
     })
   }
 

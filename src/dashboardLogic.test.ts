@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, type TxLike, type FixedDef } from './dashboardLogic'
+import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, type TxLike, type FixedDef } from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
   ({ date, type: 'expense', amount, category, subCategory, payment, fixedType: 'variable' })
@@ -261,5 +261,31 @@ describe('categoryDeltas', () => {
       { name: '식비', cur: 12000, prev: 0, delta: 12000, rate: null },
       { name: '생활', cur: 3000, prev: 0, delta: 3000, rate: null },
     ])
+  })
+})
+
+describe('splitBreakdown', () => {
+  const tx = (memo: string, split: number, date = '2026-08-10') =>
+    ({ date, type: 'expense', amount: split * 2, split, memo })
+  it('환급은 정산 대상에서 분리', () => {
+    const r = splitBreakdown([tx('넷플릭스(피클플러스 환급 후 5,000)', 22000)], '2026-08')
+    expect(r.refund).toBe(22000)
+    expect(r.settle).toBe(0)
+  })
+  it('상대별로 묶어 정산액 집계', () => {
+    const r = splitBreakdown([tx('코스트코(브리 반반)', 112750), tx('쿠팡 와우멤버십(형 부담)', 7890)], '2026-08')
+    expect(r.settle).toBe(120640)
+    expect(r.byPerson).toEqual([
+      { name: '여친', value: 112750 },
+      { name: '형', value: 7890 },
+    ])
+  })
+  it('상대 못 찾으면 기타', () => {
+    const r = splitBreakdown([tx('월세', 600000)], '2026-08')
+    expect(r.byPerson).toEqual([{ name: '기타', value: 600000 }])
+  })
+  it('분담 0·타월 제외', () => {
+    const r = splitBreakdown([tx('커피', 0), tx('밥(브리 반반)', 5000, '2026-07')], '2026-08')
+    expect(r.total).toBe(0)
   })
 })

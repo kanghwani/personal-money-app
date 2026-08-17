@@ -238,3 +238,36 @@ export function categoryDeltas(transactions: CatTxLike[], curMonth: string, prev
     })
     .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
 }
+
+export type SplitBreakdown = { total: number; refund: number; settle: number; byPerson: NV[] }
+type SplitTxLike = { date: string; type: string; amount: number; split: number; memo: string }
+
+// 분담금 메모에서 상대를 추정하는 기본 사전. 메모에 '환급'이 있으면 자동 환급으로 보고 정산 대상에서 뺀다.
+// ponytail: 별도 컬럼(상대/태그) 없이 기존 메모만으로 구분한다. 구분이 자주 틀리면 그때 필드를 추가.
+const SPLIT_PEOPLE: Record<string, string[]> = { 여친: ['브리', '여친', '여자친구'], 형: ['형'] }
+const REFUND_WORDS = ['환급', '리워드']
+
+/** 해당 월 분담금을 '정산해서 받을 돈'과 '자동 환급'으로 나누고, 정산분을 상대별로 합산. */
+export function splitBreakdown(
+  transactions: SplitTxLike[],
+  yearMonth: string,
+  people: Record<string, string[]> = SPLIT_PEOPLE,
+): SplitBreakdown {
+  let total = 0, refund = 0
+  const byPerson = new Map<string, number>()
+  for (const t of transactions) {
+    if (t.type !== 'expense' || !t.split) continue
+    if (t.date.slice(0, 7) !== yearMonth) continue
+    const memo = t.memo || ''
+    total += t.split
+    if (REFUND_WORDS.some((w) => memo.includes(w))) { refund += t.split; continue }
+    const who = Object.keys(people).find((name) => people[name].some((w) => memo.includes(w))) || '기타'
+    byPerson.set(who, (byPerson.get(who) || 0) + t.split)
+  }
+  return {
+    total,
+    refund,
+    settle: total - refund,
+    byPerson: [...byPerson.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
+  }
+}
