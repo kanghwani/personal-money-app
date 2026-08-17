@@ -1748,7 +1748,23 @@ function buildInsights(transactions: Transaction[], summary: Summary, store: Fin
     })
   }
 
-  // 7. 입력 성실도
+  // 7. 분담금 — 내가 결제했지만 남이 부담하는 몫(정산해서 받을 돈) + 환급분
+  const splitRows = monthTx.filter((tx) => tx.type === 'expense' && tx.split > 0)
+  const splitSum = splitRows.reduce((s, tx) => s + tx.split, 0)
+  if (splitSum > 0) {
+    const topSplit = [...splitRows].sort((a, b) => b.split - a.split)[0]
+    rows.push({
+      level: 'good',
+      icon: <Wallet size={18} />,
+      title: t('insight_split_title'),
+      body: t('insight_split_body', {
+        amt: formatMoney(splitSum), n: splitRows.length,
+        top: splitPlaceItem(topSplit.memo).place || topSplit.memo, topAmt: formatMoney(topSplit.split),
+      }),
+    })
+  }
+
+  // 8. 입력 성실도
   const missingPayment = monthTx.filter((tx) => tx.type === 'expense' && !tx.payment).length
   rows.push({
     level: missingPayment > 0 ? 'warn' : 'good',
