@@ -35,7 +35,7 @@ import {
 } from 'lucide-react'
 import { pickNewer, dedupById } from './sync/merge'
 import { getSyncConfig, loadFromServer, saveToServer, loadLedger, assignCategory, loadFixedDefs, saveFixedDef, deleteFixedDef, deleteLedger, updateLedger, appendLedger } from './sync/syncClient'
-import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, type QuickChip, type FixedDef } from './dashboardLogic'
+import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, type QuickChip, type FixedDef } from './dashboardLogic'
 import { loadLearnedRules, saveLearnedRule, classifyByLearned } from './learnedRules'
 import { RULES, LANG, classifyMemo } from './classifyRules'
 import { t } from './i18n'
@@ -313,6 +313,23 @@ function App() {
     appendLedger(t).catch(() => {})
   }
 
+  // 카드 명세 붙여넣기 → 파싱·자동분류 후 일괄 등록. 중복(같은 날짜+금액+가맹점)은 건너뛴다.
+  function importCardRows(rows: { date: string; memo: string; amount: number }[], payment: string) {
+    const seen = new Set(mergedTransactions.map((x) => `${x.date}|${x.amount}|${(x.memo || '').trim()}`))
+    const fresh = rows.filter((r) => !seen.has(`${r.date}|${r.amount}|${r.memo.trim()}`))
+    for (const r of fresh) {
+      const learned = classifyByLearned(r.memo, loadLearnedRules())
+      const c = learned ? { category: learned.category, sub: learned.subCategory } : classify(r.memo)
+      recordTransaction({
+        id: uid(), date: r.date, type: 'expense', amount: r.amount, memo: r.memo,
+        category: c.category, subCategory: c.sub, payment,
+        fixedType: isFixed(r.memo) ? 'fixed' : 'variable', split: 0, raw: `card:${r.memo}`,
+      })
+    }
+    setLastMessage(t('import_done', { n: fresh.length, dup: rows.length - fresh.length }))
+    return fresh.length
+  }
+
   function saveAsset(assetItem: Asset) {
     setStore((current) => ({
       ...current,
@@ -389,6 +406,7 @@ function App() {
               </div>
             )}
             <QuickEntry onSubmit={applyQuickInput} lastMessage={lastMessage} />
+            <CardImport onImport={importCardRows} />
             {pendingUncat && (
               <div className="fix-uncat">
                 <p className="fix-uncat-label">{t('uncategorized_prompt')}</p>
@@ -424,6 +442,44 @@ function App() {
       {activeTab === 'insights' && <InsightsView store={store} summary={summary} transactions={mergedTransactions} />}
       {activeTab === 'fixed' && <FixedView monthKey={summary.monthKey} />}
     </main>
+  )
+}
+
+// 카드앱 이용내역을 붙여넣어 한 번에 등록. iOS 텍스트 인식으로 스크린샷에서 복사하면 그대로 붙는다.
+function CardImport({ onImport }: { onImport: (rows: { date: string; memo: string; amount: number }[], payment: string) => number }) {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState('')
+  const [payment, setPayment] = useState(R.payments[0] ?? '')
+  const rows = useMemo(() => (text.trim() ? parseCardStatement(text, todayIso()) : []), [text])
+  const total = rows.reduce((s, r) => s + r.amount, 0)
+  if (!open) {
+    return <button type="button" className="card-import-open" onClick={() => setOpen(true)}>{t('import_open')}</button>
+  }
+  return (
+    <div className="card-import">
+      <div className="card-import-head">
+        <strong>{t('import_title')}</strong>
+        <button type="button" className="icon-button" onClick={() => { setOpen(false); setText('') }} aria-label={t('btn_close')}><X size={16} /></button>
+      </div>
+      <p className="row-meta">{t('import_help')}</p>
+      <textarea className="card-import-text" rows={5} value={text} onChange={(e) => setText(e.target.value)} placeholder={t('import_placeholder')} />
+      <label className="card-import-pay">{t('field_payment_method')}
+        <input list="import-pay-list" value={payment} onChange={(e) => setPayment(e.target.value)} />
+        <datalist id="import-pay-list">{R.payments.map((p) => <option key={p} value={p} />)}</datalist>
+      </label>
+      {rows.length > 0 && (
+        <>
+          <ul className="card-import-preview">
+            {rows.map((r, i) => (
+              <li key={i}><span>{r.date.slice(5)}</span><span className="ci-memo">{r.memo}</span><strong>{formatMoney(r.amount)}</strong></li>
+            ))}
+          </ul>
+          <button type="button" className="fixed-save" onClick={() => { onImport(rows, payment); setText(''); setOpen(false) }}>
+            {t('import_submit', { n: rows.length, amt: formatMoney(total) })}
+          </button>
+        </>
+      )}
+    </div>
   )
 }
 

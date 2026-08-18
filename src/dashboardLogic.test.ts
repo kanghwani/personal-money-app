@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, type TxLike, type FixedDef } from './dashboardLogic'
+import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, type TxLike, type FixedDef } from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
   ({ date, type: 'expense', amount, category, subCategory, payment, fixedType: 'variable' })
@@ -287,5 +287,30 @@ describe('splitBreakdown', () => {
   it('분담 0·타월 제외', () => {
     const r = splitBreakdown([tx('커피', 0), tx('밥(브리 반반)', 5000, '2026-07')], '2026-08')
     expect(r.total).toBe(0)
+  })
+})
+
+describe('parseCardStatement', () => {
+  it('날짜 헤더 + 가맹점/금액 한 줄', () => {
+    expect(parseCardStatement('2026.08.16\nChatGPT 26,364 원\n11:46 | 본인6633 | 일시불')).toEqual([
+      { date: '2026-08-16', memo: 'ChatGPT', amount: 26364 },
+    ])
+  })
+  it('가맹점과 금액이 다른 줄이면 윗줄을 가맹점으로', () => {
+    expect(parseCardStatement('2026.08.12\n송도만두 만수점\n5,500 원')).toEqual([
+      { date: '2026-08-12', memo: '송도만두 만수점', amount: 5500 },
+    ])
+  })
+  it('날짜가 바뀌면 이후 거래에 반영, 잡음 줄 무시', () => {
+    const r = parseCardStatement('카드이용내역\n2026.08.10\nLG U+ 통신요금 자동 14,990 원\n19:10 | 본인6633 | 일시불\n2026.08.09\n(주)아성다이소 36,000 원')
+    expect(r).toEqual([
+      { date: '2026-08-10', memo: 'LG U+ 통신요금 자동', amount: 14990 },
+      { date: '2026-08-09', memo: '(주)아성다이소', amount: 36000 },
+    ])
+  })
+  it('26. 8. 12 형식과 원 없는 줄 처리', () => {
+    expect(parseCardStatement('26. 8. 12.\n코스트코코리아\n225,500원')).toEqual([
+      { date: '2026-08-12', memo: '코스트코코리아', amount: 225500 },
+    ])
   })
 })

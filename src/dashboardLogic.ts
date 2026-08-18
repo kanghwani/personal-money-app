@@ -271,3 +271,38 @@ export function splitBreakdown(
     byPerson: [...byPerson.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
   }
 }
+
+export type CardRow = { date: string; memo: string; amount: number }
+// 카드앱 화면에서 복사한 텍스트에서 무시할 줄(시간·카드번호·할부구분 등)
+const CARD_NOISE = /^(\d{1,2}:\d{2}|본인\s*\d+|가족\s*\d+|일시불|\d+개월|메모쓰기|카드\s*이용내역|이용안내|.*카드\s*\d{4}$)/
+
+/**
+ * 카드 이용내역 텍스트를 거래 목록으로 파싱한다.
+ * 날짜 줄(2026.08.16 / 26. 8. 12 / 2026-08-16)을 만나면 이후 줄들의 기준 날짜가 된다.
+ * 금액(1,234 원)이 있는 줄에서 금액을 빼고 남은 글자가 가맹점명, 비면 바로 윗줄을 쓴다.
+ * ponytail: OCR은 iOS 텍스트 인식(Live Text)에 맡기고 여기선 텍스트만 다룬다.
+ */
+export function parseCardStatement(text: string, fallbackDate = ''): CardRow[] {
+  const out: CardRow[] = []
+  let cur = fallbackDate
+  let prev = ''
+  for (const raw of text.split('\n')) {
+    const line = raw.trim()
+    if (!line) continue
+    const d = line.match(/(20\d{2})[.\-/]\s*(\d{1,2})[.\-/]\s*(\d{1,2})|^(\d{2})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?$/)
+    if (d) {
+      const [y, m, dd] = d[1] ? [d[1], d[2], d[3]] : [`20${d[4]}`, d[5], d[6]]
+      cur = `${y}-${String(m).padStart(2, '0')}-${String(dd).padStart(2, '0')}`
+      continue
+    }
+    if (CARD_NOISE.test(line)) continue
+    const a = line.match(/([\d,]{2,})\s*원/)
+    if (!a) { prev = line; continue }
+    const amount = Number(a[1].replace(/,/g, ''))
+    if (!amount) continue
+    const memo = (line.slice(0, a.index).trim() || prev).replace(/\s{2,}/g, ' ').trim()
+    if (memo) out.push({ date: cur, memo, amount })
+    prev = ''
+  }
+  return out
+}

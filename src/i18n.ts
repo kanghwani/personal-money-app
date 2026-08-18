@@ -36,6 +36,12 @@ export const ko: Record<string, string> = {
   prev_month: '이전 달', next_month: '다음 달',
 
   // 빠른입력
+  import_open: '💳 카드 내역 붙여넣기',
+  import_title: '카드 내역 일괄 등록',
+  import_help: '카드앱 이용내역 화면을 캡처 → 사진에서 텍스트 인식으로 복사 → 아래에 붙여넣으세요. 날짜·가맹점·금액을 알아서 읽습니다.',
+  import_placeholder: '2026.08.16\nChatGPT\n26,364 원',
+  import_submit: '{n}건 등록 ({amt})',
+  import_done: '{n}건 등록 · 중복 {dup}건 건너뜀',
   qe_placeholder: '금액 장소 물건 · +면 수입',
   quick_input_aria: '빠른입력',
   day_input_placeholder: '점심 9000 카드',
@@ -207,6 +213,12 @@ export const es: Record<string, string> = {
   view_list: 'Lista', view_calendar: 'Calendario',
   prev_month: 'Mes anterior', next_month: 'Mes siguiente',
 
+  import_open: '💳 Pegar movimientos de tarjeta',
+  import_title: 'Importar movimientos',
+  import_help: 'Captura la pantalla de tu app de tarjeta, copia el texto con el reconocimiento de texto y pégalo aquí. Detecta fecha, comercio e importe.',
+  import_placeholder: '2026.08.16\nChatGPT\n26,364 원',
+  import_submit: 'Añadir {n} ({amt})',
+  import_done: '{n} añadidos · {dup} duplicados omitidos',
   qe_placeholder: 'Monto lugar cosa · + para ingreso',
   quick_input_aria: 'Entrada rápida',
   day_input_placeholder: 'Almuerzo 9000 tarjeta',
