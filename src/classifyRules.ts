@@ -14,6 +14,7 @@ export type RuleSet = {
   incomeRe: RegExp                // 수입 키워드
   uncategorized: string           // 미분류 라벨
   incomeCategory: string          // 수입 강제 분류 시 대분류
+  defaultPayment: string   // 카드내역 붙여넣기 기본 결제수단
   defaultOptions: { category: string; subCategory: string }[]  // 거래 이력 없을 때 카테고리 후보 기본값
   fixedToken: string              // "고정" 수동 태그 토큰
   variableToken: string           // "변동" 수동 태그 토큰
@@ -37,6 +38,7 @@ const ko: RuleSet = {
     { words: ['책', '강의', '학원', '공부', '교보문고'], category: '자기계발', sub: '교육' },
     { words: ['월급', '급여', '입금', '보너스'], category: '수입', sub: '급여' },
   ],
+  defaultPayment: '하나카드',
   payments: ['국민카드','삼성카드','현대카드','신한카드','하나카드','이음카드','우리카드','롯데카드','카카오뱅크','토스뱅크','네이버페이','카카오페이','계좌이체','체크카드','토스','국민','삼성','현대','신한','카카오','네이버','현금','계좌','이음','카드'],
   // 기존 App.tsx normalizePayment의 aliases와 완전히 동일(토스 키는 원본에 없으므로 추가하지 않음 — ko 회귀 방지)
   paymentAlias: { 국민: '국민카드', 삼성: '삼성카드', 현대: '현대카드', 신한: '신한카드', 카카오: '카카오페이', 네이버: '네이버페이', 계좌: '계좌이체', 이음: '이음카드', 카드: '카드' },
@@ -77,6 +79,7 @@ const es: RuleSet = {
     { words: ['libro', 'curso', 'academia'], category: 'Desarrollo', sub: 'Educación' },
     { words: ['salario', 'nómina', 'sueldo', 'ingreso'], category: 'Ingreso', sub: 'Salario' },
   ],
+  defaultPayment: 'Tarjeta',
   payments: ['tarjeta', 'efectivo', 'transferencia', 'débito', 'crédito'],
   paymentAlias: { débito: 'Tarjeta', crédito: 'Tarjeta', tarjeta: 'Tarjeta', efectivo: 'Efectivo', transferencia: 'Transferencia' },
   yesterday: 'ayer',

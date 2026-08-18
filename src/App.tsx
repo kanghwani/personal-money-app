@@ -449,7 +449,7 @@ function App() {
 function CardImport({ onImport }: { onImport: (rows: { date: string; memo: string; amount: number }[], payment: string) => number }) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
-  const [payment, setPayment] = useState(R.payments[0] ?? '')
+  const [payment, setPayment] = useState(R.defaultPayment)
   const rows = useMemo(() => (text.trim() ? parseCardStatement(text, todayIso()) : []), [text])
   const total = rows.reduce((s, r) => s + r.amount, 0)
   if (!open) {
