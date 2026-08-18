@@ -38,7 +38,7 @@ export const ko: Record<string, string> = {
   // 빠른입력
   import_open: '💳 카드 내역 붙여넣기',
   import_title: '카드 내역 일괄 등록',
-  import_help: '카드앱 이용내역 화면을 캡처 → 사진에서 텍스트 인식으로 복사 → 아래에 붙여넣으세요. 날짜·가맹점·금액을 알아서 읽습니다.',
+  import_help: '카드앱 이용내역을 복사해서 붙여넣으세요. 날짜·가맹점·금액을 알아서 읽습니다. (텍스트 선택이 안 되면 캡처 후 사진에서 텍스트 인식으로 복사)',
   import_placeholder: '2026.08.16\nChatGPT\n26,364 원',
   import_submit: '{n}건 등록 ({amt})',
   import_done: '{n}건 등록 · 중복 {dup}건 건너뜀',
@@ -215,7 +215,7 @@ export const es: Record<string, string> = {
 
   import_open: '💳 Pegar movimientos de tarjeta',
   import_title: 'Importar movimientos',
-  import_help: 'Captura la pantalla de tu app de tarjeta, copia el texto con el reconocimiento de texto y pégalo aquí. Detecta fecha, comercio e importe.',
+  import_help: 'Copia los movimientos de tu app de tarjeta y pégalos aquí. Detecta fecha, comercio e importe.',
   import_placeholder: '2026.08.16\nChatGPT\n26,364 원',
   import_submit: 'Añadir {n} ({amt})',
   import_done: '{n} añadidos · {dup} duplicados omitidos',
