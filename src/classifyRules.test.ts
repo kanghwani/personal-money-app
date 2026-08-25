@@ -85,3 +85,18 @@ describe('RuleSet.fixedKeywordsRe / fixedToken / variableToken (F-minor-a)', () 
     expect(RULES.es.variableToken).toBe('variable')
   })
 })
+
+describe('농협/NH 결제수단 (2026-08 추가)', () => {
+  const ko = RULES.ko
+  it('농협 표기가 결제수단 후보에 있다', () => {
+    for (const w of ['농협카드', 'NH카드', '농협', 'NH']) expect(ko.payments).toContain(w)
+  })
+  it('농협 계열은 NH카드로 통일된다', () => {
+    for (const w of ['농협', '농협카드', 'NH']) expect(ko.paymentAlias[w]).toBe('NH카드')
+  })
+  it('구체 카드명이 농협보다 앞에 있어 먼저 매칭된다', () => {
+    expect(ko.payments.indexOf('하나카드')).toBeLessThan(ko.payments.indexOf('농협'))
+    expect(ko.payments.indexOf('농협카드')).toBeLessThan(ko.payments.indexOf('농협'))
+    expect(ko.payments.indexOf('농협')).toBeLessThan(ko.payments.indexOf('카드'))
+  })
+})
