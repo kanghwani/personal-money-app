@@ -19,18 +19,32 @@
 import json, os, re, sys, time, urllib.request, urllib.parse, collections
 from datetime import date
 
-ENV = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'personal-money-app', '.env')
+# .env 후보 경로. 심볼릭 링크로 실행돼도 실제 파일 위치(realpath) 기준으로 찾는다.
+_HERE = os.path.dirname(os.path.realpath(__file__))
+ENV_CANDIDATES = [
+    os.path.join(_HERE, '..', '..', '.env'),                       # <repo>/skills/ledger → <repo>/.env
+    os.path.expanduser('~/dev/paused/money-app/personal-money-app/.env'),
+    os.path.expanduser('~/.config/ledger.env'),                    # 다른 기기/클라우드 세션용
+]
 
 def cfg():
-    url = tok = None
-    with open(os.path.abspath(ENV), encoding='utf-8') as f:
-        for line in f:
-            k, _, v = line.strip().partition('=')
-            v = v.strip().strip('"').strip("'")
-            if k == 'VITE_SYNC_URL': url = v
-            elif k == 'VITE_SYNC_TOKEN': tok = v
-    if not url or not tok: sys.exit('.env에서 VITE_SYNC_URL/TOKEN을 못 찾음')
-    return url, tok
+    """URL·TOKEN을 환경변수 → .env 후보 순으로 찾는다."""
+    url = os.environ.get('LEDGER_URL')
+    tok = os.environ.get('LEDGER_TOKEN')
+    if url and tok: return url, tok
+    for path in ENV_CANDIDATES:
+        try:
+            with open(os.path.abspath(path), encoding='utf-8') as f:
+                for line in f:
+                    k, _, v = line.strip().partition('=')
+                    v = v.strip().strip('"').strip("'")
+                    if k in ('VITE_SYNC_URL', 'LEDGER_URL'): url = v
+                    elif k in ('VITE_SYNC_TOKEN', 'LEDGER_TOKEN'): tok = v
+            if url and tok: return url, tok
+        except OSError:
+            continue
+    sys.exit('가계부 접속정보를 못 찾음 — LEDGER_URL/LEDGER_TOKEN 환경변수나 '
+             '~/.config/ledger.env 를 설정하세요.')
 
 def get(action):
     url, tok = cfg()
