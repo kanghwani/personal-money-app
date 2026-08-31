@@ -7,6 +7,12 @@ export type RemoteSnapshot<T> = { store: T; updatedAt: string }
 
 /** 환경변수에서 동기화 설정을 읽는다. 둘 중 하나라도 비면 null(동기화 비활성). */
 export function getSyncConfig(): SyncConfig | null {
+  // 기본은 같은 오리진의 /api/sync 프록시 — 토큰이 번들에 박히지 않는다.
+  // 로컬 개발에서 GAS를 직접 부르고 싶을 때만 .env에 VITE_SYNC_DIRECT=1 을 둔다.
+  if (import.meta.env.VITE_SYNC_DIRECT !== '1') {
+    const profile = PROFILE
+    return { url: '/api/sync', token: '', profile }
+  }
   const url = import.meta.env.VITE_SYNC_URL
   const token = import.meta.env.VITE_SYNC_TOKEN
   if (!url || !token) return null
