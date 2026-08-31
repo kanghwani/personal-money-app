@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, type TxLike, type FixedDef } from './dashboardLogic'
+import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, type TxLike, type FixedDef } from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
   ({ date, type: 'expense', amount, category, subCategory, payment, fixedType: 'variable' })
@@ -312,5 +312,45 @@ describe('parseCardStatement', () => {
     expect(parseCardStatement('26. 8. 12.\n코스트코코리아\n225,500원')).toEqual([
       { date: '2026-08-12', memo: '코스트코코리아', amount: 225500 },
     ])
+  })
+})
+
+describe('cardPerformance', () => {
+  const tx = (payment: string, amount: number, memo = '식당', date = '2026-08-10') =>
+    ({ date, type: 'expense', amount, split: 0, memo, payment })
+  it('카드별로 결제액·실적제외·인정실적을 나눈다', () => {
+    const r = cardPerformance([
+      tx('하나카드', 500000, '식당'),
+      tx('하나카드', 282850, '아파트 관리비'),   // 실적 제외
+      tx('NH카드', 100000, '주유'),
+    ], '2026-08')
+    expect(r).toEqual([
+      { name: '하나카드', charged: 782850, excluded: 282850, qualified: 500000 },
+      { name: 'NH카드', charged: 100000, excluded: 0, qualified: 100000 },
+    ])
+  })
+  it('분담금을 뺀 실부담이 아니라 결제액 기준(카드 실적은 결제액으로 잡힘)', () => {
+    const t = { ...tx('하나카드', 100000), split: 50000 }
+    expect(cardPerformance([t], '2026-08')[0].charged).toBe(100000)
+  })
+  it('타월·수입·현금은 제외', () => {
+    const r = cardPerformance([
+      tx('하나카드', 10000, '식당', '2026-07'),
+      { date: '2026-08-01', type: 'income', amount: 999, split: 0, memo: '월급', payment: '하나카드' },
+    ], '2026-08')
+    expect(r).toEqual([])
+  })
+})
+
+describe('tierStatus', () => {
+  const tiers = [{ min: 300000, cap: 15000 }, { min: 600000, cap: 30000 }, { min: 1000000, cap: 60000 }]
+  it('현재 구간과 다음 구간까지 부족액', () => {
+    expect(tierStatus(654632, tiers)).toEqual({ cap: 30000, next: { min: 1000000, cap: 60000, gap: 345368 } })
+  })
+  it('최상위 구간이면 next 없음', () => {
+    expect(tierStatus(1200000, tiers)).toEqual({ cap: 60000 })
+  })
+  it('최소 구간 미달이면 cap 0', () => {
+    expect(tierStatus(100000, tiers)).toEqual({ cap: 0, next: { min: 300000, cap: 15000, gap: 200000 } })
   })
 })

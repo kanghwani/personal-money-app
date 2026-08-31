@@ -47,6 +47,12 @@ export const ko: Record<string, string> = {
   day_input_placeholder: '점심 9000 카드',
 
   // 섹션 타이틀
+  sec_card_perf: '카드 실적',
+  perf_note: '관리비·4대보험·할부·보험·세금은 대부분 실적에서 빠집니다(추정). 정확한 기준은 카드 약관을 확인하세요.',
+  perf_cap: '월 한도 {amt}',
+  perf_qualified: '인정 {amt}',
+  perf_excluded: '제외 {amt}',
+  perf_next: '{gap} 더 쓰면 {min} 구간 → 한도 {cap}',
   sec_by_payment: '결제수단별',
   sec_fixed_variable: '고정비 / 변동비', sec_place_top: '장소 TOP', sec_delta: '전월대비', sec_month_flow: '월별 흐름', sec_spend_ratio: '지출 비중',
 
@@ -223,6 +229,12 @@ export const es: Record<string, string> = {
   quick_input_aria: 'Entrada rápida',
   day_input_placeholder: 'Almuerzo 9000 tarjeta',
 
+  sec_card_perf: 'Uso de tarjetas',
+  perf_note: 'Cuotas, seguros e impuestos suelen no contar para el mínimo mensual (estimado).',
+  perf_cap: 'Límite {amt}',
+  perf_qualified: 'Cuenta {amt}',
+  perf_excluded: 'Excluido {amt}',
+  perf_next: 'Faltan {gap} para el tramo de {min} → límite {cap}',
   sec_by_payment: 'Por método de pago',
   sec_fixed_variable: 'Fijos / Variables', sec_place_top: 'Lugares TOP', sec_delta: 'vs. mes anterior', sec_month_flow: 'Flujo mensual', sec_spend_ratio: 'Distribución de gastos',
 

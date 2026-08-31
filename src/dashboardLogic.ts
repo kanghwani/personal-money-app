@@ -306,3 +306,42 @@ export function parseCardStatement(text: string, fallbackDate = ''): CardRow[] {
   }
   return out
 }
+
+export type CardPerf = { name: string; charged: number; excluded: number; qualified: number }
+
+// 카드 전월실적에서 흔히 빠지는 항목. 카드사마다 다르니 "추정"이며, 약관으로 최종 확인해야 한다.
+// (관리비·4대보험·보험료·할부금·세금은 대부분의 국내 카드가 실적에서 제외)
+export const PERF_EXCLUDED = ['국민연금', '건강보험', '관리비', '할부', '보험', '세금', '국세', '주민세', '자동차세', '월세']
+const isExcluded = (memo: string) => PERF_EXCLUDED.some((k) => (memo || '').includes(k))
+
+/**
+ * 해당 월 카드별 결제액과 '실적 인정 추정액'을 낸다.
+ * 실적은 분담금과 무관하게 **결제액 전액** 기준(카드사는 내가 얼마 냈는지 모름).
+ */
+export function cardPerformance(transactions: SplitTxLike[] & { payment?: string }[], yearMonth: string): CardPerf[] {
+  const map = new Map<string, CardPerf>()
+  for (const t of transactions as (SplitTxLike & { payment?: string })[]) {
+    if (t.type !== 'expense') continue
+    if (t.date.slice(0, 7) !== yearMonth) continue
+    const name = (t.payment || '').trim()
+    if (!name || name === '현금' || name === '계좌이체' || name === '미상') continue
+    const cur = map.get(name) ?? { name, charged: 0, excluded: 0, qualified: 0 }
+    cur.charged += t.amount
+    if (isExcluded(t.memo)) cur.excluded += t.amount
+    else cur.qualified += t.amount
+    map.set(name, cur)
+  }
+  return [...map.values()].sort((a, b) => b.charged - a.charged)
+}
+
+export type Tier = { min: number; cap: number }
+
+/** 실적 구간표에서 현재 할인한도와, 다음 구간까지 부족액을 낸다. */
+export function tierStatus(qualified: number, tiers: Tier[]):
+  { cap: number; next?: { min: number; cap: number; gap: number } } {
+  const sorted = [...tiers].sort((a, b) => a.min - b.min)
+  let cap = 0
+  for (const t of sorted) if (qualified >= t.min) cap = t.cap
+  const next = sorted.find((t) => qualified < t.min)
+  return next ? { cap, next: { min: next.min, cap: next.cap, gap: next.min - qualified } } : { cap }
+}

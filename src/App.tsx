@@ -32,10 +32,11 @@ import {
   TrendingUp,
   Wallet,
   X,
+  CreditCard,
 } from 'lucide-react'
 import { pickNewer, dedupById } from './sync/merge'
 import { getSyncConfig, loadFromServer, saveToServer, loadLedger, assignCategory, loadFixedDefs, saveFixedDef, deleteFixedDef, deleteLedger, updateLedger, appendLedger } from './sync/syncClient'
-import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, type QuickChip, type FixedDef } from './dashboardLogic'
+import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, type Tier, type QuickChip, type FixedDef } from './dashboardLogic'
 import { loadLearnedRules, saveLearnedRule, classifyByLearned } from './learnedRules'
 import { RULES, LANG, classifyMemo } from './classifyRules'
 import { t } from './i18n'
@@ -516,6 +517,13 @@ function QuickEntry({ onSubmit, lastMessage }: { onSubmit: (raw: string) => void
   )
 }
 
+// 카드별 전월실적 구간 → 월 할인한도. 약관이 바뀌면 여기만 고친다.
+// ponytail: 구간을 아는 카드만 넣는다. 없는 카드는 결제액·인정실적만 보여준다.
+const CARD_TIERS: Record<string, Tier[]> = {
+  하나카드: [{ min: 300000, cap: 15000 }, { min: 600000, cap: 30000 }, { min: 1000000, cap: 60000 }],
+  국민카드: [{ min: 300000, cap: 15000 }, { min: 700000, cap: 20000 }, { min: 1200000, cap: 20000 }],
+}
+
 const RING_COLORS = ['#c9794f', '#7e9b6f', '#d6a85e', '#9a7bb0', '#5a7d8f', '#cdbf9c', '#b8654a', '#6f8f9c', '#caa06a', '#a98aa0']
 
 function CategoryRing({ total, subtitle, data }: { total: string; subtitle: string | null; data: NameValue[] }) {
@@ -968,6 +976,7 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
   const insightRows = buildInsights(transactions, summary, store)
   const colors = ['#c9794f', '#7e9b6f', '#d6a85e', '#9a7bb0', '#5a7d8f', '#cdbf9c']
   const places = placeTotals(transactions, summary.monthKey, 7)
+  const cardPerf = cardPerformance(transactions as never, summary.monthKey)
   const deltas = categoryDeltas(transactions, summary.monthKey, summary.previousMonth?.month).slice(0, 5)
   const maxDelta = Math.max(1, ...deltas.map((d) => Math.abs(d.delta)))
 
@@ -1057,6 +1066,40 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
           </ResponsiveContainer>
         </div>
       </section>
+
+      {cardPerf.length > 0 && (
+        <section className="wide-section">
+          <SectionHeader icon={<CreditCard size={18} />} title={t('sec_card_perf')} aside={summary.monthKey} />
+          <p className="row-meta perf-note">{t('perf_note')}</p>
+          <div className="perf-list">
+            {cardPerf.map((c) => {
+              const tiers = CARD_TIERS[c.name]
+              const st = tiers ? tierStatus(c.qualified, tiers) : null
+              const goal = st?.next?.min ?? c.qualified
+              return (
+                <div className="perf-row" key={c.name}>
+                  <div className="perf-head">
+                    <strong>{c.name}</strong>
+                    {st && <span className="perf-cap">{t('perf_cap', { amt: formatMoney(st.cap) })}</span>}
+                  </div>
+                  <div className="perf-bar">
+                    <span className="perf-fill" style={{ width: `${Math.min(100, goal ? (c.qualified / goal) * 100 : 100)}%` }} />
+                  </div>
+                  <div className="perf-meta">
+                    <span>{t('perf_qualified', { amt: formatMoney(c.qualified) })}</span>
+                    {c.excluded > 0 && <span className="perf-excl">{t('perf_excluded', { amt: formatMoney(c.excluded) })}</span>}
+                  </div>
+                  {st?.next && (
+                    <p className="perf-next">{t('perf_next', {
+                      gap: formatMoney(st.next.gap), min: formatMoney(st.next.min), cap: formatMoney(st.next.cap),
+                    })}</p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       {summary.paymentTotals.length > 0 && (
         <section className="wide-section">
