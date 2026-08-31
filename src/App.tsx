@@ -176,6 +176,18 @@ function App() {
       ),
     [history, store.transactions],
   )
+  // 원장에 반영된 거래는 store에서 비운다.
+  // store는 "아직 원장에 없는 최근 입력분"만 들고 있어야 하는데, 남아 있으면 병합에서 store가 이겨
+  // 서버(원장)에서 고친 내용이 앱에 안 보인다. 실제로 지울 게 있을 때만 setStore → 루프 없음.
+  useEffect(() => {
+    if (!history.length) return
+    const inLedger = new Set(history.map((h) => h.id))
+    setStore((cur) => {
+      const kept = cur.transactions.filter((t) => !inLedger.has(t.id))
+      return kept.length === cur.transactions.length ? cur : { ...cur, transactions: kept }
+    })
+  }, [history, setStore])
+
   const categoryOptions = useMemo(() => distinctCategoryOptions(mergedTransactions), [mergedTransactions])
   async function assignCategoryFor(id: string, category: string, subCategory: string, memo: string) {
     setLastMessage(t('status_classifying'))
