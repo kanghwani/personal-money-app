@@ -532,6 +532,9 @@ function QuickEntry({ onSubmit, lastMessage }: { onSubmit: (raw: string) => void
 
 // 카드별 전월실적 구간 → 월 할인한도. 약관이 바뀌면 여기만 고친다.
 // ponytail: 구간을 아는 카드만 넣는다. 없는 카드는 결제액·인정실적만 보여준다.
+// 홈에 항상 한 줄씩 띄울 주요 카드(순서대로). 다른 카드는 인사이트 탭에서만 본다.
+const PRIMARY_CARDS = ['하나카드', 'NH카드']
+
 const CARD_TIERS: Record<string, Tier[]> = {
   하나카드: [{ min: 300000, cap: 15000 }, { min: 600000, cap: 30000 }, { min: 1000000, cap: 60000 }],
   국민카드: [{ min: 300000, cap: 15000 }, { min: 700000, cap: 20000 }, { min: 1200000, cap: 20000 }],
@@ -664,17 +667,15 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit }:
   onEdit: (updated: Transaction) => void
 }) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  // 다음 실적 구간이 코앞일 때만 홈에 알린다(멀면 잔소리가 되니 숨김).
-  const perfNudge = useMemo(() => {
-    for (const c of cardPerformance(transactions as never, summary.monthKey)) {
-      const tiers = CARD_TIERS[c.name]
-      if (!tiers) continue
-      const st = tierStatus(c.qualified, tiers)
-      if (st.next && st.next.gap <= 100000 && st.next.cap > st.cap) {
-        return { card: c.name, gap: st.next.gap, cap: st.next.cap }
-      }
-    }
-    return null
+  // 주요 카드(하나·NH)는 이번 달 실적을 홈에 항상 한 줄씩 보여준다.
+  const perfRows = useMemo(() => {
+    const perf = cardPerformance(transactions as never, summary.monthKey)
+    return PRIMARY_CARDS.map((name) => {
+      const c = perf.find((x) => x.name === name) ?? { name, charged: 0, excluded: 0, qualified: 0 }
+      const tiers = CARD_TIERS[name]
+      const st = tiers ? tierStatus(c.qualified, tiers) : null
+      return { name, qualified: c.qualified, st }
+    })
   }, [transactions, summary.monthKey])
   // 홈 대표 숫자는 '고정비 뺀 내가 쓴 돈'(변동지출). 총지출은 아래 고정/변동 패널에서 확인.
   const prev = summary.previousMonth?.variable ?? 0
@@ -683,14 +684,17 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit }:
 
   return (
     <section className="view-stack">
-      {perfNudge && (
-        <button type="button" className="perf-nudge" onClick={() => setSelectedCategory(null)}>
-          <span className="pn-ic">💳</span>
-          <span>{t('perf_banner', {
-            card: perfNudge.card, gap: formatMoney(perfNudge.gap), cap: formatMoney(perfNudge.cap),
-          })}</span>
-        </button>
-      )}
+      <div className="perf-nudge">
+        {perfRows.map((r) => (
+          <div className="pn-row" key={r.name}>
+            <span className="pn-name">💳 {r.name}</span>
+            <span className="pn-amt">{formatMoney(r.qualified)}</span>
+            {r.st?.next
+              ? <span className="pn-goal">{t('perf_gap', { gap: formatMoney(r.st.next.gap), cap: formatMoney(r.st.next.cap) })}</span>
+              : r.st ? <span className="pn-done">{t('perf_max', { cap: formatMoney(r.st.cap) })}</span> : null}
+          </div>
+        ))}
+      </div>
 
       <article className="ring-card">
         <CategoryRing
@@ -1018,7 +1022,9 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
   const insightRows = buildInsights(transactions, summary, store)
   const colors = ['#c9794f', '#7e9b6f', '#d6a85e', '#9a7bb0', '#5a7d8f', '#cdbf9c']
   const places = placeTotals(transactions, summary.monthKey, 7)
+  // 소액(1만원 미만) 카드는 노이즈라 상세에서도 뺀다. 주요 카드는 금액과 무관하게 유지.
   const cardPerf = cardPerformance(transactions as never, summary.monthKey)
+    .filter((c) => c.charged >= 10000 || PRIMARY_CARDS.includes(c.name))
   const deltas = categoryDeltas(transactions, summary.monthKey, summary.previousMonth?.month).slice(0, 5)
   const maxDelta = Math.max(1, ...deltas.map((d) => Math.abs(d.delta)))
 

@@ -47,7 +47,8 @@ export const ko: Record<string, string> = {
   day_input_placeholder: '점심 9000 카드',
 
   // 섹션 타이틀
-  perf_banner: '{card} {gap} 더 쓰면 이달 할인한도 {cap}',
+  perf_gap: '{gap} 더 쓰면 한도 {cap}',
+  perf_max: '최고 구간 · 한도 {cap}',
   sec_card_perf: '카드 실적',
   perf_note: '관리비·4대보험·할부·보험·세금은 대부분 실적에서 빠집니다(추정). 정확한 기준은 카드 약관을 확인하세요.',
   perf_cap: '월 한도 {amt}',
@@ -230,7 +231,8 @@ export const es: Record<string, string> = {
   quick_input_aria: 'Entrada rápida',
   day_input_placeholder: 'Almuerzo 9000 tarjeta',
 
-  perf_banner: '{card}: faltan {gap} para un límite de {cap}',
+  perf_gap: 'faltan {gap} → límite {cap}',
+  perf_max: 'Tramo máximo · {cap}',
   sec_card_perf: 'Uso de tarjetas',
   perf_note: 'Cuotas, seguros e impuestos suelen no contar para el mínimo mensual (estimado).',
   perf_cap: 'Límite {amt}',
