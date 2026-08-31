@@ -36,7 +36,7 @@ import {
 } from 'lucide-react'
 import { pickNewer, dedupById } from './sync/merge'
 import { getSyncConfig, loadFromServer, saveToServer, loadLedger, assignCategory, loadFixedDefs, saveFixedDef, deleteFixedDef, deleteLedger, updateLedger, appendLedger } from './sync/syncClient'
-import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, type Tier, type QuickChip, type FixedDef } from './dashboardLogic'
+import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type Tier, type QuickChip, type FixedDef } from './dashboardLogic'
 import { loadLearnedRules, saveLearnedRule, classifyByLearned } from './learnedRules'
 import { RULES, LANG, classifyMemo } from './classifyRules'
 import { t } from './i18n'
@@ -354,6 +354,7 @@ function App() {
       <header className="app-header">
         <div>
           <p className="eyebrow">{formatDateLabel(todayIso())}</p>
+          <p className="cheer">{dailyCheer(todayIso(), CHEERS)}</p>
           <h1>{t('app_title')}</h1>
         </div>
         <button
@@ -524,6 +525,14 @@ const CARD_TIERS: Record<string, Tier[]> = {
   국민카드: [{ min: 300000, cap: 15000 }, { min: 700000, cap: 20000 }, { min: 1200000, cap: 20000 }],
 }
 
+// 헤더에 매일 바뀌는 응원 문구. 마음에 안 드는 문장은 지우고 새로 넣으면 된다.
+const CHEERS = [
+  '오늘도 모으는 중 💪', '티끌 모아 태산', '안 쓴 돈이 번 돈',
+  '미래의 나에게 보내는 중', '천천히, 확실하게', '이번 달도 잘하고 있어요',
+  '새는 돈 잡는 중 🔍', '덜 쓰고 더 모으기', '작은 절약이 쌓이면 큰돈',
+  '기록하는 사람이 모은다', '오늘의 한 잔 = 내일의 여유',
+]
+
 const RING_COLORS = ['#c9794f', '#7e9b6f', '#d6a85e', '#9a7bb0', '#5a7d8f', '#cdbf9c', '#b8654a', '#6f8f9c', '#caa06a', '#a98aa0']
 
 function CategoryRing({ total, subtitle, data }: { total: string; subtitle: string | null; data: NameValue[] }) {
@@ -643,6 +652,18 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit }:
   onEdit: (updated: Transaction) => void
 }) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  // 다음 실적 구간이 코앞일 때만 홈에 알린다(멀면 잔소리가 되니 숨김).
+  const perfNudge = useMemo(() => {
+    for (const c of cardPerformance(transactions as never, summary.monthKey)) {
+      const tiers = CARD_TIERS[c.name]
+      if (!tiers) continue
+      const st = tierStatus(c.qualified, tiers)
+      if (st.next && st.next.gap <= 100000 && st.next.cap > st.cap) {
+        return { card: c.name, gap: st.next.gap, cap: st.next.cap }
+      }
+    }
+    return null
+  }, [transactions, summary.monthKey])
   // 홈 대표 숫자는 '고정비 뺀 내가 쓴 돈'(변동지출). 총지출은 아래 고정/변동 패널에서 확인.
   const prev = summary.previousMonth?.variable ?? 0
   const rate = changeRate(summary.thisMonth.variable, prev)
@@ -650,6 +671,15 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit }:
 
   return (
     <section className="view-stack">
+      {perfNudge && (
+        <button type="button" className="perf-nudge" onClick={() => setSelectedCategory(null)}>
+          <span className="pn-ic">💳</span>
+          <span>{t('perf_banner', {
+            card: perfNudge.card, gap: formatMoney(perfNudge.gap), cap: formatMoney(perfNudge.cap),
+          })}</span>
+        </button>
+      )}
+
       <article className="ring-card">
         <CategoryRing
           total={formatMoney(summary.thisMonth.variable)}

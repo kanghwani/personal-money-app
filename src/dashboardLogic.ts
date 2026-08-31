@@ -345,3 +345,10 @@ export function tierStatus(qualified: number, tiers: Tier[]):
   const next = sorted.find((t) => qualified < t.min)
   return next ? { cap, next: { min: next.min, cap: next.cap, gap: next.min - qualified } } : { cap }
 }
+
+/** 날짜를 씨앗으로 응원 문구를 하나 고른다. 같은 날은 항상 같은 문구, 날이 바뀌면 다음 문구. */
+export function dailyCheer(isoDate: string, pool: string[]): string {
+  if (!pool.length) return ''
+  const n = Number(isoDate.replace(/\D/g, '')) || 0
+  return pool[n % pool.length]
+}

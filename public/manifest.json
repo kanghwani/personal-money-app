@@ -1,7 +1,7 @@
 {
-  "name": "돈 정리 - 가계부",
-  "short_name": "돈 정리",
-  "description": "코지 베이지 테마의 개인용 가계부 웹앱",
+  "name": "모으는 중 — 가계부",
+  "short_name": "모으는 중",
+  "description": "덜 쓰고 더 모으기. 코지 베이지 테마의 개인 가계부",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

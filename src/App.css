@@ -1058,3 +1058,15 @@
 .perf-meta { display: flex; gap: 10px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .perf-excl { color: #c9554f; }
 .perf-next { margin: 0; font-size: 12px; color: #7e9b6f; font-weight: 600; }
+
+/* 헤더 응원 문구 */
+.cheer { margin: 2px 0 0; font-size: 12px; color: var(--accent-tan); font-weight: 600; }
+
+/* 홈: 실적 구간이 코앞일 때만 뜨는 배너 */
+.perf-nudge {
+  display: flex; align-items: center; gap: 9px; width: 100%; margin-bottom: 12px;
+  padding: 11px 13px; border: 1px solid var(--accent-tan); border-radius: 12px;
+  background: #fdf6f1; color: #a8543a; font-size: 13px; font-weight: 600;
+  text-align: left; cursor: pointer; font-family: inherit;
+}
+.perf-nudge .pn-ic { font-size: 16px; }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, type TxLike, type FixedDef } from './dashboardLogic'
+import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef } from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
   ({ date, type: 'expense', amount, category, subCategory, payment, fixedType: 'variable' })
@@ -352,5 +352,19 @@ describe('tierStatus', () => {
   })
   it('최소 구간 미달이면 cap 0', () => {
     expect(tierStatus(100000, tiers)).toEqual({ cap: 0, next: { min: 300000, cap: 15000, gap: 200000 } })
+  })
+})
+
+describe('dailyCheer', () => {
+  const pool = ['A', 'B', 'C']
+  it('같은 날은 항상 같은 문구', () => {
+    expect(dailyCheer('2026-08-31', pool)).toBe(dailyCheer('2026-08-31', pool))
+  })
+  it('날짜가 바뀌면 문구도 돈다', () => {
+    const got = ['2026-08-31', '2026-09-01', '2026-09-02'].map((d) => dailyCheer(d, pool))
+    expect(new Set(got).size).toBeGreaterThan(1)
+  })
+  it('빈 목록이면 빈 문자열', () => {
+    expect(dailyCheer('2026-08-31', [])).toBe('')
   })
 })

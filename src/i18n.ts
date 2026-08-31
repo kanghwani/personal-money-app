@@ -10,13 +10,13 @@ export function makeT(dict: Record<string, string>) {
 
 export const ko: Record<string, string> = {
   // 앱 셸 / 헤더
-  app_title: '돈 정리',
+  app_title: '모으는 중',
   nav_screens: '화면',
   sync_syncing: '동기화 중',
   sync_offline: '오프라인',
   sync_error: '동기화 오류',
   sync_synced: '동기화됨',
-  pwa_add_title: "홈 화면에 '돈 정리' 추가하기",
+  pwa_add_title: "홈 화면에 '모으는 중' 추가하기",
   pwa_pre: '하단 ',
   pwa_share_button: '공유 버튼',
   pwa_mid: '을 누른 후, ',
@@ -47,6 +47,7 @@ export const ko: Record<string, string> = {
   day_input_placeholder: '점심 9000 카드',
 
   // 섹션 타이틀
+  perf_banner: '{card} {gap} 더 쓰면 이달 할인한도 {cap}',
   sec_card_perf: '카드 실적',
   perf_note: '관리비·4대보험·할부·보험·세금은 대부분 실적에서 빠집니다(추정). 정확한 기준은 카드 약관을 확인하세요.',
   perf_cap: '월 한도 {amt}',
@@ -229,6 +230,7 @@ export const es: Record<string, string> = {
   quick_input_aria: 'Entrada rápida',
   day_input_placeholder: 'Almuerzo 9000 tarjeta',
 
+  perf_banner: '{card}: faltan {gap} para un límite de {cap}',
   sec_card_perf: 'Uso de tarjetas',
   perf_note: 'Cuotas, seguros e impuestos suelen no contar para el mínimo mensual (estimado).',
   perf_cap: 'Límite {amt}',
