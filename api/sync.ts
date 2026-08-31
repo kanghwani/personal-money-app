@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { verify } from './_auth.js'
 
 /**
  * 가계부 백엔드(GAS) 프록시.
@@ -13,6 +14,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!gas || !token) return res.status(500).json({ ok: false, error: 'SYNC_URL/SYNC_TOKEN 미설정' })
 
   res.setHeader('Cache-Control', 'no-store')
+
+  // 링크 1회 인증으로 심은 쿠키가 있어야 통과 (없으면 원장에 접근 불가)
+  if (!verify(req.headers.cookie, process.env.APP_SECRET || '')) {
+    return res.status(401).json({ ok: false, error: 'unauthorized', hint: '인증 링크로 다시 접속하세요' })
+  }
 
   try {
     if (req.method === 'GET') {
