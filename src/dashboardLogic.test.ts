@@ -318,16 +318,30 @@ describe('parseCardStatement', () => {
 describe('cardPerformance', () => {
   const tx = (payment: string, amount: number, memo = '식당', date = '2026-08-10') =>
     ({ date, type: 'expense', amount, split: 0, memo, payment })
-  it('카드별로 결제액·실적제외·인정실적을 나눈다', () => {
+  it('약관상 제외 항목(관리비 등)만 실적에서 뺀다', () => {
     const r = cardPerformance([
       tx('하나카드', 500000, '식당'),
-      tx('하나카드', 282850, '아파트 관리비'),   // 실적 제외
+      tx('하나카드', 282850, '아파트 관리비'),   // 약관상 실적 제외
       tx('NH카드', 100000, '주유'),
     ], '2026-08')
     expect(r).toEqual([
       { name: '하나카드', charged: 782850, excluded: 282850, qualified: 500000 },
       { name: 'NH카드', charged: 100000, excluded: 0, qualified: 100000 },
     ])
+  })
+  it('할부·민간보험료는 실적에 포함(약관: 일시불/할부 이용금액)', () => {
+    const r = cardPerformance([tx('하나카드', 515690, '자동차 할부'), tx('하나카드', 60190, '메리츠화재 보험')], '2026-08')
+    expect(r[0].qualified).toBe(575880)
+    expect(r[0].excluded).toBe(0)
+  })
+  it('4대보험·국세는 제외', () => {
+    const r = cardPerformance([tx('하나카드', 171682, '국민연금'), tx('하나카드', 64028, '건강보험료'), tx('하나카드', 3151, '국세 네이버페이')], '2026-08')
+    expect(r[0].qualified).toBe(0)
+    expect(r[0].excluded).toBe(238861)
+  })
+  it('규칙 없는 카드는 결제액 전액이 실적', () => {
+    const r = cardPerformance([tx('NH카드', 436000, '청소기 할부')], '2026-08')
+    expect(r[0]).toEqual({ name: 'NH카드', charged: 436000, excluded: 0, qualified: 436000 })
   })
   it('분담금을 뺀 실부담이 아니라 결제액 기준(카드 실적은 결제액으로 잡힘)', () => {
     const t = { ...tx('하나카드', 100000), split: 50000 }

@@ -535,8 +535,12 @@ function QuickEntry({ onSubmit, lastMessage }: { onSubmit: (raw: string) => void
 // 홈에 항상 한 줄씩 띄울 주요 카드(순서대로). 다른 카드는 인사이트 탭에서만 본다.
 const PRIMARY_CARDS = ['하나카드', 'NH카드']
 
+// 실적 구간 → 월 할인한도. 카드사 공식 안내 기준.
+// 하나카드 MG+ S: 30만 이상 15,000 / 60만 이상 30,000 / 100만 이상 60,000 (상품안내서 2025-06-16)
+// NH 올바른FLEX: 기준이용금액 300,000원 (카드사 앱 '이용실적 적용내역'). 한도는 미확인이라 cap 0 → '기준 충족'만 표시.
 const CARD_TIERS: Record<string, Tier[]> = {
   하나카드: [{ min: 300000, cap: 15000 }, { min: 600000, cap: 30000 }, { min: 1000000, cap: 60000 }],
+  NH카드: [{ min: 300000, cap: 0 }],
   국민카드: [{ min: 300000, cap: 15000 }, { min: 700000, cap: 20000 }, { min: 1200000, cap: 20000 }],
 }
 
@@ -691,7 +695,7 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit }:
             <span className="pn-amt">{formatMoney(r.qualified)}</span>
             {r.st?.next
               ? <span className="pn-goal">{t('perf_gap', { gap: formatMoney(r.st.next.gap), cap: formatMoney(r.st.next.cap) })}</span>
-              : r.st ? <span className="pn-done">{t('perf_max', { cap: formatMoney(r.st.cap) })}</span> : null}
+              : r.st ? <span className="pn-done">{r.st.cap > 0 ? t('perf_max', { cap: formatMoney(r.st.cap) }) : t('perf_met')}</span> : null}
           </div>
         ))}
       </div>
@@ -1128,7 +1132,7 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
                 <div className="perf-row" key={c.name}>
                   <div className="perf-head">
                     <strong>{c.name}</strong>
-                    {st && <span className="perf-cap">{t('perf_cap', { amt: formatMoney(st.cap) })}</span>}
+                    {st && <span className="perf-cap">{st.cap > 0 ? t('perf_cap', { amt: formatMoney(st.cap) }) : (st.next ? '' : t('perf_met'))}</span>}
                   </div>
                   <div className="perf-bar">
                     <span className="perf-fill" style={{ width: `${Math.min(100, goal ? (c.qualified / goal) * 100 : 100)}%` }} />

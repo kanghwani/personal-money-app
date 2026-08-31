@@ -309,10 +309,27 @@ export function parseCardStatement(text: string, fallbackDate = ''): CardRow[] {
 
 export type CardPerf = { name: string; charged: number; excluded: number; qualified: number }
 
-// 카드 전월실적에서 흔히 빠지는 항목. 카드사마다 다르니 "추정"이며, 약관으로 최종 확인해야 한다.
-// (관리비·4대보험·보험료·할부금·세금은 대부분의 국내 카드가 실적에서 제외)
-export const PERF_EXCLUDED = ['국민연금', '건강보험', '관리비', '할부', '보험', '세금', '국세', '주민세', '자동차세', '월세']
-const isExcluded = (memo: string) => PERF_EXCLUDED.some((k) => (memo || '').includes(k))
+/**
+ * 카드별 '실적 제외' 키워드 — 카드사 공식 상품안내서 원문 기준(추측 금지).
+ *
+ * 하나카드 MG+ S (상품안내서 2025-06-16, qpay.hanacard.co.kr/leaflet/15/15417_20250616.pdf):
+ *   [실적 제외] 국세, 지방세, 수도/전기요금, 그 외 공과금(우편요금·과태료·범칙금·벌금·부담금),
+ *   도시가스 요금, 아파트관리비, 국민연금/고용보험료/산재보험료/건강보험료, 스쿨뱅킹,
+ *   초·중·고 학교납입금, 대학(원)등록금, 상품권·기프트카드, 선불카드·선불전자지급수단 충전, 부동산임대료
+ *   [실적 산정] "국내외 일시불/할부 이용금액" → 할부는 실적에 **포함**된다(민간 보험료도 포함).
+ *   2026-08 실측 대조: 원장 2,182,456 − 위 제외분 = 약 166만 vs 카드사 1,668,076 (오차 0.4%)
+ */
+export const CARD_EXCLUDED: Record<string, string[]> = {
+  하나카드: [
+    '국세', '지방세', '주민세', '자동차세', '과태료', '범칙금', '벌금',
+    '수도요금', '전기요금', '도시가스', '관리비',
+    '국민연금', '고용보험', '산재보험', '건강보험',
+    '스쿨뱅킹', '학교납입금', '대학등록금', '대학원등록금',
+    '상품권', '기프트카드', '하나머니', '부동산임대료', '월세',
+  ],
+}
+const isExcluded = (memo: string, card: string) =>
+  (CARD_EXCLUDED[card] ?? []).some((k) => (memo || '').includes(k))
 
 /**
  * 해당 월 카드별 결제액과 '실적 인정 추정액'을 낸다.
@@ -327,7 +344,7 @@ export function cardPerformance(transactions: SplitTxLike[] & { payment?: string
     if (!name || name === '현금' || name === '계좌이체' || name === '미상') continue
     const cur = map.get(name) ?? { name, charged: 0, excluded: 0, qualified: 0 }
     cur.charged += t.amount
-    if (isExcluded(t.memo)) cur.excluded += t.amount
+    if (isExcluded(t.memo, name)) cur.excluded += t.amount
     else cur.qualified += t.amount
     map.set(name, cur)
   }
