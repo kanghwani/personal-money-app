@@ -492,7 +492,7 @@ export const CARD_SPECS: CardSpec[] = [
   },
   {
     // 우리 카드의정석2 ROUTINE — 미보유(후보). 정기결제 전용 할인카드.
-    card: '우리카드(ROUTINE)', owned: false, annualFee: 28000, sharedCap: false,
+    card: '우리카드(ROUTINE)', owned: false, annualFee: 22000, sharedCap: false,
     tiers: [{ min: 500000, cap: 5000 }, { min: 1000000, cap: 10000 }],
     benefits: [
       { area: '생활', rate: 0.15, cap: 0, keywords: ['관리비', '전기요금', '도시가스'], note: '자동납부 건만.' },
@@ -507,6 +507,8 @@ export const CARD_SPECS: CardSpec[] = [
     ],
     notes: [
       '아파트관리비가 실적으로 인정되는 드문 카드 — 관리비만으로 실적의 상당 부분이 채워진다.',
+      '연회비는 모바일카드 22,000원 / 실물카드 28,000원. 굳이 실물이 필요 없으면 모바일이 6,000원 싸다.',
+      '실적 기준은 "전월 국내외 가맹점 이용금액" — 해외 결제도 실적에 들어간다(ChatGPT USD 결제 포함).',
       '[미확인] 전기·가스요금도 실적에 잡히는지는 공개 자료로 확인 못 했다. 카드의정석2 시리즈 공통 기준은 공과금 실적 제외라, 관리비만 예외일 가능성이 있다. 발급 전 콜센터 확인 필요.',
       '생활 영역은 관리비·전기·가스가 한 한도를 나눠 쓴다 — 관리비 28만이면 15%가 이미 한도를 넘어 전기세를 더해도 할인은 안 늘어난다(실적에는 도움).',
       '디지털구독 대상에 Claude(Anthropic)는 없다. ChatGPT는 해외 USD 결제 건만 인정된다.',
