@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges,
+  deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, unusedBenefits,
 } from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
@@ -480,5 +480,68 @@ describe('missedBenefits assumeQualified', () => {
     const rows = missedBenefits([tx('2026-08-24', 'CGV', 30000, '하나카드')], '2026-08', undefined, true)
     expect(rows[0].bestCard).toBe('NH카드')
     expect(rows[0].discount).toBe(5000)
+  })
+})
+
+describe('unusedBenefits', () => {
+  const tx = (date: string, memo: string, amount: number, payment: string) =>
+    ({ id: date + memo + amount, date, memo, amount, payment, type: 'expense' as const, split: 0 })
+  const nh = CARD_SPECS.filter((s) => s.card === 'NH카드')
+  const prev = [tx('2026-07-10', '전월 일반결제', 400000, 'NH카드')]
+
+  it('전월 실적을 채웠으면 안 쓴 한도가 그대로 남는다', () => {
+    const rows = unusedBenefits(prev, '2026-08', nh)
+    const coffee = rows.find((r) => r.area === '커피')!
+    expect(coffee.locked).toBe(false)
+    expect(coffee.cap).toBe(10000)
+    expect(coffee.remaining).toBe(10000)
+  })
+
+  it('그 카드로 쓴 만큼 한도가 깎인다', () => {
+    const rows = unusedBenefits([...prev, tx('2026-08-05', '스타벅스', 12000, 'NH카드')], '2026-08', nh)
+    const coffee = rows.find((r) => r.area === '커피')!
+    expect(coffee.used).toBe(6000)          // 12,000 × 50%
+    expect(coffee.remaining).toBe(4000)
+  })
+
+  it('다른 카드로 쓴 건 그 카드 한도를 깎지 않는다', () => {
+    const rows = unusedBenefits([...prev, tx('2026-08-05', '스타벅스', 12000, '하나카드')], '2026-08', nh)
+    expect(rows.find((r) => r.area === '커피')!.remaining).toBe(10000)
+  })
+
+  it('한도를 다 쓴 영역은 안내에서 빠진다', () => {
+    const rows = unusedBenefits([...prev, tx('2026-08-05', '스타벅스', 40000, 'NH카드')], '2026-08', nh)
+    expect(rows.find((r) => r.area === '커피')).toBeUndefined()
+  })
+
+  it('전월 실적 미달이면 잠기고, 이번 달 부족액을 알려준다', () => {
+    const rows = unusedBenefits([tx('2026-08-01', '결제', 120000, 'NH카드')], '2026-08', nh)
+    const coffee = rows.find((r) => r.area === '커피')!
+    expect(coffee.locked).toBe(true)
+    expect(coffee.lockGap).toBe(180000)     // 30만 − 이번 달 12만
+    expect(coffee.used).toBe(0)
+  })
+})
+
+describe('unusedBenefits 한도 종류', () => {
+  const tx = (date: string, memo: string, amount: number, payment: string) =>
+    ({ id: date + memo + amount, date, memo, amount, payment, type: 'expense' as const, split: 0 })
+
+  it('통합 한도 카드(하나)는 영역을 합쳐 한 줄로 낸다 — 한도가 부풀지 않게', () => {
+    const hana = CARD_SPECS.filter((s) => s.card === '하나카드')
+    const rows = unusedBenefits([tx('2026-07-10', '전월', 1200000, '하나카드'),
+      tx('2026-08-15', '넷플릭스', 27000, '하나카드')], '2026-08', hana)
+    expect(rows).toHaveLength(1)
+    expect(rows[0].cap).toBe(60000)
+    expect(rows[0].used).toBe(13500)
+    expect(rows[0].remaining).toBe(46500)
+  })
+
+  it('가족카드 합산 카드(국민)는 원장에 결제가 없어도 잠기지 않는다', () => {
+    const kb = CARD_SPECS.filter((s) => s.card === '국민카드')
+    const rows = unusedBenefits([], '2026-08', kb)
+    expect(rows.length).toBeGreaterThan(0)
+    expect(rows.every((r) => !r.locked)).toBe(true)
+    expect(rows.find((r) => r.area === '온라인쇼핑')!.cap).toBe(10000)  // 최저 구간(30만) 기준으로 보수적으로
   })
 })

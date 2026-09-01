@@ -61,6 +61,7 @@ import {
   missedBenefits,
   installmentCharges,
   type CardSpec,
+  unusedBenefits,
 } from './dashboardLogic'
 import { loadLearnedRules, saveLearnedRule, classifyByLearned } from './learnedRules'
 import { RULES, LANG, classifyMemo } from './classifyRules'
@@ -699,7 +700,9 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit }:
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   // 주요 카드(하나·NH)는 이번 달 실적을 홈에 항상 한 줄씩 보여준다.
   const perfRows = useMemo(() => {
-    const perf = cardPerformance(transactions as never, summary.monthKey)
+    // 할부는 결제한 달에 총액이 실적으로 잡힌다 — 인사이트 탭과 같은 기준으로 맞춘다.
+    const rows = [...transactions, ...installmentCharges(readFixedDefsCache())]
+    const perf = cardPerformance(rows as never, summary.monthKey)
     return PRIMARY_CARDS.map((name) => {
       const c = perf.find((x) => x.name === name) ?? { name, charged: 0, excluded: 0, qualified: 0 }
       const tiers = CARD_TIERS[name]
@@ -1061,6 +1064,7 @@ function CardGuide({ transactions, monthKey }: { transactions: Transaction[]; mo
   const perf = useMemo(() => cardPerformance(rows as never, monthKey), [rows, monthKey])
   const missed = useMemo(() => missedBenefits(rows as never, monthKey), [rows, monthKey])
   const potential = useMemo(() => missedBenefits(rows as never, monthKey, undefined, true), [rows, monthKey])
+  const unused = useMemo(() => unusedBenefits(rows as never, monthKey), [rows, monthKey])
 
   const held = new Set(perf.map((c) => c.name))
   const specs = CARD_SPECS.filter((s) => held.has(s.card) || !s.owned)
@@ -1089,6 +1093,32 @@ function CardGuide({ transactions, monthKey }: { transactions: Transaction[]; mo
             ))}
           </div>
           <p className="guide-total">{t('guide_total', { amt: formatMoney(sum(missed.length ? missed : potential)) })}</p>
+        </section>
+      )}
+
+      {unused.length > 0 && (
+        <section className="wide-section">
+          <SectionHeader icon={<Wallet size={18} />} title={t('sec_unused')} aside={monthKey} />
+          <p className="row-meta perf-note">{t('unused_note')}</p>
+          <div className="guide-hits">
+            {unused.slice(0, 8).map((u) => (
+              <div className="guide-hit" key={`${u.card}/${u.area}`}>
+                <div>
+                  <p className="row-title">{u.card} · {u.area} {pct(u.rate)}</p>
+                  <p className="row-meta">
+                    {u.locked
+                      ? t('unused_locked', { gap: formatMoney(u.lockGap) })
+                      : t('unused_left', { cap: formatMoney(u.cap), used: formatMoney(u.used) })}
+                  </p>
+                  <p className="guide-note">
+                    {u.keywords.slice(0, 5).join(' · ')}
+                    {u.minAmount ? ` · ${t('guide_min', { amt: formatMoney(u.minAmount) })}` : ''}
+                  </p>
+                </div>
+                <strong className={u.locked ? 'guide-locked' : 'guide-gain'}>{formatMoney(u.remaining)}</strong>
+              </div>
+            ))}
+          </div>
         </section>
       )}
 
@@ -1141,7 +1171,7 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
   const colors = ['#c9794f', '#7e9b6f', '#d6a85e', '#9a7bb0', '#5a7d8f', '#cdbf9c']
   const places = placeTotals(transactions, summary.monthKey, 7)
   // 소액(1만원 미만) 카드는 노이즈라 상세에서도 뺀다. 주요 카드는 금액과 무관하게 유지.
-  const cardPerf = cardPerformance(transactions as never, summary.monthKey)
+  const cardPerf = cardPerformance([...transactions, ...installmentCharges(readFixedDefsCache())] as never, summary.monthKey)
     .filter((c) => c.charged >= 10000 || PRIMARY_CARDS.includes(c.name))
   const deltas = categoryDeltas(transactions, summary.monthKey, summary.previousMonth?.month).slice(0, 5)
   const maxDelta = Math.max(1, ...deltas.map((d) => Math.abs(d.delta)))

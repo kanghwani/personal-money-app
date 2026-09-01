@@ -1087,3 +1087,5 @@
 .guide-area-head { display: flex; align-items: baseline; gap: 8px; margin: 0 0 2px; font-size: 13px; }
 .guide-area-head b { color: var(--accent-tan); }
 .guide-note { margin: 4px 0 0; font-size: 11px; line-height: 1.5; color: var(--muted); }
+
+.guide-locked { flex: 0 0 auto; color: var(--muted); font-size: 14px; font-weight: 700; }

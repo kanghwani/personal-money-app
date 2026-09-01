@@ -424,6 +424,8 @@ export type CardSpec = {
   sharedCap: boolean      // true면 tiers의 cap이 전 영역 통합한도(하나카드), false면 영역별
   benefits: BenefitArea[]
   notes: string[]         // 할인이 아니라 규칙으로만 존재하는 것(마일리지·결제수단 조건 등)
+  /** 가족카드 사용분이 실적에 합산되는 카드. 그 지출은 이 원장에 없어서 실적을 판정할 수 없다. */
+  familyPooled?: boolean
 }
 
 export const CARD_SPECS: CardSpec[] = [
@@ -461,7 +463,7 @@ export const CARD_SPECS: CardSpec[] = [
   },
   {
     // KB국민 American Express Rose Gold — 전 영역 KB Pay 결제 건만 할인
-    card: '국민카드', owned: true, annualFee: 19000, sharedCap: false,
+    card: '국민카드', owned: true, annualFee: 19000, sharedCap: false, familyPooled: true,
     tiers: [{ min: 300000, cap: 10000 }, { min: 700000, cap: 15000 }, { min: 1200000, cap: 20000 }],
     benefits: [
       { area: '온라인쇼핑', rate: 0.1, cap: 0, keywords: ['쿠팡', 'G마켓', '지마켓', '11번가', '옥션', '오픈마켓', '온라인쇼핑'],
@@ -626,4 +628,75 @@ export function installmentCharges(defs: FixedDef[]): (SplitTxLike & { payment?:
       amount: d.amount * d.installmentTotal, payment: d.payment, type: 'expense', split: 0 })
   }
   return out
+}
+
+export type UnusedBenefit = {
+  card: string; area: string; rate: number
+  cap: number; used: number; remaining: number
+  minAmount?: number; keywords: string[]; note?: string
+  locked: boolean          // 전월 실적 미달이라 이번 달엔 아예 못 받는 상태
+  lockGap: number          // locked일 때 이번 달에 얼마를 더 써야 다음 달이 열리는지
+}
+
+/**
+ * 이번 달 아직 안 쓴 혜택 한도를 낸다.
+ * "놓친 혜택"이 이미 지나간 결제를 되짚는 것이라면, 이건 앞으로 쓸 수 있는 여유분이다.
+ * 한도는 그 카드로 실제 결제한 건만 소진한 것으로 본다(카드사와 같은 계산).
+ */
+export function unusedBenefits(
+  transactions: (SplitTxLike & { payment?: string })[],
+  yearMonth: string,
+  specs: CardSpec[] = CARD_SPECS.filter((s) => s.owned),
+): UnusedBenefit[] {
+  const [y, m] = yearMonth.split('-').map(Number)
+  const prevMonth = `${m === 1 ? y - 1 : y}-${String(m === 1 ? 12 : m - 1).padStart(2, '0')}`
+  const prevPerf = new Map(cardPerformance(transactions, prevMonth).map((c) => [c.name, c.qualified]))
+  const thisPerf = new Map(cardPerformance(transactions, yearMonth).map((c) => [c.name, c.qualified]))
+  const rows = transactions.filter((t) => t.type === 'expense' && t.date.slice(0, 7) === yearMonth)
+
+  const out: UnusedBenefit[] = []
+  for (const spec of specs) {
+    const minTier = spec.tiers.length ? Math.min(...spec.tiers.map((t) => t.min)) : 0
+    const prevQ = prevPerf.get(spec.card) ?? 0
+    const locked = Boolean(spec.tiers.length && prevQ < minTier)
+    // 잠겼으면 '이번 달' 실적으로 다음 달을 여는 게 목표라 이번 달 부족액을 낸다.
+    const lockGap = locked ? Math.max(0, minTier - (thisPerf.get(spec.card) ?? 0)) : 0
+    // 가족카드 합산 카드는 원장에 없는 지출로 실적이 채워진다 — 잠김으로 단정하면 틀린 안내가 된다.
+    const unknown = Boolean(spec.familyPooled)
+    const tierCap = spec.tiers.length
+      ? (unknown ? Math.min(...spec.tiers.map((t) => t.cap)) : tierStatus(prevQ, spec.tiers).cap)
+      : 0
+    const isLocked = locked && !unknown
+    const usedOf = (b: BenefitArea, cap: number) => {
+      if (isLocked) return 0
+      let u = 0
+      for (const t of rows) {
+        if ((t.payment || '').trim() !== spec.card) continue
+        if (b.minAmount && t.amount < b.minAmount) continue
+        if (!b.keywords.some((k) => (t.memo || '').includes(k))) continue
+        u = Math.min(cap, u + Math.round(t.amount * b.rate))
+      }
+      return u
+    }
+    if (spec.sharedCap) {
+      // 통합 한도 카드는 영역이 한 주머니를 나눠 쓴다. 영역별로 나눠 보여주면 한도가 몇 배로 부풀어 보인다.
+      if (tierCap <= 0) continue
+      const used = Math.min(tierCap, spec.benefits.reduce((sum, b) => sum + usedOf(b, tierCap), 0))
+      if (tierCap - used <= 0) continue
+      out.push({ card: spec.card, area: spec.benefits.map((b) => b.area).join(' · '),
+        rate: Math.max(...spec.benefits.map((b) => b.rate)), cap: tierCap, used, remaining: tierCap - used,
+        keywords: spec.benefits.flatMap((b) => b.keywords), locked: isLocked, lockGap })
+      continue
+    }
+    for (const b of spec.benefits) {
+      const cap = b.cap > 0 ? b.cap : tierCap
+      if (cap <= 0) continue
+      const used = usedOf(b, cap)
+      const remaining = cap - used
+      if (remaining <= 0) continue
+      out.push({ card: spec.card, area: b.area, rate: b.rate, cap, used, remaining,
+        minAmount: b.minAmount, keywords: b.keywords, note: b.note, locked: isLocked, lockGap })
+    }
+  }
+  return out.sort((a, b) => Number(a.locked) - Number(b.locked) || b.remaining - a.remaining)
 }
