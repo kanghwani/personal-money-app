@@ -33,6 +33,7 @@ import {
   Wallet,
   X,
   CreditCard,
+  Store,
 } from 'lucide-react'
 import { pickNewer, dedupById } from './sync/merge'
 import { getSyncConfig, loadFromServer, saveToServer, loadLedger, assignCategory, loadFixedDefs, saveFixedDef, deleteFixedDef, deleteLedger, updateLedger, appendLedger } from './sync/syncClient'
@@ -141,7 +142,7 @@ export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error'
 
 const R = RULES[LANG]
 
-// 거래 이력이 없을 때 미분류 교정 칩에 보여줄 기본 카테고리 목록(언어별 RuleSet.defaultOptions — F2)
+// 거래 이력이 없을 때 미분류 교정 칩에 보여줄 기본 카테고리 목록(언어별 RuleSet.defaultOptions - F2)
 const DEFAULT_FIX_OPTIONS = R.defaultOptions
 
 
@@ -391,8 +392,8 @@ function App() {
     <main className="app-shell">
       <header className="app-header">
         <div>
-          <p className="eyebrow">{formatDateLabel(todayIso())}</p>
-          <p className="cheer">{dailyCheer(todayIso(), CHEERS)}</p>
+          {/* 날짜와 응원 문구를 강조색으로 각각 한 줄씩 쌓으면 제목보다 시끄러워진다. 한 줄로 접고 색을 뺐다. */}
+          <p className="app-meta">{formatDateLabel(todayIso())} · {dailyCheer(todayIso(), CHEERS)}</p>
           <h1>{t('app_title')}</h1>
         </div>
         <button
@@ -573,13 +574,16 @@ const CARD_TIERS: Record<string, Tier[]> = Object.fromEntries(
 
 // 헤더에 매일 바뀌는 응원 문구. 마음에 안 드는 문장은 지우고 새로 넣으면 된다.
 const CHEERS = [
-  '오늘도 모으는 중 💪', '티끌 모아 태산', '안 쓴 돈이 번 돈',
+  '오늘도 모으는 중', '티끌 모아 태산', '안 쓴 돈이 번 돈',
   '미래의 나에게 보내는 중', '천천히, 확실하게', '이번 달도 잘하고 있어요',
-  '새는 돈 잡는 중 🔍', '덜 쓰고 더 모으기', '작은 절약이 쌓이면 큰돈',
+  '새는 돈 잡는 중', '덜 쓰고 더 모으기', '작은 절약이 쌓이면 큰돈',
   '기록하는 사람이 모은다', '오늘의 한 잔 = 내일의 여유',
 ]
 
-const RING_COLORS = ['#c9794f', '#7e9b6f', '#d6a85e', '#9a7bb0', '#5a7d8f', '#cdbf9c', '#b8654a', '#6f8f9c', '#caa06a', '#a98aa0']
+const RING_COLORS = [
+  '#2f8f5b', '#e0a24a', '#4a7fb5', '#c2604a', '#8b6bb1',
+  '#4fa8a0', '#a8863f', '#6b8f3f', '#b5628c', '#5f7d8f',
+]
 
 function CategoryRing({ total, subtitle, data }: { total: string; subtitle: string | null; data: NameValue[] }) {
   const sum = data.reduce((s, d) => s + d.value, 0) || 1
@@ -593,14 +597,17 @@ function CategoryRing({ total, subtitle, data }: { total: string; subtitle: stri
     })
     .join(', ')
   return (
-    <div className="cat-ring">
-      <div className="cat-donut" style={{ background: `conic-gradient(${stops})` }} />
-      <div className="cat-ring-center">
-        <span className="cr-k">{t('this_month_variable_spend')}</span>
-        <strong>{total}</strong>
-        {subtitle && <span className="cr-s">{subtitle}</span>}
+    <>
+      {/* 라벨은 도넛 구멍보다 넓어서 안에 넣으면 링에 물린다. 구멍에는 숫자만 둔다. */}
+      <p className="cat-ring-label">{t('this_month_variable_spend')}</p>
+      <div className="cat-ring">
+        <div className="cat-donut" style={{ background: `conic-gradient(${stops})` }} />
+        <div className="cat-ring-center">
+          <strong>{total}</strong>
+          {subtitle && <span className="cr-s">{subtitle}</span>}
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 
@@ -648,7 +655,7 @@ function CategoryDetailSheet({ category, transactions, categoryOptions, onAssign
               <div className="cat-tx-main">
                 <button type="button" className="cat-tx-edit" onClick={() => setEditingTx(tx)}>
                   <p className="row-title">
-                    <span className="row-place">🏪 {splitPlaceItem(tx.memo).place || t('not_entered')}</span>
+                    <span className="row-place"><Store size={13} aria-hidden />{splitPlaceItem(tx.memo).place || t('not_entered')}</span>
                     {splitPlaceItem(tx.memo).item && <span className="row-item"> · {splitPlaceItem(tx.memo).item}</span>}
                   </p>
                   <p className="row-meta">{formatDateLabel(tx.date)} · {tx.subCategory || t('unspecified')} · {tx.payment || t('unspecified')}</p>
@@ -700,7 +707,7 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit }:
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   // 주요 카드(하나·NH)는 이번 달 실적을 홈에 항상 한 줄씩 보여준다.
   const perfRows = useMemo(() => {
-    // 할부는 결제한 달에 총액이 실적으로 잡힌다 — 인사이트 탭과 같은 기준으로 맞춘다.
+    // 할부는 결제한 달에 총액이 실적으로 잡힌다 - 인사이트 탭과 같은 기준으로 맞춘다.
     const rows = [...transactions, ...installmentCharges(readFixedDefsCache())]
     const perf = cardPerformance(rows as never, summary.monthKey)
     return PRIMARY_CARDS.map((name) => {
@@ -720,7 +727,7 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit }:
       <div className="perf-nudge">
         {perfRows.map((r) => (
           <div className="pn-row" key={r.name}>
-            <span className="pn-name">💳 {r.name}</span>
+            <span className="pn-name"><CreditCard size={13} aria-hidden />{r.name}</span>
             <span className="pn-amt">{formatMoney(r.qualified)}</span>
             {r.st?.next
               ? <span className="pn-goal">{t('perf_gap', { gap: formatMoney(r.st.next.gap), cap: formatMoney(r.st.next.cap) })}</span>
@@ -822,7 +829,7 @@ function Ledger({
               <article className="ledger-row" key={transaction.id}>
                 <button type="button" className="ledger-row-main" onClick={() => setEditingTx(transaction)}>
                   <p className="row-title">
-                    <span className="row-place">🏪 {splitPlaceItem(transaction.memo).place || t('not_entered')}</span>
+                    <span className="row-place"><Store size={13} aria-hidden />{splitPlaceItem(transaction.memo).place || t('not_entered')}</span>
                     {splitPlaceItem(transaction.memo).item && <span className="row-item"> · {splitPlaceItem(transaction.memo).item}</span>}
                   </p>
                   <p className="row-meta">
@@ -1057,7 +1064,7 @@ function AssetsView({ store, summary, onSaveAsset }: { store: FinanceStore; summ
  */
 function CardGuide({ transactions, monthKey }: { transactions: Transaction[]; monthKey: string }) {
   const rows = useMemo(() => {
-    // 할부는 결제한 달에 총액이 실적으로 잡힌다 — 고정비의 월 납입액만으론 그게 안 보인다.
+    // 할부는 결제한 달에 총액이 실적으로 잡힌다 - 고정비의 월 납입액만으론 그게 안 보인다.
     const defs = readFixedDefsCache()
     return [...transactions, ...installmentCharges(defs)]
   }, [transactions])
@@ -1168,7 +1175,7 @@ function CardGuide({ transactions, monthKey }: { transactions: Transaction[]; mo
 
 function InsightsView({ store, summary, transactions }: { store: FinanceStore; summary: Summary; transactions: Transaction[] }) {
   const insightRows = buildInsights(transactions, summary, store)
-  const colors = ['#c9794f', '#7e9b6f', '#d6a85e', '#9a7bb0', '#5a7d8f', '#cdbf9c']
+  const colors = RING_COLORS.slice(0, 6)
   const places = placeTotals(transactions, summary.monthKey, 7)
   // 소액(1만원 미만) 카드는 노이즈라 상세에서도 뺀다. 주요 카드는 금액과 무관하게 유지.
   const cardPerf = cardPerformance([...transactions, ...installmentCharges(readFixedDefsCache())] as never, summary.monthKey)
@@ -1185,8 +1192,8 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
             <AreaChart data={summary.monthlyTrend} margin={{ left: 0, right: 12, top: 14, bottom: 0 }}>
               <defs>
                 <linearGradient id="spendFill" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="5%" stopColor="var(--accent-tan)" stopOpacity={0.24} />
-                  <stop offset="95%" stopColor="var(--accent-tan)" stopOpacity={0.02} />
+                  <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.24} />
+                  <stop offset="95%" stopColor="var(--accent)" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="var(--line)" vertical={false} />
@@ -1197,7 +1204,7 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
                 formatter={(value) => [formatMoney(Number(value)), t('real_spend')]}
                 labelFormatter={(label) => `${label}`}
               />
-              <Area type="monotone" dataKey="realSpend" stroke="var(--accent-tan)" strokeWidth={3} fill="url(#spendFill)" />
+              <Area type="monotone" dataKey="realSpend" stroke="var(--accent)" strokeWidth={3} fill="url(#spendFill)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -1250,7 +1257,7 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
               <Tooltip 
                 contentStyle={{ backgroundColor: 'var(--surface-solid)', borderColor: 'var(--line)', borderRadius: '10px', color: 'var(--ink)' }}
                 itemStyle={{ color: 'var(--ink)' }}
-                labelStyle={{ color: 'var(--accent-tan)', fontWeight: 800 }}
+                labelStyle={{ color: 'var(--accent)', fontWeight: 800 }}
                 formatter={(value) => [formatMoney(Number(value)), t('spend_amount')]}
               />
               <Bar dataKey="value" radius={[0, 6, 6, 0]}>
@@ -1328,7 +1335,7 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
                 <Tooltip
                   contentStyle={{ backgroundColor: 'var(--surface-solid)', borderColor: 'var(--line)', borderRadius: '10px', color: 'var(--ink)' }}
                   itemStyle={{ color: 'var(--ink)' }}
-                  labelStyle={{ color: 'var(--accent-tan)', fontWeight: 800 }}
+                  labelStyle={{ color: 'var(--accent)', fontWeight: 800 }}
                   formatter={(value) => [formatMoney(Number(value)), t('spend_amount')]}
                 />
                 <Bar dataKey="value" radius={[0, 6, 6, 0]}>
@@ -2080,7 +2087,7 @@ function buildInsights(transactions: Transaction[], summary: Summary, store: Fin
     })
   }
 
-  // 7. 분담금 — 내가 결제했지만 남이 부담하는 몫(정산해서 받을 돈) + 환급분
+  // 7. 분담금 - 내가 결제했지만 남이 부담하는 몫(정산해서 받을 돈) + 환급분
   const sb = splitBreakdown(monthTx, summary.monthKey)
   if (sb.total > 0) {
     const who = sb.byPerson.map((p) => `${p.name} ${formatMoney(p.value)}`).join(' · ')
@@ -2246,7 +2253,7 @@ function escapeRegExp(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-// 대소문자 무시하고 keyword가 text에 포함되는지(모바일 자동 대문자화 대응 — F4).
+// 대소문자 무시하고 keyword가 text에 포함되는지(모바일 자동 대문자화 대응 - F4).
 // 한글에는 대소문자 개념이 없어 ko 결과는 바뀌지 않는다.
 function includesCI(text: string, keyword: string) {
   return new RegExp(escapeRegExp(keyword), 'i').test(text)

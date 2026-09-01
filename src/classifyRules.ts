@@ -1,6 +1,6 @@
 export type Lang = 'ko' | 'es'
 // 프로필(VITE_PROFILE)이 유일한 진실 공급원. VITE_LANG은 더 이상 언어를 독립적으로 결정하지 않는다.
-// (VITE_PROFILE만 빠지거나 오타가 나도 항상 ko로 안전하게 fail-closed되도록 — F5)
+// (VITE_PROFILE만 빠지거나 오타가 나도 항상 ko로 안전하게 fail-closed되도록 - F5)
 export const PROFILE: string = import.meta.env.VITE_PROFILE || ''
 export const LANG: Lang = PROFILE === 'es' ? 'es' : 'ko'
 
@@ -40,9 +40,9 @@ const ko: RuleSet = {
   ],
   defaultPayment: '하나카드',
   // 농협/NH 추가(2026-08): '농협'으로 적으면 '카드'로 잘못 잡히던 문제. 구체 카드명이 앞에 있어야 하므로
-  // '하나카드' 등 뒤, 짧은 별칭 앞에 둔다. ponytail: '농협하나로마트'처럼 상호에 섞이면 오탐 가능 — 실제로 겪으면 그때 정교화.
+  // '하나카드' 등 뒤, 짧은 별칭 앞에 둔다. ponytail: '농협하나로마트'처럼 상호에 섞이면 오탐 가능 - 실제로 겪으면 그때 정교화.
   payments: ['국민카드','삼성카드','현대카드','신한카드','하나카드','이음카드','우리카드','롯데카드','농협카드','NH카드','카카오뱅크','토스뱅크','네이버페이','카카오페이','계좌이체','체크카드','토스','국민','삼성','현대','신한','카카오','네이버','현금','계좌','이음','농협','NH','카드'],
-  // 기존 App.tsx normalizePayment의 aliases와 완전히 동일(토스 키는 원본에 없으므로 추가하지 않음 — ko 회귀 방지)
+  // 기존 App.tsx normalizePayment의 aliases와 완전히 동일(토스 키는 원본에 없으므로 추가하지 않음 - ko 회귀 방지)
   paymentAlias: { 국민: '국민카드', 삼성: '삼성카드', 현대: '현대카드', 신한: '신한카드', 카카오: '카카오페이', 네이버: '네이버페이', 계좌: '계좌이체', 이음: '이음카드', 카드: '카드', 농협: 'NH카드', 농협카드: 'NH카드', NH: 'NH카드' },
   yesterday: '어제',
   today: '오늘',

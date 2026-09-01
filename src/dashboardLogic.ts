@@ -310,7 +310,7 @@ export function parseCardStatement(text: string, fallbackDate = ''): CardRow[] {
 export type CardPerf = { name: string; charged: number; excluded: number; qualified: number }
 
 /**
- * 카드별 '실적 제외' 키워드 — 카드사 공식 상품안내서 원문 기준(추측 금지).
+ * 카드별 '실적 제외' 키워드 - 카드사 공식 상품안내서 원문 기준(추측 금지).
  *
  * 하나카드 MG+ S (상품안내서 2025-06-16, qpay.hanacard.co.kr/leaflet/15/15417_20250616.pdf):
  *   [실적 제외] 국세, 지방세, 수도/전기요금, 그 외 공과금(우편요금·과태료·범칙금·벌금·부담금),
@@ -325,7 +325,7 @@ export const CARD_EXCLUDED: Record<string, string[]> = {
   //   상하수도요금, 과태료(범칙금), 우편요금, 사회보험(건강/국민연금/고용/산재), 아파트관리비,
   //   도시가스요금, 전기요금, 상품권·선불카드 구매(충전 포함), 현금서비스·카드론, 수수료·이자·연체료,
   //   연회비, 거래취소금액, 포인트 결제분
-  //   ※ '할인 적용된 이용금액 전체'가 빠지는 게 하나카드와 다른 점 — 혜택 받은 건은 실적에 안 잡힌다.
+  //   ※ '할인 적용된 이용금액 전체'가 빠지는 게 하나카드와 다른 점 - 혜택 받은 건은 실적에 안 잡힌다.
   NH카드: [
     '대학등록금', '대학원등록금', '교육비', '임대료', '월세',
     '세금', '세외수입', '국세', '지방세', '주민세', '자동차세', '공과금',
@@ -334,7 +334,7 @@ export const CARD_EXCLUDED: Record<string, string[]> = {
     '관리비', '도시가스', '전기요금',
     '상품권', '기프트카드', '기프티콘', '선불', '카드충전', '현금서비스', '카드론', '수수료', '연체료', '연회비',
   ],
-  // KB국민 American Express Rose Gold — 아파트관리비가 실적 제외라, 관리비를 이 카드로 내면 실적도 혜택도 0이다.
+  // KB국민 American Express Rose Gold - 아파트관리비가 실적 제외라, 관리비를 이 카드로 내면 실적도 혜택도 0이다.
   국민카드: [
     '관리비', '학교납입금', '대학등록금', '대학원등록금', '정부지원금',
     '국세', '지방세', '주민세', '자동차세', '공과금', '전기요금', '수도요금', '도시가스',
@@ -342,7 +342,7 @@ export const CARD_EXCLUDED: Record<string, string[]> = {
     '상품권', '기프트카드', '기프티콘', '선불', '카드충전', '현금서비스', '카드론',
     '수수료', '연체료', '연회비',
   ],
-  // 삼성카드 & MILEAGE PLATINUM — 실적 조건은 없지만 '마일 적립 제외'가 넓다.
+  // 삼성카드 & MILEAGE PLATINUM - 실적 조건은 없지만 '마일 적립 제외'가 넓다.
   // 국세·지방세·공과금, 4대보험, 대학등록금, 대중교통·택시·고속버스·통행료,
   // 무이자할부, 할인 적용된 이용금액, 선불충전 등이 전부 0마일이다.
   삼성카드: [
@@ -403,7 +403,7 @@ export function dailyCheer(isoDate: string, pool: string[]): string {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 카드별 혜택 규칙 — 전부 카드사 공식 상품안내서/약관 원문 기준. 추측으로 채우지 말 것.
+// 카드별 혜택 규칙 - 전부 카드사 공식 상품안내서/약관 원문 기준. 추측으로 채우지 말 것.
 // 새 카드를 넣거나 혜택이 바뀌면 여기만 고치면 앱 전체(가이드·놓친혜택)가 따라온다.
 // ─────────────────────────────────────────────────────────────
 
@@ -418,7 +418,7 @@ export type BenefitArea = {
 
 export type CardSpec = {
   card: string
-  owned: boolean          // false면 '후보 카드' — 놓친 혜택 계산에서 빼고 비교용으로만 쓴다
+  owned: boolean          // false면 '후보 카드' - 놓친 혜택 계산에서 빼고 비교용으로만 쓴다
   annualFee: number
   tiers: Tier[]
   sharedCap: boolean      // true면 tiers의 cap이 전 영역 통합한도(하나카드), false면 영역별
@@ -430,23 +430,23 @@ export type CardSpec = {
 
 export const CARD_SPECS: CardSpec[] = [
   {
-    // 하나카드 MG+ S — 상품안내서 2025-06-16 (qpay.hanacard.co.kr/leaflet/15/15417_20250616.pdf)
+    // 하나카드 MG+ S - 상품안내서 2025-06-16 (qpay.hanacard.co.kr/leaflet/15/15417_20250616.pdf)
     card: '하나카드', owned: true, annualFee: 17000, sharedCap: true,
     tiers: [{ min: 300000, cap: 15000 }, { min: 600000, cap: 30000 }, { min: 1000000, cap: 60000 }],
     benefits: [
       { area: '영상 스트리밍', rate: 0.5, cap: 0, keywords: ['유튜브', '디즈니', 'Wavve', '웨이브', '넷플릭스', '티빙'],
-        note: '월 정기결제 건만. 간편결제·인앱결제로 내면 할인 없음 — 카드를 직접 등록해야 한다.' },
+        note: '월 정기결제 건만. 간편결제·인앱결제로 내면 할인 없음 - 카드를 직접 등록해야 한다.' },
       { area: '디지털 멤버십', rate: 0.5, cap: 0, keywords: ['네이버플러스', '컬리멤버', '쿠팡 와우', '쿠팡와우'],
         note: '월 정기결제 건만. 연 정기결제는 1회만 제공.' },
     ],
     notes: [
-      '간편결제 10%(네이버페이·카카오페이·토스페이·SSG페이·11pay·스마일페이, 건당 1만원↑) — 결제수단이라 내역만으로는 판별이 안 돼 놓친혜택 계산에서 뺐다.',
+      '간편결제 10%(네이버페이·카카오페이·토스페이·SSG페이·11pay·스마일페이, 건당 1만원↑) - 결제수단이라 내역만으로는 판별이 안 돼 놓친혜택 계산에서 뺐다.',
       '할인 대상이 겹치면 할인액이 큰 것 하나만 적용된다(매출 건당 1개).',
       '무이자·부분무이자 할부는 할인 대상에서 전액 제외(단, 실적에는 포함).',
     ],
   },
   {
-    // NH농협 올바른 FLEX — 전월실적 30만원 단일 구간
+    // NH농협 올바른 FLEX - 전월실적 30만원 단일 구간
     card: 'NH카드', owned: true, annualFee: 10000, sharedCap: false,
     tiers: [{ min: 300000, cap: 0 }],
     benefits: [
@@ -459,10 +459,10 @@ export const CARD_SPECS: CardSpec[] = [
       { area: '온라인쇼핑', rate: 0.05, cap: 5000, minAmount: 50000, keywords: ['쿠팡', 'G마켓', '지마켓', '11번가', '농협몰'], note: '통합 일 1회.' },
       { area: '편의점', rate: 0.05, cap: 5000, minAmount: 5000, keywords: ['CU', 'GS25'], note: '통합 일 1회.' },
     ],
-    notes: ['할인받은 이용금액은 **전체가** 다음 달 실적에서 빠진다 — 혜택을 챙길수록 실적 기준선이 올라간다.'],
+    notes: ['할인받은 이용금액은 **전체가** 다음 달 실적에서 빠진다 - 혜택을 챙길수록 실적 기준선이 올라간다.'],
   },
   {
-    // KB국민 American Express Rose Gold — 전 영역 KB Pay 결제 건만 할인
+    // KB국민 American Express Rose Gold - 전 영역 KB Pay 결제 건만 할인
     card: '국민카드', owned: true, annualFee: 19000, sharedCap: false, familyPooled: true,
     tiers: [{ min: 300000, cap: 10000 }, { min: 700000, cap: 15000 }, { min: 1200000, cap: 20000 }],
     benefits: [
@@ -479,21 +479,21 @@ export const CARD_SPECS: CardSpec[] = [
     ],
   },
   {
-    // 삼성카드 & MILEAGE PLATINUM (스카이패스) — 전월실적 조건 없음
+    // 삼성카드 & MILEAGE PLATINUM (스카이패스) - 전월실적 조건 없음
     card: '삼성카드', owned: true, annualFee: 47000, sharedCap: false,
     tiers: [], benefits: [],
     notes: [
       '전월실적 조건이 없다. 1,000원당 스카이패스 1마일이 한도 없이 쌓인다.',
       '국내형/해외형을 월 1회 바꿀 수 있고, 고른 쪽에서 1,000원당 1마일이 더 붙는다(월 2,000마일 = 사용액 100만원까지).',
       '국내형 대상: 백화점·주유소·커피전문점·편의점·택시. 해외형은 해외 가맹점 전체(USD 결제 포함).',
-      'Claude·ChatGPT처럼 USD로 빠지는 구독은 해외형일 때만 2마일이 된다 — 국내형으로 두면 1마일이다.',
+      'Claude·ChatGPT처럼 USD로 빠지는 구독은 해외형일 때만 2마일이 된다 - 국내형으로 두면 1마일이다.',
       '국세·지방세·공과금·4대보험·대중교통·택시·통행료·무이자할부는 마일이 아예 안 쌓인다. 2026-03 종합소득세 522만원도 0마일이었다.',
       '아멕스 PLATINUM 등급 서비스: 인천공항 마티나 라운지 본인 무료, 인천공항 발렛파킹 무료(제1·2터미널), 공항 커피, 국내 면세점 할인, 해외 렌터카·특급호텔 우대. 연 횟수 등 세부 조건은 모니모 앱 > 카드 > 부가서비스에서 확인.',
-      '할인 카드가 아니라 적립 카드다 — 다른 카드의 할인 영역과 겹치면 할인 쪽이 대개 이득이 크다.',
+      '할인 카드가 아니라 적립 카드다 - 다른 카드의 할인 영역과 겹치면 할인 쪽이 대개 이득이 크다.',
     ],
   },
   {
-    // 하나 MOVING카드 ONLINE모드 (2026-07-01 출시) — 미보유(후보).
+    // 하나 MOVING카드 ONLINE모드 (2026-07-01 출시) - 미보유(후보).
     // 공식 상품페이지 hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=19150 원문 기준.
     card: '하나 MOVING(ONLINE)', owned: false, annualFee: 20000, sharedCap: false,
     tiers: [{ min: 500000, cap: 5000 }],
@@ -508,14 +508,14 @@ export const CARD_SPECS: CardSpec[] = [
     ],
     notes: [
       'ONLINE 적립 4개 영역은 전부 지난달 실적 50만원 이상이 조건. 영역별 한도가 따로라 합치면 월 25,000 하나머니까지 된다.',
-      '온라인 간편결제 1.5%(3일 연속 이용 시 3.0%) 적립, 월 3만 하나머니 — 실적 조건 없음.',
-      '국내외 가맹점 기본 0.5%(3일 연속 1.0%) — 실적 조건 없음.',
-      '트래블로그 스위치 가입 시 해외이용수수료 면제 — Claude·ChatGPT의 USD 결제 수수료(약 1.2%)가 사라진다.',
+      '온라인 간편결제 1.5%(3일 연속 이용 시 3.0%) 적립, 월 3만 하나머니 - 실적 조건 없음.',
+      '국내외 가맹점 기본 0.5%(3일 연속 1.0%) - 실적 조건 없음.',
+      '트래블로그 스위치 가입 시 해외이용수수료 면제 - Claude·ChatGPT의 USD 결제 수수료(약 1.2%)가 사라진다.',
       '5만원 이상 결제 시 2~3개월 무이자할부(실적 조건 없음).',
     ],
   },
   {
-    // 우리 카드의정석2 ROUTINE — 미보유(후보). 정기결제 전용 할인카드.
+    // 우리 카드의정석2 ROUTINE - 미보유(후보). 정기결제 전용 할인카드.
     card: '우리카드(ROUTINE)', owned: false, annualFee: 22000, sharedCap: false,
     tiers: [{ min: 500000, cap: 5000 }, { min: 1000000, cap: 10000 }],
     benefits: [
@@ -531,12 +531,12 @@ export const CARD_SPECS: CardSpec[] = [
       { area: '해외', rate: 0.015, cap: 10000, keywords: ['해외', 'USD', 'Claude', 'ChatGPT'], note: '해외 온/오프라인 1.5% 할인, 반기별 각 6만원 한도.' },
     ],
     notes: [
-      '아파트관리비가 실적으로 인정되는 드문 카드 — 관리비만으로 실적의 상당 부분이 채워진다.',
+      '아파트관리비가 실적으로 인정되는 드문 카드 - 관리비만으로 실적의 상당 부분이 채워진다.',
       '연회비는 모바일카드 22,000원 / 실물카드 28,000원. 굳이 실물이 필요 없으면 모바일이 6,000원 싸다.',
-      '실적 기준은 "전월 국내외 가맹점 이용금액" — 해외 결제도 실적에 들어간다(ChatGPT USD 결제 포함).',
+      '실적 기준은 "전월 국내외 가맹점 이용금액" - 해외 결제도 실적에 들어간다(ChatGPT USD 결제 포함).',
       '전기·가스요금은 15% 할인은 되지만 전월실적에서는 제외된다(카드고릴라 2026-08-25 확인). 실적으로 인정되는 건 아파트관리비뿐이다.',
       '정기결제 통합 월 한도: 전월실적 50만 → 30,000원 / 100만 → 60,000원.',
-      '생활 영역은 관리비·전기·가스가 한 한도를 나눠 쓴다 — 관리비 28만이면 15%가 이미 한도를 넘어 전기세를 더해도 할인은 안 늘어난다(실적에는 도움).',
+      '생활 영역은 관리비·전기·가스가 한 한도를 나눠 쓴다 - 관리비 28만이면 15%가 이미 한도를 넘어 전기세를 더해도 할인은 안 늘어난다(실적에는 도움).',
       '디지털구독 대상에 Claude(Anthropic)는 없다. ChatGPT는 해외 USD 결제 건만 인정된다.',
     ],
   },
@@ -578,7 +578,7 @@ export function missedBenefits(
     // 미보유 후보 카드는 이력이 없다. "그 카드가 있고 실적을 채웠다면"을 보려는 것이라 최고 구간으로 본다.
     if (!spec.owned || assumeQualified) return b.cap > 0 ? b.cap : Math.max(0, ...spec.tiers.map((t) => t.cap))
     if (!spec.tiers.length) return 0
-    // 최소 실적 구간에 못 미치면 그 카드는 이번 달 어떤 혜택도 못 받는다 — 영역별 한도가 있어도 마찬가지.
+    // 최소 실적 구간에 못 미치면 그 카드는 이번 달 어떤 혜택도 못 받는다 - 영역별 한도가 있어도 마찬가지.
     const qualified = perf.get(spec.card) ?? 0
     if (qualified < Math.min(...spec.tiers.map((t) => t.min))) return 0
     return b.cap > 0 ? b.cap : tierStatus(qualified, spec.tiers).cap
@@ -661,7 +661,7 @@ export function unusedBenefits(
     const locked = Boolean(spec.tiers.length && prevQ < minTier)
     // 잠겼으면 '이번 달' 실적으로 다음 달을 여는 게 목표라 이번 달 부족액을 낸다.
     const lockGap = locked ? Math.max(0, minTier - (thisPerf.get(spec.card) ?? 0)) : 0
-    // 가족카드 합산 카드는 원장에 없는 지출로 실적이 채워진다 — 잠김으로 단정하면 틀린 안내가 된다.
+    // 가족카드 합산 카드는 원장에 없는 지출로 실적이 채워진다 - 잠김으로 단정하면 틀린 안내가 된다.
     const unknown = Boolean(spec.familyPooled)
     const tierCap = spec.tiers.length
       ? (unknown ? Math.min(...spec.tiers.map((t) => t.cap)) : tierStatus(prevQ, spec.tiers).cap)

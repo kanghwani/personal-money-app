@@ -388,7 +388,7 @@ describe('dailyCheer', () => {
 describe('missedBenefits', () => {
   const tx = (date: string, memo: string, amount: number, payment: string) =>
     ({ id: date + memo, date, memo, amount, payment, type: 'expense' as const, split: 0 })
-  // 할인한도는 전월 실적으로 결정된다 — 두 카드 모두 최고 구간을 채워둔 전월 이력.
+  // 할인한도는 전월 실적으로 결정된다 - 두 카드 모두 최고 구간을 채워둔 전월 이력.
   const prev = [tx('2026-07-10', '전월 일반결제', 1200000, '하나카드'), tx('2026-07-10', '전월 일반결제', 400000, 'NH카드')]
   const withPrev = (...rows: ReturnType<typeof tx>[]) => [...prev, ...rows]
 
@@ -527,7 +527,7 @@ describe('unusedBenefits 한도 종류', () => {
   const tx = (date: string, memo: string, amount: number, payment: string) =>
     ({ id: date + memo + amount, date, memo, amount, payment, type: 'expense' as const, split: 0 })
 
-  it('통합 한도 카드(하나)는 영역을 합쳐 한 줄로 낸다 — 한도가 부풀지 않게', () => {
+  it('통합 한도 카드(하나)는 영역을 합쳐 한 줄로 낸다 - 한도가 부풀지 않게', () => {
     const hana = CARD_SPECS.filter((s) => s.card === '하나카드')
     const rows = unusedBenefits([tx('2026-07-10', '전월', 1200000, '하나카드'),
       tx('2026-08-15', '넷플릭스', 27000, '하나카드')], '2026-08', hana)

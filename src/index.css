@@ -1,26 +1,48 @@
+/*
+ * 디자인 토큰 한 곳. 색은 여기서만 정하고 컴포넌트는 var()만 쓴다.
+ *
+ * 팔레트: Forest - 중립 바탕 + 딥 그린 강조 + 앰버 포인트.
+ * 이전의 "cozy beige"(#f1e9db / #c9794f / #352b1f)는 생성형 도구가 기본으로 뱉는
+ * warm paper + clay + espresso 조합이라 걷어냈다. 브랜드가 안 보이는 팔레트였다.
+ *
+ * 규칙 두 가지:
+ *  1) 강조색은 하나(--accent). 섹션마다 다른 색을 쓰지 않는다.
+ *  2) 모서리는 --r-sm / --r-md / --r-lg / --r-pill 네 단계만. 중간값을 새로 만들지 않는다.
+ */
 :root {
-  /* Cozy Beige Light Theme Colors */
-  --bg: #f1e9db;
-  --surface: rgba(251, 247, 239, 0.72);
-  --surface-solid: #fbf7ef;
-  --ink: #352b1f;
-  --muted: #8a7a64;
-  --line: rgba(120, 90, 50, 0.16);
+  color-scheme: light dark;
 
-  /* Accent Colors */
-  --accent-tan: #c9794f;
-  --accent-tan-soft: rgba(201, 121, 79, 0.12);
-  --green: #7e9b6f;
-  --green-soft: rgba(126, 155, 111, 0.14);
-  --danger: #c0573f;
-  --danger-soft: rgba(192, 87, 63, 0.12);
-  --blue: #5a7d8f;
-  --blue-soft: rgba(90, 125, 143, 0.12);
-  --amber: #d6a85e;
-  --amber-soft: rgba(214, 168, 94, 0.14);
+  --bg: #f7f7f5;
+  --surface-solid: #ffffff;
+  --surface: rgba(255, 255, 255, 0.78);
+  --ink: #14201a;
+  --muted: #5c6862;
+  --line: rgba(20, 32, 26, 0.11);
+  --line-strong: rgba(20, 32, 26, 0.2);
 
-  --soft-shadow: 0 10px 28px rgba(150, 120, 70, 0.14), 0 3px 10px rgba(150, 120, 70, 0.08);
-  
+  /* 강조는 하나. --green/--blue/--amber는 의미(수입·정보·주의)를 나타낼 때만 쓴다. */
+  --accent: #1f6f4a;
+  --accent-soft: rgba(31, 111, 74, 0.1);
+  --on-accent: #ffffff;   /* --accent 위에 올라가는 글자색. 다크에선 뒤집힌다 */
+  --green: #1f6f4a;
+  --green-soft: rgba(31, 111, 74, 0.1);
+  --danger: #b3261e;
+  --danger-soft: rgba(179, 38, 30, 0.1);
+  --on-danger: #ffffff;
+  --blue: #3c6e8f;
+  --blue-soft: rgba(60, 110, 143, 0.1);
+  --amber: #9a6b16;          /* 텍스트로 읽히는 앰버. 대비를 위해 채움색보다 어둡다 */
+  --amber-fill: #e0a24a;     /* 배지·막대 등 채움용 */
+  --amber-soft: rgba(224, 162, 74, 0.16);
+
+  /* 그림자는 배경 색조를 띠게. 순수 검정 그림자는 쓰지 않는다. */
+  --soft-shadow: 0 1px 2px rgba(20, 32, 26, 0.06), 0 8px 24px rgba(20, 32, 26, 0.06);
+
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-pill: 999px;
+
   font-family: 'Outfit', 'Noto Sans KR', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: var(--ink);
   background: var(--bg);
@@ -28,6 +50,34 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1512;
+    --surface-solid: #17211c;
+    --surface: rgba(23, 33, 28, 0.82);
+    --ink: #eef2ef;
+    --muted: #94a39a;
+    --line: rgba(238, 242, 239, 0.12);
+    --line-strong: rgba(238, 242, 239, 0.22);
+
+    --accent: #4fb083;
+    --accent-soft: rgba(79, 176, 131, 0.16);
+    --on-accent: #0b120e;
+    --green: #4fb083;
+    --green-soft: rgba(79, 176, 131, 0.16);
+    --danger: #f2857c;
+    --danger-soft: rgba(242, 133, 124, 0.16);
+    --on-danger: #2a0f0c;
+    --blue: #7fb2cf;
+    --blue-soft: rgba(127, 178, 207, 0.16);
+    --amber: #e0a24a;
+    --amber-fill: #e0a24a;
+    --amber-soft: rgba(224, 162, 74, 0.18);
+
+    --soft-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.32);
+  }
 }
 
 * {
@@ -39,16 +89,24 @@ body {
   min-width: 320px;
   min-height: 100svh;
   margin: 0;
-  background:
-    linear-gradient(135deg, rgba(126, 155, 111, 0.06), rgba(201, 121, 79, 0.04)),
-    var(--bg);
-  background-attachment: fixed;
-  /* Prevent bounce effect on mobile */
+  background: var(--bg);
+  /* 모바일에서 위아래로 튕기는 것 방지 */
   overscroll-behavior-y: none;
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* 돈을 다루는 앱이라 숫자는 자리수가 흔들리면 안 된다. 표·목록에서 세로줄이 맞는다. */
+.num,
+.pn-amt,
+.row-amt,
+.delta-value,
+.guide-gain,
+.guide-locked {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
 }
 
 #root {
@@ -63,15 +121,27 @@ input {
 
 button {
   -webkit-tap-highlight-color: transparent;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
 }
 
+/* 눌리는 느낌만 남기고 나머지 움직임은 뺐다. 하루에 열 번 여는 앱은 조용해야 한다. */
 button:active {
-  transform: scale(0.97);
+  transform: translateY(1px);
 }
 
 button:focus-visible,
 input:focus-visible {
-  outline: 2px solid var(--accent-tan);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
