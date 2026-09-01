@@ -10,7 +10,7 @@ export function makeT(dict: Record<string, string>) {
 
 export const ko: Record<string, string> = {
   // 앱 셸 / 헤더
-  app_title: '모으는 중',
+  app_title: '가계부',
   nav_screens: '화면',
   sync_syncing: '동기화 중',
   sync_offline: '오프라인',

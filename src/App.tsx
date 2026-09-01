@@ -560,7 +560,9 @@ function QuickEntry({ onSubmit, lastMessage }: { onSubmit: (raw: string) => void
 // 카드별 전월실적 구간 → 월 할인한도. 약관이 바뀌면 여기만 고친다.
 // ponytail: 구간을 아는 카드만 넣는다. 없는 카드는 결제액·인정실적만 보여준다.
 // 홈에 항상 한 줄씩 띄울 주요 카드(순서대로). 다른 카드는 인사이트 탭에서만 본다.
-const PRIMARY_CARDS = ['하나카드', 'NH카드']
+// 홈에 항상 한 줄씩 띄울 카드. 약관을 등록해 둔 보유 카드는 결제가 없어도 보여준다
+// (실적이 0원이라는 사실 자체가 정보다).
+const PRIMARY_CARDS = CARD_SPECS.filter((s) => s.owned).map((s) => s.card)
 
 // 실적 구간 → 월 할인한도. 카드사 공식 안내 기준.
 // 하나카드 MG+ S: 30만 이상 15,000 / 60만 이상 30,000 / 100만 이상 60,000 (상품안내서 2025-06-16)
@@ -1073,8 +1075,9 @@ function CardGuide({ transactions, monthKey }: { transactions: Transaction[]; mo
   const potential = useMemo(() => missedBenefits(rows as never, monthKey, undefined, true), [rows, monthKey])
   const unused = useMemo(() => unusedBenefits(rows as never, monthKey), [rows, monthKey])
 
-  const held = new Set(perf.map((c) => c.name))
-  const specs = CARD_SPECS.filter((s) => held.has(s.card) || !s.owned)
+  // 이번 달 결제가 없어도 보유 카드는 다 보여준다. 국민 Rose Gold는 가족카드 실적이라
+  // 애초에 내 원장에 결제가 안 잡히는데, 그 카드야말로 혜택 안내가 필요하다.
+  const specs = CARD_SPECS
   if (!specs.length) return null
 
   const sum = (hits: typeof missed) => hits.reduce((a, h) => a + h.discount, 0)
@@ -1937,8 +1940,11 @@ function usePersistentStore() {
 }
 
 function buildSummary(store: FinanceStore): Summary {
-  const months = Array.from(new Set(store.transactions.map((item) => item.date.slice(0, 7)))).sort()
-  const monthKey = months.at(-1) ?? todayIso().slice(0, 7)
+  const recorded = Array.from(new Set(store.transactions.map((item) => item.date.slice(0, 7)))).sort()
+  // '이번 달'은 말 그대로 이번 달이다. 예전엔 데이터가 있는 마지막 달을 썼는데,
+  // 달이 바뀐 직후(예: 9월 1일)에 지난달 숫자가 '이번 달 쓴 돈'으로 찍혔다.
+  const monthKey = todayIso().slice(0, 7)
+  const months = recorded.includes(monthKey) ? recorded : [...recorded, monthKey]
   const monthlyTrend = months.slice(-6).map((month) => buildMonthMetric(store.transactions, month))
   const thisMonth = buildMonthMetric(store.transactions, monthKey)
   const previousMonth = months.length > 1 ? buildMonthMetric(store.transactions, months.at(-2) as string) : undefined

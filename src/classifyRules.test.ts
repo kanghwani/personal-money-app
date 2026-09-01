@@ -26,8 +26,14 @@ describe('classifyMemo es', () => {
 
 describe('classifyMemo ko (기존 유지)', () => {
   const ko = RULES.ko
-  it('커피 → 식비/카페', () => {
-    expect(classifyMemo('커피 한잔', ko)).toEqual({ category: '식비', sub: '카페' })
+  it('커피 → 외식비/카페', () => {
+    expect(classifyMemo('커피 한잔', ko)).toEqual({ category: '외식비', sub: '카페' })
+  })
+  it('사먹는 것과 사와서 해먹는 것은 대분류가 갈린다', () => {
+    expect(classifyMemo('점심 김밥', ko).category).toBe('외식비')
+    expect(classifyMemo('배민 치킨', ko)).toEqual({ category: '외식비', sub: '배달' })
+    expect(classifyMemo('이마트 장보기', ko)).toEqual({ category: '식비', sub: '장보기' })
+    expect(classifyMemo('편의점 우유', ko)).toEqual({ category: '식비', sub: '간편식' })
   })
   it('미매칭 → 미분류', () => {
     expect(classifyMemo('zzz', ko)).toEqual({ category: '미분류', sub: '' })
@@ -53,10 +59,10 @@ describe('RULES.es.defaultOptions (F2)', () => {
 })
 
 describe('RULES.ko.defaultOptions (회귀 방지)', () => {
-  it('기존 App.tsx DEFAULT_FIX_OPTIONS와 동일', () => {
+  it('빠른 분류 후보 (식비/외식비 분리 반영)', () => {
     expect(RULES.ko.defaultOptions).toEqual([
-      { category: '식비', subCategory: '외식' },
-      { category: '식비', subCategory: '카페/간식' },
+      { category: '외식비', subCategory: '외식' },
+      { category: '외식비', subCategory: '카페' },
       { category: '식비', subCategory: '장보기' },
       { category: '생활', subCategory: '생활잡화' },
       { category: '교통/차량', subCategory: '' },

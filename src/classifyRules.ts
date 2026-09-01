@@ -23,8 +23,9 @@ export type RuleSet = {
 
 const ko: RuleSet = {
   categoryRules: [
-    { words: ['점심', '저녁', '밥', '식당', '라멘', '피자', '버거', '김밥', '마라탕'], category: '식비', sub: '외식' },
-    { words: ['커피', '카페', '아메리카노', '라떼', '스타벅스', '투썸', '이디야', '빽다방', '컴포즈', '메가커피'], category: '식비', sub: '카페' },
+    { words: ['점심', '저녁', '밥', '식당', '라멘', '피자', '버거', '김밥', '마라탕'], category: '외식비', sub: '외식' },
+    { words: ['커피', '카페', '아메리카노', '라떼', '스타벅스', '투썸', '이디야', '빽다방', '컴포즈', '메가커피'], category: '외식비', sub: '카페' },
+    { words: ['배달의민족', '배민', '요기요', '쿠팡이츠', '배달'], category: '외식비', sub: '배달' },
     { words: ['마트', '장보기', '식자재', '쿠팡', '컬리', '코스트코', '홈플러스', '롯데마트', '이마트', '노브랜드', '와마트'], category: '식비', sub: '장보기' },
     { words: ['편의점', 'CU', 'GS25', '세븐일레븐'], category: '식비', sub: '간편식' },
     { words: ['다이소'], category: '생활', sub: '생활잡화' },
@@ -51,8 +52,8 @@ const ko: RuleSet = {
   incomeCategory: '수입',
   // 기존 App.tsx DEFAULT_FIX_OPTIONS와 완전히 동일(ko 회귀 방지)
   defaultOptions: [
-    { category: '식비', subCategory: '외식' },
-    { category: '식비', subCategory: '카페/간식' },
+    { category: '외식비', subCategory: '외식' },
+    { category: '외식비', subCategory: '카페' },
     { category: '식비', subCategory: '장보기' },
     { category: '생활', subCategory: '생활잡화' },
     { category: '교통/차량', subCategory: '' },
