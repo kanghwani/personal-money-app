@@ -310,6 +310,14 @@ export function parseCardStatement(text: string, fallbackDate = ''): CardRow[] {
 export type CardPerf = { name: string; charged: number; excluded: number; qualified: number }
 
 /**
+ * 카드 실적에 넣을 결제수단인지. 현금·계좌·페이는 실적이 쌓이지 않는다.
+ * '국민계좌'처럼 은행 이름이 들어간 계좌를 카드로 착각하면 유령 카드가 생긴다.
+ */
+const NON_CARD = ['현금', '계좌이체', '미상', '카드/현금']
+export const isCardPayment = (name: string) =>
+  !NON_CARD.includes(name) && !name.endsWith('계좌') && !name.endsWith('페이') && !name.endsWith('뱅크')
+
+/**
  * 카드별 '실적 제외' 키워드 - 카드사 공식 상품안내서 원문 기준(추측 금지).
  *
  * 하나카드 MG+ S (상품안내서 2025-06-16, qpay.hanacard.co.kr/leaflet/15/15417_20250616.pdf):
@@ -373,7 +381,7 @@ export function cardPerformance(transactions: SplitTxLike[] & { payment?: string
     if (t.type !== 'expense') continue
     if (t.date.slice(0, 7) !== yearMonth) continue
     const name = (t.payment || '').trim()
-    if (!name || name === '현금' || name === '계좌이체' || name === '미상') continue
+    if (!name || !isCardPayment(name)) continue
     const cur = map.get(name) ?? { name, charged: 0, excluded: 0, qualified: 0 }
     cur.charged += t.amount
     if (isExcluded(t.memo, name)) cur.excluded += t.amount

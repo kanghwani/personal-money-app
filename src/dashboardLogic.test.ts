@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, unusedBenefits, paymentPlaybook, isSaving, isLoanRepay, isNonSpend,
+  deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, unusedBenefits, paymentPlaybook, isSaving, isLoanRepay, isNonSpend, isCardPayment,
 } from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
@@ -623,5 +623,20 @@ describe('isNonSpend', () => {
   it('저축과 대출상환은 서로 다른 줄로 센다', () => {
     expect(isSaving({ type: 'expense', category: '금융/대출' })).toBe(false)
     expect(isLoanRepay({ type: 'expense', category: '저축/투자' })).toBe(false)
+  })
+})
+
+describe('isCardPayment', () => {
+  it('카드는 실적에 들어간다', () => {
+    for (const n of ['하나카드', 'NH카드', '국민카드', '삼성카드']) expect(isCardPayment(n)).toBe(true)
+  })
+  it('계좌·현금·페이·뱅크는 실적이 안 쌓인다', () => {
+    for (const n of ['현금', '계좌이체', '미상', '국민계좌', '네이버페이', '토스뱅크'])
+      expect(isCardPayment(n)).toBe(false)
+  })
+  it('국민계좌가 국민카드로 섞이지 않는다', () => {
+    const tx = (payment: string) => ({ id: payment, date: '2026-09-03', memo: 'x', amount: 84801, payment, type: 'expense' as const, split: 0 })
+    const perf = cardPerformance([tx('국민계좌'), tx('국민카드')], '2026-09')
+    expect(perf.map((c) => c.name)).toEqual(['국민카드'])
   })
 })

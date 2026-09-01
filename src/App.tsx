@@ -68,6 +68,7 @@ import {
   isLoanRepay,
   isNonSpend,
   LOAN_CATEGORY,
+  SAVING_CATEGORY,
 } from './dashboardLogic'
 import { loadLearnedRules, saveLearnedRule, classifyByLearned } from './learnedRules'
 import { RULES, LANG, classifyMemo } from './classifyRules'
@@ -1436,11 +1437,16 @@ function FixedView({ monthKey }: { monthKey: string }) {
   // installmentTotal이 이미 그 구분을 갖고 있어서 따로 필드를 만들지 않았다.
   const groups = view === 'income'
     ? [{ key: 'all', label: '', rows: shown }]
-    : [
-        { key: 'loan', label: t('group_loan'), rows: shown.filter((d) => d.category === LOAN_CATEGORY) },
-        { key: 'sub', label: t('group_recurring'), rows: shown.filter((d) => d.category !== LOAN_CATEGORY && !d.installmentTotal) },
-        { key: 'inst', label: t('group_installment'), rows: shown.filter((d) => d.category !== LOAN_CATEGORY && d.installmentTotal) },
-      ].filter((g) => g.rows.length > 0)
+    : (() => {
+        // 성격이 다른 돈은 섞으면 규모가 안 보인다. 카테고리가 먼저, 그다음이 할부 여부.
+        const rest = shown.filter((d) => d.category !== LOAN_CATEGORY && d.category !== SAVING_CATEGORY)
+        return [
+          { key: 'sub', label: t('group_recurring'), rows: rest.filter((d) => !d.installmentTotal) },
+          { key: 'inst', label: t('group_installment'), rows: rest.filter((d) => d.installmentTotal) },
+          { key: 'loan', label: t('group_loan'), rows: shown.filter((d) => d.category === LOAN_CATEGORY) },
+          { key: 'save', label: t('group_saving'), rows: shown.filter((d) => d.category === SAVING_CATEGORY) },
+        ].filter((g) => g.rows.length > 0)
+      })()
 
   async function save(def: FixedDef) {
     setBusy(true)
