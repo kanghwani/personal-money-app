@@ -63,6 +63,7 @@ import {
   installmentCharges,
   type CardSpec,
   unusedBenefits,
+  paymentPlaybook,
 } from './dashboardLogic'
 import { loadLearnedRules, saveLearnedRule, classifyByLearned } from './learnedRules'
 import { RULES, LANG, classifyMemo } from './classifyRules'
@@ -1074,6 +1075,7 @@ function CardGuide({ transactions, monthKey }: { transactions: Transaction[]; mo
   const missed = useMemo(() => missedBenefits(rows as never, monthKey), [rows, monthKey])
   const potential = useMemo(() => missedBenefits(rows as never, monthKey, undefined, true), [rows, monthKey])
   const unused = useMemo(() => unusedBenefits(rows as never, monthKey), [rows, monthKey])
+  const playbook = useMemo(() => paymentPlaybook(rows as never, monthKey), [rows, monthKey])
 
   // 이번 달 결제가 없어도 보유 카드는 다 보여준다. 국민 Rose Gold는 가족카드 실적이라
   // 애초에 내 원장에 결제가 안 잡히는데, 그 카드야말로 혜택 안내가 필요하다.
@@ -1103,6 +1105,38 @@ function CardGuide({ transactions, monthKey }: { transactions: Transaction[]; mo
             ))}
           </div>
           <p className="guide-total">{t('guide_total', { amt: formatMoney(sum(missed.length ? missed : potential)) })}</p>
+        </section>
+      )}
+
+      {playbook.length > 0 && (
+        <section className="wide-section">
+          <SectionHeader icon={<CreditCard size={18} />} title={t('sec_playbook')} aside={monthKey} />
+          <p className="row-meta perf-note">{t('playbook_note')}</p>
+          <div className="pb-list">
+            {playbook.map((p) => (
+              <div className="pb-row" key={`${p.card}/${p.area}`}>
+                <div className="pb-head">
+                  <b className="pb-rate">{pct(p.rate)}</b>
+                  <strong>{p.card}</strong>
+                  <span className="row-meta">{p.area}</span>
+                  <span className={`pb-left${p.locked || p.remaining <= 0 ? ' off' : ''}`}>
+                    {p.locked ? t('playbook_locked')
+                      : p.remaining > 0 ? t('playbook_left', { amt: formatMoney(p.remaining) })
+                      : t('playbook_done')}
+                  </span>
+                </div>
+                <p className="pb-where">{p.keywords.slice(0, 7).join(' · ')}</p>
+                {(p.minAmount || p.runnerUp || p.note) && (
+                  <p className="guide-note">
+                    {p.minAmount ? t('guide_min', { amt: formatMoney(p.minAmount) }) : ''}
+                    {p.minAmount && (p.runnerUp || p.note) ? ' · ' : ''}
+                    {p.runnerUp ? t('playbook_alt', { card: p.runnerUp.card, pct: pct(p.runnerUp.rate) }) : ''}
+                    {p.note ? (p.minAmount || p.runnerUp ? ' ' : '') + p.note : ''}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
         </section>
       )}
 

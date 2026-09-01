@@ -700,3 +700,63 @@ export function unusedBenefits(
   }
   return out.sort((a, b) => Number(a.locked) - Number(b.locked) || b.remaining - a.remaining)
 }
+
+export type PlaybookRow = {
+  card: string; area: string; rate: number
+  keywords: string[]              // 이 카드가 이겨서 담당하는 가맹점들
+  cap: number; remaining: number; locked: boolean
+  minAmount?: number; note?: string
+  runnerUp?: { card: string; rate: number }   // 한도를 다 쓴 뒤의 차선책
+}
+
+/**
+ * "이럴 땐 이 카드" 표. 카드별 혜택을 가맹점 기준으로 뒤집는다.
+ * 카드 화면은 '내 카드가 뭘 해주나'에 답하지만, 계산대 앞에서 필요한 건 그 반대다.
+ * 가맹점마다 할인이 가장 큰 카드를 고르고, 같은 곳을 커버하는 다른 카드는 차선책으로 남긴다.
+ */
+export function paymentPlaybook(
+  transactions: (SplitTxLike & { payment?: string })[],
+  yearMonth: string,
+  specs: CardSpec[] = CARD_SPECS.filter((s) => s.owned),
+): PlaybookRow[] {
+  // 통합 한도 카드(하나)는 unusedBenefits가 영역을 합쳐 한 줄로 내므로 영역명으로는 못 찾는다.
+  // 그런 카드는 카드 단위로, 영역별 한도 카드는 카드/영역 단위로 건다.
+  const left = new Map<string, UnusedBenefit>()
+  for (const u of unusedBenefits(transactions, yearMonth, specs)) {
+    const spec = specs.find((s) => s.card === u.card)
+    left.set(spec?.sharedCap ? u.card : `${u.card}/${u.area}`, u)
+  }
+  // 가맹점 키워드 하나하나에 대해 승자와 차선책을 가린다.
+  type Cand = { spec: CardSpec; b: BenefitArea }
+  const byKeyword = new Map<string, Cand[]>()
+  for (const spec of specs) {
+    for (const b of spec.benefits) {
+      for (const k of b.keywords) {
+        if (!byKeyword.has(k)) byKeyword.set(k, [])
+        ;(byKeyword.get(k) as Cand[]).push({ spec, b })
+      }
+    }
+  }
+  // 승자가 같으면 한 줄로 묶는다. 키워드 60개를 그대로 늘어놓으면 읽을 수가 없다.
+  const groups = new Map<string, { win: Cand; keys: string[]; runner?: Cand }>()
+  for (const [k, cands] of byKeyword) {
+    const sorted = [...cands].sort((a, b) => b.b.rate - a.b.rate)
+    const win = sorted[0]
+    const runner = sorted.find((c) => c.spec.card !== win.spec.card)
+    const key = `${win.spec.card}/${win.b.area}`
+    const g = groups.get(key)
+    if (g) { g.keys.push(k); if (!g.runner && runner) g.runner = runner }
+    else groups.set(key, { win, keys: [k], runner })
+  }
+  const out: PlaybookRow[] = []
+  for (const [key, g] of groups) {
+    const u = left.get(g.win.spec.sharedCap ? g.win.spec.card : key)
+    out.push({
+      card: g.win.spec.card, area: g.win.b.area, rate: g.win.b.rate, keywords: g.keys,
+      cap: u?.cap ?? g.win.b.cap, remaining: u?.remaining ?? 0, locked: u?.locked ?? false,
+      minAmount: g.win.b.minAmount, note: g.win.b.note,
+      runnerUp: g.runner ? { card: g.runner.spec.card, rate: g.runner.b.rate } : undefined,
+    })
+  }
+  return out.sort((a, b) => b.rate - a.rate || b.remaining - a.remaining)
+}

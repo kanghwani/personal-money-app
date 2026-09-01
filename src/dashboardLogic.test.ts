@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, unusedBenefits,
+  deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, unusedBenefits, paymentPlaybook,
 } from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
@@ -543,5 +543,58 @@ describe('unusedBenefits 한도 종류', () => {
     expect(rows.length).toBeGreaterThan(0)
     expect(rows.every((r) => !r.locked)).toBe(true)
     expect(rows.find((r) => r.area === '온라인쇼핑')!.cap).toBe(10000)  // 최저 구간(30만) 기준으로 보수적으로
+  })
+})
+
+describe('paymentPlaybook', () => {
+  const tx = (date: string, memo: string, amount: number, payment: string) =>
+    ({ id: date + memo + amount, date, memo, amount, payment, type: 'expense' as const, split: 0 })
+  // 세 카드 모두 전월 실적을 채워 둔 상태
+  const prev = [tx('2026-07-05', '전월', 1200000, '하나카드'), tx('2026-07-05', '전월', 500000, 'NH카드')]
+  const rows = paymentPlaybook(prev, '2026-08')
+  const find = (kw: string) => rows.find((r) => r.keywords.includes(kw))
+
+  it('같은 가맹점을 여러 카드가 커버하면 할인이 큰 쪽이 이긴다', () => {
+    // 스타벅스: NH 커피 50% vs 국민 커피/편의점 10%
+    const sb = find('스타벅스')!
+    expect(sb.card).toBe('NH카드')
+    expect(sb.rate).toBe(0.5)
+    expect(sb.runnerUp?.card).toBe('국민카드')
+  })
+
+  it('넷플릭스는 하나 50%가 NH 20%를 이긴다', () => {
+    const nf = find('넷플릭스')!
+    expect(nf.card).toBe('하나카드')
+    expect(nf.rate).toBe(0.5)
+  })
+
+  it('승자가 같은 가맹점은 한 줄로 묶인다', () => {
+    const sb = find('스타벅스')!
+    expect(sb.keywords.length).toBeGreaterThanOrEqual(1)
+    // 같은 (카드/영역) 조합이 두 줄로 쪼개지지 않는다
+    const keys = rows.map((r) => `${r.card}/${r.area}`)
+    expect(new Set(keys).size).toBe(keys.length)
+  })
+
+  it('할인율이 큰 순으로 정렬된다', () => {
+    const rates = rows.map((r) => r.rate)
+    expect([...rates].sort((a, b) => b - a)).toEqual(rates)
+  })
+
+  it('건당 최소금액 같은 조건이 같이 딸려온다', () => {
+    expect(find('CGV')!.minAmount).toBe(10000)
+  })
+})
+
+describe('paymentPlaybook 통합 한도 카드', () => {
+  const tx = (date: string, memo: string, amount: number, payment: string) =>
+    ({ id: date + memo + amount, date, memo, amount, payment, type: 'expense' as const, split: 0 })
+
+  it('하나카드처럼 통합 한도를 쓰는 카드도 남은 한도가 잡힌다', () => {
+    const rows = paymentPlaybook([tx('2026-07-05', '전월', 1200000, '하나카드')], '2026-08')
+    const nf = rows.find((r) => r.keywords.includes('넷플릭스'))!
+    expect(nf.card).toBe('하나카드')
+    expect(nf.cap).toBe(60000)
+    expect(nf.remaining).toBe(60000)   // 예전엔 영역명이 안 맞아 0으로 나왔다
   })
 })
