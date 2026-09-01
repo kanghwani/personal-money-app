@@ -978,6 +978,7 @@
 .fixed-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .fixed-add { background: var(--accent-tan); color: #fff; border: none; border-radius: 14px; padding: 9px 14px; font-size: 13px; font-weight: 700; cursor: pointer; }
 .fixed-list { display: flex; flex-direction: column; gap: 10px; }
+.fixed-group { margin: 6px 0 0; font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
 .fixed-row { display: flex; align-items: center; gap: 8px; background: var(--surface-solid); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
 .fixed-row.off { opacity: .5; }
 .fixed-main { flex: 1; background: none; border: none; text-align: left; cursor: pointer; padding: 0; }

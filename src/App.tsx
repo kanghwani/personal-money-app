@@ -1240,6 +1240,14 @@ function FixedView({ monthKey }: { monthKey: string }) {
 
   const shown = defs.filter((d) => (d.kind || 'expense') === view)
   const activeTotal = shown.filter((d) => d.active).reduce((s, d) => s + d.amount, 0)
+  // 고정비는 성격이 둘로 나뉜다: 매달 계속 나가는 정기결제와, 회차가 끝나면 사라지는 할부.
+  // installmentTotal이 이미 그 구분을 갖고 있어서 따로 필드를 만들지 않았다.
+  const groups = view === 'income'
+    ? [{ key: 'all', label: '', rows: shown }]
+    : [
+        { key: 'sub', label: t('group_recurring'), rows: shown.filter((d) => !d.installmentTotal) },
+        { key: 'inst', label: t('group_installment'), rows: shown.filter((d) => d.installmentTotal) },
+      ].filter((g) => g.rows.length > 0)
 
   async function save(def: FixedDef) {
     setBusy(true)
@@ -1280,7 +1288,13 @@ function FixedView({ monthKey }: { monthKey: string }) {
       </div>
 
       <div className="fixed-list">
-        {shown.map((d) => {
+        {groups.map((g) => [
+          g.label ? (
+            <p className="fixed-group" key={g.key}>
+              {g.label} · {formatMoney(g.rows.filter((r) => r.active).reduce((sum, r) => sum + r.amount, 0))}
+            </p>
+          ) : null,
+          ...g.rows.map((d) => {
           const rem = fixedRemaining(d, monthKey)
           return (
             <article className={`fixed-row${d.active ? '' : ' off'}`} key={d.id}>
@@ -1301,7 +1315,8 @@ function FixedView({ monthKey }: { monthKey: string }) {
               </button>
             </article>
           )
-        })}
+          }),
+        ])}
         {shown.length === 0 && (
           <p className="cat-empty">
             {loading ? t('loading') : t(view === 'income' ? 'empty_income' : 'empty_fixed')}
