@@ -570,7 +570,7 @@ export function installmentCharges(defs: FixedDef[]): (SplitTxLike & { payment?:
     const [y, m] = d.startMonth.split('-').map(Number)
     if (!y || !m) continue
     const paidMonth = `${m === 1 ? y - 1 : y}-${String(m === 1 ? 12 : m - 1).padStart(2, '0')}`
-    out.push({ id: `inst-${d.id}`, date: `${paidMonth}-01`, memo: d.name,
+    out.push({ date: `${paidMonth}-01`, memo: d.name,
       amount: d.amount * d.installmentTotal, payment: d.payment, type: 'expense', split: 0 })
   }
   return out
