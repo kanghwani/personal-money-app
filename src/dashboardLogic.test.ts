@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, unusedBenefits, paymentPlaybook, isSaving, isLoanRepay, isNonSpend, isCardPayment,
+  deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, unusedBenefits, paymentPlaybook, isSaving, isLoanRepay, isNonSpend, isCardPayment, parseBankDeposits,
 } from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
@@ -638,5 +638,44 @@ describe('isCardPayment', () => {
     const tx = (payment: string) => ({ id: payment, date: '2026-09-03', memo: 'x', amount: 84801, payment, type: 'expense' as const, split: 0 })
     const perf = cardPerformance([tx('국민계좌'), tx('국민카드')], '2026-09')
     expect(perf.map((c) => c.name)).toEqual(['국민카드'])
+  })
+})
+
+describe('parseBankDeposits', () => {
+  const sample = [
+    '2026-08-31 15:25:53    출금      -133,670    4,342,778   김기환',
+    '2026-08-31 15:22:57    입금     2,078,761    4,476,448   김강환',
+    '2026-08-29 12:35:10    입금        10,000    1,899,000   뭉개구름(소켓)',
+    '2026-08-28 13:26:19    입금        98,703    2,148,321   쿠팡이츠정산',
+    '2026-08-26 19:00:47    펌뱅킹출금  -278,394   2,052,118   NH카드대금',
+    '2026-08-26 10:18:24    입금        17,510    2,125,715   넷플릭스',
+    '2026-08-14 16:42:42    입금       360,000    5,726,876   고용서울서초',
+    '',
+    '거래내역서',
+  ].join('\n')
+  const rows = parseBankDeposits(sample)
+
+  it('입금만 뽑고 출금은 버린다', () => {
+    expect(rows).toHaveLength(5)
+    expect(rows.every((r) => r.amount > 0)).toBe(true)
+    expect(rows.find((r) => r.name === 'NH카드대금')).toBeUndefined()
+  })
+
+  it('출처별로 분류한다', () => {
+    expect(rows.find((r) => r.name === '쿠팡이츠정산')!.subCategory).toBe('배달')
+    expect(rows.find((r) => r.name === '고용서울서초')!.subCategory).toBe('실업급여')
+    expect(rows.find((r) => r.name === '넷플릭스')!.subCategory).toBe('구독환급')
+  })
+
+  it('모르는 곳은 기타로 두고 버리지 않는다', () => {
+    expect(rows.find((r) => r.name === '뭉개구름(소켓)')!.subCategory).toBe('기타')
+  })
+
+  it('본인 이체도 일단 다 가져온다 - 지우는 건 화면에서 고르게 한다', () => {
+    expect(rows.find((r) => r.name === '김강환')).toBeTruthy()
+  })
+
+  it('날짜를 ISO로 맞춘다', () => {
+    expect(rows[0].date).toBe('2026-08-31')
   })
 })

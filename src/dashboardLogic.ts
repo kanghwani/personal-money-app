@@ -786,3 +786,48 @@ export const isLoanRepay = (t: { type: string; category?: string }) =>
 
 /** 소비로 볼 수 없는 지출(저축·대출상환)인지. 지출 합계에서 뺄 때 쓴다. */
 export const isNonSpend = (t: { type: string; category?: string }) => isSaving(t) || isLoanRepay(t)
+
+export type DepositRow = { date: string; name: string; amount: number; category: string; subCategory: string }
+
+/**
+ * 통장 입금의 출처별 분류. 프리랜서라 매달 들어오는 곳은 정해져 있고 금액만 바뀐다.
+ * 새 거래처가 생기면 여기 한 줄 추가하면 된다.
+ */
+const INCOME_RULES: { words: string[]; category: string; sub: string }[] = [
+  { words: ['우아한청년들', '배민', '쿠팡이츠', '카카오모빌리티', '바로고', '생각대로'], category: '수입', sub: '배달' },
+  { words: ['토스오더', '토스페이먼츠', '스마트로', 'KCP', '나이스페이'], category: '수입', sub: '가게매출' },
+  { words: ['고용서울', '고용노동', '실업급여', '근로복지'], category: '수입', sub: '실업급여' },
+  { words: ['넷플릭스', '챗GPT', 'ChatGPT', '밀리의서재', '웨이브', '티빙', '유튜브'], category: '수입', sub: '구독환급' },
+  { words: ['토스할인', '캐시백', '코스트코현대', '리워드'], category: '수입', sub: '캐시백' },
+  { words: ['이자'], category: '수입', sub: '이자' },
+]
+
+const classifyDeposit = (name: string) => {
+  for (const r of INCOME_RULES) if (r.words.some((w) => name.includes(w))) return { category: r.category, subCategory: r.sub }
+  return { category: '수입', subCategory: '기타' }
+}
+
+/**
+ * 은행 거래내역서를 붙여넣어 '입금'만 뽑는다. 프리랜서라 수입이 여러 곳에서 들쭉날쭉 들어와
+ * 매달 손으로 옮기기 어렵다. 월말에 한 번 붙여넣으면 되게.
+ *
+ * 본인 계좌 간 이체는 걸러내지 않는다 - 이름만으로는 판단이 안 되고(2026-08엔 그런
+ * 이체가 1,076만원이나 됐다) 잘못 지우면 수입이 부풀거나 사라진다. 화면에서 고르게 한다.
+ */
+export function parseBankDeposits(text: string): DepositRow[] {
+  const out: DepositRow[] = []
+  for (const raw of text.split('\n')) {
+    const line = raw.replace(/\s+/g, ' ').trim()
+    if (!line) continue
+    // 날짜 [시각] 구분 금액 잔액 거래내용
+    const m = line.match(/^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})\s+(?:\d{1,2}:\d{2}(?::\d{2})?\s+)?(\S+)\s+(-?[\d,]+)\s+[\d,]+\s+(.+)$/)
+    if (!m) continue
+    const [, y, mo, d, kind, amt, name] = m
+    const amount = Number(amt.replace(/,/g, ''))
+    if (amount <= 0) continue                      // 출금은 이 화면에서 다루지 않는다
+    if (/출금|이체출금/.test(kind) && !/입금/.test(kind)) continue
+    const date = `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    out.push({ date, name: name.trim(), amount, ...classifyDeposit(name) })
+  }
+  return out
+}

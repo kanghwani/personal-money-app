@@ -37,6 +37,12 @@ export const ko: Record<string, string> = {
 
   // 빠른입력
   import_open: '카드 내역 붙여넣기',
+  bank_import_open: '통장 입금 붙여넣기 (월말 정리)',
+  bank_import_title: '통장 입금 정리',
+  bank_import_help: '은행 거래내역서를 그대로 붙여넣으세요. 입금만 골라 거래처별로 묶어 보여줍니다.',
+  bank_import_placeholder: '2026-08-14 16:42:42  입금  360,000  5,726,876  고용서울서초',
+  bank_import_skip_hint: '본인 계좌 간 이체처럼 수입이 아닌 곳은 눌러서 빼세요. 뺀 거래처는 다음 달에도 기억합니다.',
+  bank_import_submit: '{n}건 {amt} 수입으로 등록',
   import_title: '카드 내역 일괄 등록',
   import_help: '카드앱 이용내역을 복사해서 붙여넣으세요. 날짜·가맹점·금액을 알아서 읽습니다. (텍스트 선택이 안 되면 캡처 후 사진에서 텍스트 인식으로 복사)',
   import_placeholder: '2026.08.16\nChatGPT\n26,364 원',
@@ -240,6 +246,12 @@ export const es: Record<string, string> = {
   prev_month: 'Mes anterior', next_month: 'Mes siguiente',
 
   import_open: 'Pegar movimientos de tarjeta',
+  bank_import_open: 'Pegar ingresos del banco (fin de mes)',
+  bank_import_title: 'Ingresos del banco',
+  bank_import_help: 'Pega el extracto bancario. Solo toma los ingresos y los agrupa por origen.',
+  bank_import_placeholder: '2026-08-14 16:42:42  입금  360,000  5,726,876  Cliente',
+  bank_import_skip_hint: 'Quita los que no son ingresos, como traspasos entre tus cuentas. Se recuerdan el mes siguiente.',
+  bank_import_submit: 'Registrar {n} ingresos, {amt}',
   import_title: 'Importar movimientos',
   import_help: 'Copia los movimientos de tu app de tarjeta y pégalos aquí. Detecta fecha, comercio e importe.',
   import_placeholder: '2026.08.16\nChatGPT\n26,364 원',

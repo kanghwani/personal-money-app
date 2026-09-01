@@ -25,6 +25,7 @@ import {
   RefreshCw,
   Save,
   Send,
+  Check,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -69,6 +70,8 @@ import {
   isNonSpend,
   LOAN_CATEGORY,
   SAVING_CATEGORY,
+  parseBankDeposits,
+  type DepositRow,
 } from './dashboardLogic'
 import { loadLearnedRules, saveLearnedRule, classifyByLearned } from './learnedRules'
 import { RULES, LANG, classifyMemo } from './classifyRules'
@@ -376,6 +379,21 @@ function App() {
     return fresh.length
   }
 
+  /** 월말 통장 정리. 붙여넣은 입금 중 고른 것만 수입으로 넣는다. 중복은 건너뛴다. */
+  function importDeposits(rows: DepositRow[]) {
+    const seen = new Set(mergedTransactions.map((x) => `${x.date}|${x.amount}|${(x.memo || '').trim()}`))
+    const fresh = rows.filter((r) => !seen.has(`${r.date}|${r.amount}|${r.name.trim()}`))
+    for (const r of fresh) {
+      recordTransaction({
+        id: uid(), date: r.date, type: 'income', amount: r.amount, memo: r.name,
+        category: r.category, subCategory: r.subCategory, payment: '토스뱅크',
+        fixedType: 'variable', split: 0, raw: `bank:${r.name}`,
+      })
+    }
+    setLastMessage(t('import_done', { n: fresh.length, dup: rows.length - fresh.length }))
+    return fresh.length
+  }
+
   function saveAsset(assetItem: Asset) {
     setStore((current) => ({
       ...current,
@@ -454,6 +472,7 @@ function App() {
             )}
             <QuickEntry onSubmit={applyQuickInput} lastMessage={lastMessage} />
             <CardImport onImport={importCardRows} />
+            <BankImport onImport={importDeposits} />
             {pendingUncat && (
               <div className="fix-uncat">
                 <p className="fix-uncat-label">{t('uncategorized_prompt')}</p>
@@ -493,6 +512,83 @@ function App() {
 }
 
 // 카드앱 이용내역을 붙여넣어 한 번에 등록. iOS 텍스트 인식으로 스크린샷에서 복사하면 그대로 붙는다.
+const BANK_SKIP_KEY = 'shiba-bank-skip:v1'
+
+const readBankSkip = (): string[] => {
+  try { return JSON.parse(window.localStorage.getItem(BANK_SKIP_KEY) || '[]') as string[] } catch { return [] }
+}
+
+/**
+ * 월말 통장 입금 정리. 프리랜서라 수입처가 여러 곳이고 금액이 매달 달라서
+ * 한 건씩 넣는 건 현실성이 없다. 거래내역서를 통째로 붙여넣고 거래처 단위로 고른다.
+ *
+ * 행 단위가 아니라 거래처 단위인 이유: 본인 계좌 간 이체가 한 달에 19건씩 찍힌다.
+ * 그걸 한 줄씩 지우게 하면 아무도 안 쓴다.
+ */
+function BankImport({ onImport }: { onImport: (rows: DepositRow[]) => number }) {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState('')
+  const [skip, setSkip] = useState<string[]>(() => readBankSkip())
+  const rows = useMemo(() => (text.trim() ? parseBankDeposits(text) : []), [text])
+
+  const groups = useMemo(() => {
+    const m = new Map<string, { name: string; rows: DepositRow[]; total: number; sub: string }>()
+    for (const r of rows) {
+      const g = m.get(r.name) ?? { name: r.name, rows: [], total: 0, sub: r.subCategory }
+      g.rows.push(r); g.total += r.amount
+      m.set(r.name, g)
+    }
+    return [...m.values()].sort((a, b) => b.total - a.total)
+  }, [rows])
+
+  const toggle = (name: string) => {
+    const next = skip.includes(name) ? skip.filter((n) => n !== name) : [...skip, name]
+    setSkip(next)
+    try { window.localStorage.setItem(BANK_SKIP_KEY, JSON.stringify(next)) } catch { /* 사파리 시크릿 등 */ }
+  }
+
+  const picked = rows.filter((r) => !skip.includes(r.name))
+  const total = picked.reduce((s, r) => s + r.amount, 0)
+
+  if (!open) {
+    return <button type="button" className="card-import-open" onClick={() => setOpen(true)}>{t('bank_import_open')}</button>
+  }
+  return (
+    <div className="card-import">
+      <div className="card-import-head">
+        <strong>{t('bank_import_title')}</strong>
+        <button type="button" className="icon-button" onClick={() => { setOpen(false); setText('') }} aria-label={t('btn_close')}><X size={16} /></button>
+      </div>
+      <p className="row-meta">{t('bank_import_help')}</p>
+      <textarea className="card-import-text" rows={5} value={text} onChange={(e) => setText(e.target.value)} placeholder={t('bank_import_placeholder')} />
+      {groups.length > 0 && (
+        <>
+          <ul className="bank-groups">
+            {groups.map((g) => {
+              const off = skip.includes(g.name)
+              return (
+                <li key={g.name}>
+                  <button type="button" className={`bank-group${off ? ' off' : ''}`} onClick={() => toggle(g.name)}>
+                    <span className="bank-check" aria-hidden>{off ? '' : <Check size={13} />}</span>
+                    <span className="bank-name">{g.name}</span>
+                    <span className="row-meta">{g.sub} · {g.rows.length}건</span>
+                    <strong>{formatMoney(g.total)}</strong>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+          <p className="guide-note">{t('bank_import_skip_hint')}</p>
+          <button type="button" className="fixed-save" disabled={!picked.length}
+            onClick={() => { onImport(picked); setText(''); setOpen(false) }}>
+            {t('bank_import_submit', { n: picked.length, amt: formatMoney(total) })}
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
 function CardImport({ onImport }: { onImport: (rows: { date: string; memo: string; amount: number }[], payment: string) => number }) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
