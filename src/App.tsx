@@ -1289,6 +1289,7 @@ function FixedView({ monthKey }: { monthKey: string }) {
                   <p className="row-title">{d.name}{d.variable && <span className="fixed-badge">{t('fixed_type_variable')}</span>}</p>
                   <p className="row-meta">
                     {formatMoney(d.amount)} · {t('monthly_day', { day: d.payDay })}
+                    {d.payment && ` · ${d.payment}`}
                     {d.split > 0 && t('split_and_real', { split: formatMoney(d.split), real: formatMoney(d.amount - d.split) })}
                     {d.variable && t('need_check')}
                     {rem && (rem.done ? t('done_suffix') : t('remaining_progress', { count: rem.count, total: rem.total, label: t(d.kind === 'income' ? 'label_to_receive' : 'label_remaining'), amt: formatMoney(rem.remainingAmount) }))}
