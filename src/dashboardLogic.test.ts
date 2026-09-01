@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef } from './dashboardLogic'
+import {
+  deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges,
+} from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
   ({ date, type: 'expense', amount, category, subCategory, payment, fixedType: 'variable' })
@@ -380,5 +382,103 @@ describe('dailyCheer', () => {
   })
   it('빈 목록이면 빈 문자열', () => {
     expect(dailyCheer('2026-08-31', [])).toBe('')
+  })
+})
+
+describe('missedBenefits', () => {
+  const tx = (date: string, memo: string, amount: number, payment: string) =>
+    ({ id: date + memo, date, memo, amount, payment, type: 'expense' as const, split: 0 })
+  // 할인한도는 전월 실적으로 결정된다 — 두 카드 모두 최고 구간을 채워둔 전월 이력.
+  const prev = [tx('2026-07-10', '전월 일반결제', 1200000, '하나카드'), tx('2026-07-10', '전월 일반결제', 400000, 'NH카드')]
+  const withPrev = (...rows: ReturnType<typeof tx>[]) => [...prev, ...rows]
+
+  it('넷플릭스를 NH로 긁으면 하나카드 50%가 더 크다고 알려준다', () => {
+    const rows = missedBenefits(withPrev(tx('2026-08-15', '넷플릭스', 27000, 'NH카드')), '2026-08')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].bestCard).toBe('하나카드')
+    expect(rows[0].discount).toBe(13500)
+  })
+
+  it('이미 제일 좋은 카드로 긁었으면 놓친 혜택이 아니다', () => {
+    expect(missedBenefits(withPrev(tx('2026-08-15', '넷플릭스', 27000, '하나카드')), '2026-08')).toHaveLength(0)
+  })
+
+  it('건당 최소금액에 못 미치면 그 영역은 안 걸린다 (NH 영화 1만원↑)', () => {
+    // 9,000원 CGV는 NH 영화할인 대상이 아니다 → 다른 카드 혜택도 없으니 결과 없음
+    expect(missedBenefits(withPrev(tx('2026-08-24', 'CGV', 9000, '하나카드')), '2026-08')).toHaveLength(0)
+    expect(missedBenefits(withPrev(tx('2026-08-24', 'CGV', 30000, '하나카드')), '2026-08')[0].bestCard).toBe('NH카드')
+  })
+
+  it('영역 월 한도를 넘으면 그만큼만 인정하고 소진되면 더는 안 센다', () => {
+    const rows = missedBenefits(withPrev(
+      tx('2026-08-01', 'CGV 1', 30000, '하나카드'),   // 30% = 9,000 → 한도 5,000
+      tx('2026-08-02', 'CGV 2', 30000, '하나카드'),   // 한도 소진 → 없음
+    ), '2026-08')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].discount).toBe(5000)
+  })
+
+  it('한 건이 여러 영역에 걸리면 할인율이 큰 쪽만 적용된다', () => {
+    // 스타벅스는 NH 커피 50%, 국민 커피/편의점 10% → NH가 이긴다
+    const rows = missedBenefits(withPrev(tx('2026-08-20', '스타벅스', 6000, '하나카드')), '2026-08')
+    expect(rows[0].bestCard).toBe('NH카드')
+    expect(rows[0].rate).toBe(0.5)
+  })
+
+  it('미보유 카드는 기본 계산에서 빠지고, 후보로 넣으면 비교가 된다', () => {
+    const woori = CARD_SPECS.filter((s) => s.card === '우리카드(ROUTINE)')
+    const mgmt = tx('2026-08-01', '아파트 관리비', 282850, '계좌이체')
+    const rows = missedBenefits([mgmt], '2026-08', woori)
+    expect(rows[0].bestCard).toBe('우리카드(ROUTINE)')
+    expect(rows[0].area).toBe('생활')
+    expect(rows[0].discount).toBe(10000)          // 15% = 42,427 → 최고 구간 영역한도 10,000
+    // 보유 카드만 볼 때는 관리비에 걸리는 혜택이 없다
+    expect(missedBenefits([mgmt], '2026-08')).toHaveLength(0)
+  })
+})
+
+describe('installmentCharges', () => {
+  const def = (over: Partial<FixedDef>): FixedDef => ({
+    id: 'x', active: true, name: '닌텐도 할부', amount: 147200, category: '취미', subCategory: '게임',
+    payment: '하나카드', payDay: 1, startMonth: '2026-09', installmentTotal: 5,
+    variable: false, split: 0, kind: 'expense', ...over,
+  })
+
+  it('첫 납입 한 달 전에 총액이 잡힌다', () => {
+    const [c] = installmentCharges([def({})])
+    expect(c.date).toBe('2026-08-01')
+    expect(c.amount).toBe(736000)
+    expect(c.payment).toBe('하나카드')
+  })
+
+  it('1월 시작이면 전년 12월로 넘어간다', () => {
+    expect(installmentCharges([def({ startMonth: '2026-01' })])[0].date).toBe('2025-12-01')
+  })
+
+  it('할부가 아닌 고정비는 무시한다', () => {
+    expect(installmentCharges([def({ installmentTotal: null })])).toHaveLength(0)
+  })
+
+  it('실적에 더하면 카드사 숫자에 가까워진다', () => {
+    const tx = [{ id: 'a', date: '2026-08-05', memo: '일반결제', amount: 900000, payment: '하나카드', type: 'expense' as const, split: 0 }]
+    const before = cardPerformance(tx, '2026-08')[0].qualified
+    const after = cardPerformance([...tx, ...installmentCharges([def({})])], '2026-08')[0].qualified
+    expect(before).toBe(900000)
+    expect(after).toBe(1636000)
+  })
+})
+
+describe('missedBenefits assumeQualified', () => {
+  const tx = (date: string, memo: string, amount: number, payment: string) =>
+    ({ id: date + memo, date, memo, amount, payment, type: 'expense' as const, split: 0 })
+
+  it('전월 실적이 없으면 혜택이 아예 안 열린다', () => {
+    expect(missedBenefits([tx('2026-08-24', 'CGV', 30000, '하나카드')], '2026-08')).toHaveLength(0)
+  })
+
+  it('assumeQualified면 실적을 채운 셈 치고 받을 수 있었던 금액을 낸다', () => {
+    const rows = missedBenefits([tx('2026-08-24', 'CGV', 30000, '하나카드')], '2026-08', undefined, true)
+    expect(rows[0].bestCard).toBe('NH카드')
+    expect(rows[0].discount).toBe(5000)
   })
 })

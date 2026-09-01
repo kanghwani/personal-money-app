@@ -36,7 +36,32 @@ import {
 } from 'lucide-react'
 import { pickNewer, dedupById } from './sync/merge'
 import { getSyncConfig, loadFromServer, saveToServer, loadLedger, assignCategory, loadFixedDefs, saveFixedDef, deleteFixedDef, deleteLedger, updateLedger, appendLedger } from './sync/syncClient'
-import { deriveQuickChips, dailyTotals, changeRate, categoryIcon, topNWithOther, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type Tier, type QuickChip, type FixedDef } from './dashboardLogic'
+import {
+  deriveQuickChips,
+  dailyTotals,
+  changeRate,
+  categoryIcon,
+  topNWithOther,
+  distinctCategoryOptions,
+  fixedRemaining,
+  splitFromText,
+  splitPlaceItem,
+  joinPlaceItem,
+  placeTotals,
+  categoryDeltas,
+  splitBreakdown,
+  parseCardStatement,
+  cardPerformance,
+  tierStatus,
+  dailyCheer,
+  type Tier,
+  type QuickChip,
+  type FixedDef,
+  CARD_SPECS,
+  missedBenefits,
+  installmentCharges,
+  type CardSpec,
+} from './dashboardLogic'
 import { loadLearnedRules, saveLearnedRule, classifyByLearned } from './learnedRules'
 import { RULES, LANG, classifyMemo } from './classifyRules'
 import { t } from './i18n'
@@ -540,11 +565,10 @@ const PRIMARY_CARDS = ['하나카드', 'NH카드']
 // NH 올바른FLEX: 전월실적 '30만원 이상' 단일 기준(카드사 앱 기준이용금액 300,000원과 일치).
 //   구간이 하나뿐이라 더 써도 한도가 안 올라간다. 통합할인한도 금액은 공식 상품설명서를 못 구해
 //   cap 0 → '기준 충족'만 표시(2차 출처엔 월 32,000원이라 하나 확정 못 함).
-const CARD_TIERS: Record<string, Tier[]> = {
-  하나카드: [{ min: 300000, cap: 15000 }, { min: 600000, cap: 30000 }, { min: 1000000, cap: 60000 }],
-  NH카드: [{ min: 300000, cap: 0 }],
-  국민카드: [{ min: 300000, cap: 15000 }, { min: 700000, cap: 20000 }, { min: 1200000, cap: 20000 }],
-}
+// 실적 구간표는 CARD_SPECS(약관 원문) 한 곳에만 둔다. 여기서 또 적으면 둘이 어긋난다.
+const CARD_TIERS: Record<string, Tier[]> = Object.fromEntries(
+  CARD_SPECS.filter((s) => s.owned && s.tiers.length).map((s) => [s.card, s.tiers]),
+)
 
 // 헤더에 매일 바뀌는 응원 문구. 마음에 안 드는 문장은 지우고 새로 넣으면 된다.
 const CHEERS = [
@@ -1024,6 +1048,94 @@ function AssetsView({ store, summary, onSaveAsset }: { store: FinanceStore; summ
   )
 }
 
+/**
+ * 카드별 혜택 가이드. 약관은 dashboardLogic의 CARD_SPECS 한 곳에만 있고 여기선 그리기만 한다.
+ * 실적/한도는 전월 기준이라, 이번 달에 실제로 열려 있는 혜택과 "실적을 채웠다면" 을 나눠 보여준다.
+ */
+function CardGuide({ transactions, monthKey }: { transactions: Transaction[]; monthKey: string }) {
+  const rows = useMemo(() => {
+    // 할부는 결제한 달에 총액이 실적으로 잡힌다 — 고정비의 월 납입액만으론 그게 안 보인다.
+    const defs = readFixedDefsCache()
+    return [...transactions, ...installmentCharges(defs)]
+  }, [transactions])
+  const perf = useMemo(() => cardPerformance(rows as never, monthKey), [rows, monthKey])
+  const missed = useMemo(() => missedBenefits(rows as never, monthKey), [rows, monthKey])
+  const potential = useMemo(() => missedBenefits(rows as never, monthKey, undefined, true), [rows, monthKey])
+
+  const held = new Set(perf.map((c) => c.name))
+  const specs = CARD_SPECS.filter((s) => held.has(s.card) || !s.owned)
+  if (!specs.length) return null
+
+  const sum = (hits: typeof missed) => hits.reduce((a, h) => a + h.discount, 0)
+  const pct = (r: number) => `${Math.round(r * 100)}%`
+  const capLabel = (spec: CardSpec, cap: number) =>
+    cap > 0 ? t(spec.sharedCap ? 'guide_cap_shared' : 'guide_cap_area', { amt: formatMoney(cap) }) : ''
+
+  return (
+    <>
+      {(missed.length > 0 || potential.length > 0) && (
+        <section className="wide-section">
+          <SectionHeader icon={<Sparkles size={18} />} title={t(missed.length ? 'guide_missed' : 'guide_potential')} aside={monthKey} />
+          <p className="row-meta perf-note">{t(missed.length ? 'guide_missed_note' : 'guide_potential_note')}</p>
+          <div className="guide-hits">
+            {(missed.length ? missed : potential).slice(0, 8).map((h, i) => (
+              <div className="guide-hit" key={`${h.date}-${h.memo}-${i}`}>
+                <div>
+                  <p className="row-title">{h.memo}</p>
+                  <p className="row-meta">{h.date.slice(5)} · {formatMoney(h.amount)} · {h.usedCard} → <b>{h.bestCard}</b> {h.area} {pct(h.rate)}</p>
+                </div>
+                <strong className="guide-gain">+{formatMoney(h.discount)}</strong>
+              </div>
+            ))}
+          </div>
+          <p className="guide-total">{t('guide_total', { amt: formatMoney(sum(missed.length ? missed : potential)) })}</p>
+        </section>
+      )}
+
+      <section className="wide-section">
+        <SectionHeader icon={<CreditCard size={18} />} title={t('sec_card_guide')} />
+        <div className="guide-cards">
+          {specs.map((spec) => {
+            const q = perf.find((c) => c.name === spec.card)?.qualified ?? 0
+            const st = spec.tiers.length ? tierStatus(q, spec.tiers) : null
+            const locked = Boolean(spec.owned && spec.tiers.length && q < Math.min(...spec.tiers.map((x) => x.min)))
+            return (
+              <article className="guide-card" key={spec.card}>
+                <div className="guide-card-head">
+                  <strong>{spec.card}</strong>
+                  <span className="row-meta">
+                    {t('guide_fee', { amt: formatMoney(spec.annualFee) })}
+                    {!spec.owned && ` · ${t('guide_candidate')}`}
+                  </span>
+                </div>
+                <p className="row-meta">
+                  {!spec.tiers.length ? t('guide_no_tier')
+                    : locked ? t('guide_locked')
+                    : st && st.cap > 0 ? capLabel(spec, st.cap)
+                    : t('perf_met')}
+                </p>
+                {spec.benefits.map((b) => (
+                  <div className="guide-area" key={b.area}>
+                    <p className="guide-area-head">
+                      <span>{b.area}</span>
+                      <b>{pct(b.rate)}</b>
+                      {b.cap > 0 && <span className="row-meta">{formatMoney(b.cap)}</span>}
+                      {b.minAmount ? <span className="row-meta">{t('guide_min', { amt: formatMoney(b.minAmount) })}</span> : null}
+                    </p>
+                    <p className="row-meta">{b.keywords.slice(0, 6).join(' · ')}</p>
+                    {b.note && <p className="guide-note">{b.note}</p>}
+                  </div>
+                ))}
+                {spec.notes.map((n) => <p className="guide-note" key={n}>{n}</p>)}
+              </article>
+            )
+          })}
+        </div>
+      </section>
+    </>
+  )
+}
+
 function InsightsView({ store, summary, transactions }: { store: FinanceStore; summary: Summary; transactions: Transaction[] }) {
   const insightRows = buildInsights(transactions, summary, store)
   const colors = ['#c9794f', '#7e9b6f', '#d6a85e', '#9a7bb0', '#5a7d8f', '#cdbf9c']
@@ -1154,6 +1266,8 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
           </div>
         </section>
       )}
+
+      <CardGuide transactions={transactions} monthKey={summary.monthKey} />
 
       {summary.paymentTotals.length > 0 && (
         <section className="wide-section">
