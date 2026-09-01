@@ -762,11 +762,19 @@ export function paymentPlaybook(
 }
 
 /**
- * 저축·투자로 나가는 돈은 '쓴 돈'이 아니다. 연금저축·청약·노란우산처럼
- * 내 이름으로 옮겨가는 자동이체를 지출에 섞으면 소비 규모가 부풀어 보인다.
- * 대출 상환은 여기 넣지 않는다 - 현금이 실제로 빠져나가고 원금/이자를 분리할 정보가 없다.
+ * '쓴 돈'에서 빼야 하는 두 갈래.
+ *  - 저축/투자: 내 이름으로 옮겨가는 돈. 지출에 섞으면 소비 규모가 부풀어 보인다.
+ *  - 금융/대출: 빚을 줄이는 돈. 소비가 아니라서 이번 달 얼마 썼나를 볼 때 방해가 된다.
+ * 둘 다 통장에서는 실제로 나가므로 합계에서 지우지 않고 각각 별도 줄로 보여준다.
  */
 export const SAVING_CATEGORY = '저축/투자'
+export const LOAN_CATEGORY = '금융/대출'
 
 export const isSaving = (t: { type: string; category?: string }) =>
   t.type === 'expense' && (t.category || '') === SAVING_CATEGORY
+
+export const isLoanRepay = (t: { type: string; category?: string }) =>
+  t.type === 'expense' && (t.category || '') === LOAN_CATEGORY
+
+/** 소비로 볼 수 없는 지출(저축·대출상환)인지. 지출 합계에서 뺄 때 쓴다. */
+export const isNonSpend = (t: { type: string; category?: string }) => isSaving(t) || isLoanRepay(t)

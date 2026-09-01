@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, unusedBenefits, paymentPlaybook, isSaving,
+  deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, unusedBenefits, paymentPlaybook, isSaving, isLoanRepay, isNonSpend,
 } from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
@@ -609,5 +609,19 @@ describe('isSaving', () => {
   })
   it('대출 상환은 저축이 아니다 - 현금이 실제로 나간다', () => {
     expect(isSaving({ type: 'expense', category: '금융/대출' })).toBe(false)
+  })
+})
+
+describe('isNonSpend', () => {
+  it('저축과 대출상환은 소비가 아니다', () => {
+    expect(isNonSpend({ type: 'expense', category: '저축/투자' })).toBe(true)
+    expect(isNonSpend({ type: 'expense', category: '금융/대출' })).toBe(true)
+  })
+  it('보통 지출은 그대로 소비다', () => {
+    expect(isNonSpend({ type: 'expense', category: '외식비' })).toBe(false)
+  })
+  it('저축과 대출상환은 서로 다른 줄로 센다', () => {
+    expect(isSaving({ type: 'expense', category: '금융/대출' })).toBe(false)
+    expect(isLoanRepay({ type: 'expense', category: '저축/투자' })).toBe(false)
   })
 })

@@ -81,7 +81,7 @@ export const ko: Record<string, string> = {
   guide_cap_shared: '통합 월 한도 {amt}', guide_cap_area: '영역별 월 한도 {amt}', guide_min: '건당 {amt}↑',
 
   group_recurring: '정기 결제', group_installment: '할부', group_loan: '대출 상환',
-  total_saved: '저축·투자로 옮긴 돈',
+  total_saved: '저축·투자로 옮긴 돈', total_loan_repaid: '대출 갚은 돈',
   split_and_real: ' · 분담 {split} · 실지출 {real}',
   need_check: ' · 확인필요',
   done_suffix: ' · 완료',
@@ -282,7 +282,7 @@ export const es: Record<string, string> = {
   guide_cap_shared: 'Tope mensual conjunto {amt}', guide_cap_area: 'Tope mensual por área {amt}', guide_min: 'desde {amt} por compra',
 
   group_recurring: 'Suscripciones', group_installment: 'Cuotas', group_loan: 'Préstamos',
-  total_saved: 'Ahorro e inversión',
+  total_saved: 'Ahorro e inversión', total_loan_repaid: 'Pago de préstamos',
   split_and_real: ' · Compartido {split} · Gasto real {real}',
   need_check: ' · revisar',
   done_suffix: ' · Completado',

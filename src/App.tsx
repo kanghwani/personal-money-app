@@ -65,6 +65,9 @@ import {
   unusedBenefits,
   paymentPlaybook,
   isSaving,
+  isLoanRepay,
+  isNonSpend,
+  LOAN_CATEGORY,
 } from './dashboardLogic'
 import { loadLearnedRules, saveLearnedRule, classifyByLearned } from './learnedRules'
 import { RULES, LANG, classifyMemo } from './classifyRules'
@@ -564,8 +567,6 @@ function QuickEntry({ onSubmit, lastMessage }: { onSubmit: (raw: string) => void
 // 홈에 항상 한 줄씩 띄울 주요 카드(순서대로). 다른 카드는 인사이트 탭에서만 본다.
 // 홈에 항상 한 줄씩 띄울 카드. 약관을 등록해 둔 보유 카드는 결제가 없어도 보여준다
 // (실적이 0원이라는 사실 자체가 정보다).
-const LOAN_CATEGORY = '금융/대출'
-
 const PRIMARY_CARDS = CARD_SPECS.filter((s) => s.owned).map((s) => s.card)
 
 // 실적 구간 → 월 할인한도. 카드사 공식 안내 기준.
@@ -1682,6 +1683,12 @@ function FixedVariablePanel({ summary }: { summary: Summary }) {
         <span>{t('total_with_fixed')}</span>
         <strong>{formatMoney(summary.thisMonth.realSpend)}</strong>
       </div>
+      {summary.thisMonth.loanRepaid > 0 && (
+        <div className="fixed-total saved">
+          <span>{t('total_loan_repaid')}</span>
+          <strong>{formatMoney(summary.thisMonth.loanRepaid)}</strong>
+        </div>
+      )}
       {summary.thisMonth.saved > 0 && (
         /* 저축은 지출 합계 밖에 있다. 안 보여주면 통장에서 나간 돈과 안 맞아 헷갈린다. */
         <div className="fixed-total saved">
@@ -1831,6 +1838,7 @@ type MonthMetric = {
   variable: number
   income: number
   saved: number      // 저축·투자로 옮긴 돈. 지출 합계에는 안 들어간다
+  loanRepaid: number // 대출로 갚은 돈. 같은 이유로 지출 합계 밖
 }
 
 type Summary = {
@@ -2029,9 +2037,10 @@ function buildSummary(store: FinanceStore): Summary {
 
 function buildMonthMetric(transactions: Transaction[], month: string): MonthMetric {
   const rows = thisMonthRows(transactions, month)
-  // 저축·투자 자동이체는 '쓴 돈'이 아니라 옮긴 돈이라 지출 합계에서 뺀다.
-  const expenseRows = rows.filter((item) => item.type === 'expense' && !isSaving(item))
+  // 저축·대출상환은 소비가 아니라 옮기거나 갚는 돈이라 지출 합계에서 뺀다.
+  const expenseRows = rows.filter((item) => item.type === 'expense' && !isNonSpend(item))
   const saved = rows.filter(isSaving).reduce((sum, item) => sum + item.amount, 0)
+  const loanRepaid = rows.filter(isLoanRepay).reduce((sum, item) => sum + item.amount, 0)
   const totalSpend = expenseRows.reduce((sum, item) => sum + item.amount, 0)
   const split = expenseRows.reduce((sum, item) => sum + item.split, 0)
   const fixed = expenseRows.filter((item) => item.fixedType === 'fixed').reduce((sum, item) => sum + (item.amount - item.split), 0)
@@ -2047,6 +2056,7 @@ function buildMonthMetric(transactions: Transaction[], month: string): MonthMetr
     variable,
     income,
     saved,
+    loanRepaid,
   }
 }
 
