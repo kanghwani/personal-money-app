@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, unusedBenefits, paymentPlaybook,
+  deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, unusedBenefits, paymentPlaybook, isSaving,
 } from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
@@ -596,5 +596,18 @@ describe('paymentPlaybook 통합 한도 카드', () => {
     expect(nf.card).toBe('하나카드')
     expect(nf.cap).toBe(60000)
     expect(nf.remaining).toBe(60000)   // 예전엔 영역명이 안 맞아 0으로 나왔다
+  })
+})
+
+describe('isSaving', () => {
+  it('저축/투자로 나가는 돈은 지출로 안 센다', () => {
+    expect(isSaving({ type: 'expense', category: '저축/투자' })).toBe(true)
+    expect(isSaving({ type: 'expense', category: '식비' })).toBe(false)
+  })
+  it('수입은 저축 판정 대상이 아니다', () => {
+    expect(isSaving({ type: 'income', category: '저축/투자' })).toBe(false)
+  })
+  it('대출 상환은 저축이 아니다 - 현금이 실제로 나간다', () => {
+    expect(isSaving({ type: 'expense', category: '금융/대출' })).toBe(false)
   })
 })

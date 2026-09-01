@@ -760,3 +760,13 @@ export function paymentPlaybook(
   }
   return out.sort((a, b) => b.rate - a.rate || b.remaining - a.remaining)
 }
+
+/**
+ * 저축·투자로 나가는 돈은 '쓴 돈'이 아니다. 연금저축·청약·노란우산처럼
+ * 내 이름으로 옮겨가는 자동이체를 지출에 섞으면 소비 규모가 부풀어 보인다.
+ * 대출 상환은 여기 넣지 않는다 - 현금이 실제로 빠져나가고 원금/이자를 분리할 정보가 없다.
+ */
+export const SAVING_CATEGORY = '저축/투자'
+
+export const isSaving = (t: { type: string; category?: string }) =>
+  t.type === 'expense' && (t.category || '') === SAVING_CATEGORY
