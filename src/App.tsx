@@ -847,16 +847,6 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit, o
   const benefitDataStatus: LedgerLoadStatus = ledgerStatus === 'error' || fixedDefsStatus === 'error'
     ? 'error'
     : ledgerStatus === 'loading' || fixedDefsStatus === 'loading' ? 'loading' : 'ready'
-  // 실적 구간이 있는 카드만 보여준다. 삼성 마일리지 카드는 실적 조건이 없어 0원 행이 오히려 혼란스럽다.
-  const perfRows = useMemo(() => {
-    const perf = cardPerformance(cardRows as never, summary.monthKey)
-    return CARD_SPECS.filter((spec) => spec.owned && spec.tiers.length).map((spec) => {
-      const c = perf.find((x) => x.name === spec.card) ?? { name: spec.card, charged: 0, excluded: 0, qualified: 0 }
-      const tiers = CARD_TIERS[spec.card]
-      const st = tiers ? tierStatus(c.qualified, tiers) : null
-      return { name: spec.card, qualified: c.qualified, st, familyPooled: Boolean(spec.familyPooled) }
-    })
-  }, [cardRows, summary.monthKey])
   // 홈 대표 숫자는 '고정비 뺀 내가 쓴 돈'(변동지출). 총지출은 아래 고정/변동 패널에서 확인.
   const prev = summary.previousMonth?.variable ?? 0
   const rate = changeRate(summary.thisMonth.variable, prev)
@@ -867,7 +857,6 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit, o
       <CardBenefitOverview
         rows={cardRows}
         monthKey={summary.monthKey}
-        perfRows={perfRows}
         onOpenInsights={onOpenInsights}
         ledgerStatus={benefitDataStatus}
       />
@@ -918,10 +907,9 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit, o
   )
 }
 
-function CardBenefitOverview({ rows, monthKey, perfRows, onOpenInsights, ledgerStatus }: {
+function CardBenefitOverview({ rows, monthKey, onOpenInsights, ledgerStatus }: {
   rows: (SplitTxLike & { payment?: string })[]
   monthKey: string
-  perfRows: { name: string; qualified: number; st: ReturnType<typeof tierStatus> | null; familyPooled: boolean }[]
   onOpenInsights: () => void
   ledgerStatus: LedgerLoadStatus
 }) {
@@ -989,7 +977,7 @@ function CardBenefitOverview({ rows, monthKey, perfRows, onOpenInsights, ledgerS
             </div>
             <b className={currentChecking ? 'checking' : currentLocked ? 'locked' : 'available'}>
               {currentChecking ? t('home_benefit_checking')
-                : currentLocked ? t('home_benefit_unavailable') : t('home_benefit_available')}
+                : currentLocked ? t('home_benefit_unavailable', { month: monthKey }) : t('home_benefit_available', { month: monthKey })}
             </b>
           </div>
           <p className="benefit-estimate">{current.spec.sharedCap ? t('home_benefit_shared') : t('home_benefit_estimate')}</p>
@@ -1038,26 +1026,6 @@ function CardBenefitOverview({ rows, monthKey, perfRows, onOpenInsights, ledgerS
         <p className="benefit-empty">{t('home_benefit_empty')}</p>
       )}
 
-      <div className="perf-nudge">
-        <p className="perf-nudge-title">{t('home_perf_title')} <span>{monthKey}</span></p>
-        {perfRows.map((r) => (
-          <div className="pn-row" key={r.name}>
-            <span className="pn-name"><CreditCard size={13} aria-hidden />{r.name}</span>
-            {r.familyPooled ? (
-              <span className="pn-family">{t('home_perf_family')}</span>
-            ) : (
-              <>
-                <span className="pn-amt">{formatMoney(r.qualified)}</span>
-                {r.st?.next
-                  ? <span className="pn-goal">{r.st.next.cap > 0
-                    ? t('perf_gap', { gap: formatMoney(r.st.next.gap), cap: formatMoney(r.st.next.cap) })
-                    : t('perf_gap_unlock', { gap: formatMoney(r.st.next.gap) })}</span>
-                  : r.st ? <span className="pn-done">{r.st.cap > 0 ? t('perf_max', { cap: formatMoney(r.st.cap) }) : t('perf_met')}</span> : null}
-              </>
-            )}
-          </div>
-        ))}
-      </div>
     </section>
   )
 }

@@ -1143,28 +1143,12 @@
 .benefit-use-list b { flex: 0 0 auto; color: var(--accent); font-variant-numeric: tabular-nums; }
 .benefit-empty { margin: 0; padding: 16px 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; line-height: 1.55; }
 
-/* 메인: 다음 달 혜택을 여는 카드 실적 */
-.perf-nudge {
-  display: flex; flex-direction: column; gap: 7px; padding: 12px 18px 14px; background: var(--accent-soft);
-}
-.perf-nudge-title { display: flex; justify-content: space-between; margin: 0 0 2px; color: var(--ink); font-size: 11px; font-weight: 900; }
-.perf-nudge-title span { color: var(--muted); font-weight: 700; }
-.pn-row { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
-.pn-name { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; white-space: nowrap; }
-.pn-amt { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--ink); }
-.pn-goal { margin-left: auto; font-size: 11.5px; font-weight: 600; color: var(--amber); text-align: right; }
-.pn-done { margin-left: auto; font-size: 11.5px; font-weight: 600; color: var(--green); }
-.pn-family { margin-left: auto; color: var(--muted); font-size: 11px; font-weight: 700; text-align: right; }
-
 @media (max-width: 560px) {
   .benefit-board-head { padding: 15px 14px 12px; }
   .benefit-missed { margin-inline: 14px; }
   .benefit-card-tabs { padding-inline: 14px; }
   .benefit-basis { margin-inline: 14px; }
   .benefit-estimate, .benefit-balance { padding-inline: 14px; }
-  .perf-nudge { padding-inline: 14px; }
-  .pn-row { flex-wrap: wrap; gap: 4px 7px; }
-  .pn-goal, .pn-done, .pn-family { flex-basis: 100%; margin-left: 20px; text-align: left; }
 }
 
 /* 카드 혜택 가이드 */
