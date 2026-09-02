@@ -643,7 +643,8 @@ export function installmentCharges(defs: FixedDef[]): (SplitTxLike & { payment?:
     if (!d.installmentTotal || d.kind !== 'expense') continue
     // 수정하면서 이전 정의를 비활성화하고 새 정의를 저장한 경우가 있다.
     // 둘 다 과거 결제 기록으로는 필요하지만 같은 할부를 두 번 더하면 안 된다.
-    const key = [d.name.trim(), d.amount, d.payment.trim(), d.startMonth, d.installmentTotal].join('|')
+    // 이름만 고쳐 저장한 사본도 같은 결제다. 금액·카드·시작월·회차가 같으면 한 건으로 본다.
+    const key = [d.amount, d.payment.trim(), d.startMonth, d.installmentTotal].join('|')
     if (seen.has(key)) continue
     seen.add(key)
     const [y, m] = d.startMonth.split('-').map(Number)

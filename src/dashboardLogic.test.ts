@@ -468,7 +468,10 @@ describe('installmentCharges', () => {
   })
 
   it('같은 할부의 비활성 이전 정의가 남아 있어도 한 번만 더한다', () => {
-    expect(installmentCharges([def({ id: 'old', active: false }), def({ id: 'new', active: true })])).toHaveLength(1)
+    expect(installmentCharges([
+      def({ id: 'old', active: false, name: '무선청소기 할부' }),
+      def({ id: 'new', active: true, name: '청소기 할부' }),
+    ])).toHaveLength(1)
   })
 
   it('실적에 더하면 카드사 숫자에 가까워진다', () => {
