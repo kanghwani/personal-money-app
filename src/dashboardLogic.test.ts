@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, unusedBenefits, paymentPlaybook, isSaving, isLoanRepay, isNonSpend, isCardPayment, parseBankDeposits,
+  deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, benefitBalances, unusedBenefits, paymentPlaybook, isSaving, isLoanRepay, isNonSpend, isCardPayment, parseBankDeposits,
 } from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
@@ -418,6 +418,14 @@ describe('missedBenefits', () => {
     expect(rows[0].discount).toBe(5000)
   })
 
+  it('통합 한도 카드는 서로 다른 혜택 영역도 한도를 나눠 쓴다', () => {
+    const rows = missedBenefits(withPrev(
+      tx('2026-08-01', '넷플릭스', 80000, '현금'),
+      tx('2026-08-02', '쿠팡 와우', 80000, '현금'),
+    ), '2026-08')
+    expect(rows.reduce((sum, row) => sum + row.discount, 0)).toBe(60000)
+  })
+
   it('한 건이 여러 영역에 걸리면 할인율이 큰 쪽만 적용된다', () => {
     // 스타벅스는 NH 커피 50%, 국민 커피/편의점 10% → NH가 이긴다
     const rows = missedBenefits(withPrev(tx('2026-08-20', '스타벅스', 6000, '하나카드')), '2026-08')
@@ -514,6 +522,20 @@ describe('unusedBenefits', () => {
     expect(rows.find((r) => r.area === '커피')).toBeUndefined()
   })
 
+  it('전체 잔액 조회에는 한도를 다 쓴 영역도 사용 100%로 남는다', () => {
+    const rows = benefitBalances([...prev, tx('2026-08-05', '스타벅스', 40000, 'NH카드')], '2026-08', nh)
+    const coffee = rows.find((r) => r.area === '커피')!
+    expect(coffee.used).toBe(10000)
+    expect(coffee.remaining).toBe(0)
+  })
+
+  it('스타벅스 선불카드 충전은 커피 혜택 사용으로 잡지 않는다', () => {
+    const rows = benefitBalances([...prev, tx('2026-08-05', '스타벅스 카드충전', 10000, 'NH카드')], '2026-08', nh)
+    const coffee = rows.find((r) => r.area === '커피')!
+    expect(coffee.used).toBe(0)
+    expect(coffee.remaining).toBe(10000)
+  })
+
   it('전월 실적 미달이면 잠기고, 이번 달 부족액을 알려준다', () => {
     const rows = unusedBenefits([tx('2026-08-01', '결제', 120000, 'NH카드')], '2026-08', nh)
     const coffee = rows.find((r) => r.area === '커피')!
@@ -535,6 +557,15 @@ describe('unusedBenefits 한도 종류', () => {
     expect(rows[0].cap).toBe(60000)
     expect(rows[0].used).toBe(13500)
     expect(rows[0].remaining).toBe(46500)
+  })
+
+  it('통합 한도 카드가 잠겨도 최저 구간 한도와 실적 부족액을 보여준다', () => {
+    const hana = CARD_SPECS.filter((s) => s.card === '하나카드')
+    const rows = benefitBalances([], '2026-08', hana)
+    expect(rows).toHaveLength(1)
+    expect(rows[0].locked).toBe(true)
+    expect(rows[0].cap).toBe(15000)
+    expect(rows[0].lockGap).toBe(300000)
   })
 
   it('가족카드 합산 카드(국민)는 원장에 결제가 없어도 잠기지 않는다', () => {

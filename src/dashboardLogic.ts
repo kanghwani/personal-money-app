@@ -240,7 +240,7 @@ export function categoryDeltas(transactions: CatTxLike[], curMonth: string, prev
 }
 
 export type SplitBreakdown = { total: number; refund: number; settle: number; byPerson: NV[] }
-type SplitTxLike = { date: string; type: string; amount: number; split: number; memo: string }
+export type SplitTxLike = { date: string; type: string; amount: number; split: number; memo: string }
 
 // 분담금 메모에서 상대를 추정하는 기본 사전. 메모에 '환급'이 있으면 자동 환급으로 보고 정산 대상에서 뺀다.
 // ponytail: 별도 컬럼(상대/태그) 없이 기존 메모만으로 구분한다. 구분이 자주 틀리면 그때 필드를 추가.
@@ -557,6 +557,8 @@ export type BenefitHit = {
 
 /** 결제 한 건이 이 카드의 어느 혜택 영역에 걸리는지. 안 걸리면 null. */
 function matchArea(memo: string, amount: number, spec: CardSpec): BenefitArea | null {
+  // 상품권·선불카드 충전처럼 실적/할인 공통 제외인 거래는 가맹점명이 혜택 키워드와 같아도 제외한다.
+  if (isExcluded(memo, spec.card)) return null
   let best: BenefitArea | null = null
   for (const b of spec.benefits) {
     if (b.minAmount && amount < b.minAmount) continue
@@ -592,6 +594,7 @@ export function missedBenefits(
     return b.cap > 0 ? b.cap : tierStatus(qualified, spec.tiers).cap
   }
   const left = new Map<string, number>()   // `${card}/${area}` → 남은 한도
+  const benefitKey = (spec: CardSpec, b: BenefitArea) => spec.sharedCap ? spec.card : `${spec.card}/${b.area}`
   const rows = transactions
     .filter((t) => t.type === 'expense' && t.date.slice(0, 7) === yearMonth)
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -602,7 +605,7 @@ export function missedBenefits(
     for (const spec of specs) {
       const b = matchArea(t.memo || '', t.amount, spec)
       if (!b) continue
-      const key = `${spec.card}/${b.area}`
+      const key = benefitKey(spec, b)
       const cap = capOf(spec, b)
       const remain = left.has(key) ? (left.get(key) as number) : cap
       if (remain <= 0) continue
@@ -610,7 +613,7 @@ export function missedBenefits(
       if (discount > 0 && (!best || discount > best.discount)) best = { spec, b, discount }
     }
     if (!best) continue
-    const key = `${best.spec.card}/${best.b.area}`
+    const key = benefitKey(best.spec, best.b)
     const cap = capOf(best.spec, best.b)
     left.set(key, (left.has(key) ? (left.get(key) as number) : cap) - best.discount)
     if (best.spec.card === used) continue          // 이미 제일 좋은 카드로 긁었다
@@ -647,11 +650,10 @@ export type UnusedBenefit = {
 }
 
 /**
- * 이번 달 아직 안 쓴 혜택 한도를 낸다.
- * "놓친 혜택"이 이미 지나간 결제를 되짚는 것이라면, 이건 앞으로 쓸 수 있는 여유분이다.
+ * 이번 달 카드 혜택의 사용·잔여 한도를 모두 낸다. 한도를 전부 쓴 영역도 포함한다.
  * 한도는 그 카드로 실제 결제한 건만 소진한 것으로 본다(카드사와 같은 계산).
  */
-export function unusedBenefits(
+export function benefitBalances(
   transactions: (SplitTxLike & { payment?: string })[],
   yearMonth: string,
   specs: CardSpec[] = CARD_SPECS.filter((s) => s.owned),
@@ -672,7 +674,9 @@ export function unusedBenefits(
     // 가족카드 합산 카드는 원장에 없는 지출로 실적이 채워진다 - 잠김으로 단정하면 틀린 안내가 된다.
     const unknown = Boolean(spec.familyPooled)
     const tierCap = spec.tiers.length
-      ? (unknown ? Math.min(...spec.tiers.map((t) => t.cap)) : tierStatus(prevQ, spec.tiers).cap)
+      ? (unknown || locked
+          ? Math.min(...spec.tiers.map((t) => t.cap))
+          : tierStatus(prevQ, spec.tiers).cap)
       : 0
     const isLocked = locked && !unknown
     const usedOf = (b: BenefitArea, cap: number) => {
@@ -680,6 +684,7 @@ export function unusedBenefits(
       let u = 0
       for (const t of rows) {
         if ((t.payment || '').trim() !== spec.card) continue
+        if (isExcluded(t.memo || '', spec.card)) continue
         if (b.minAmount && t.amount < b.minAmount) continue
         if (!b.keywords.some((k) => (t.memo || '').includes(k))) continue
         u = Math.min(cap, u + Math.round(t.amount * b.rate))
@@ -690,7 +695,6 @@ export function unusedBenefits(
       // 통합 한도 카드는 영역이 한 주머니를 나눠 쓴다. 영역별로 나눠 보여주면 한도가 몇 배로 부풀어 보인다.
       if (tierCap <= 0) continue
       const used = Math.min(tierCap, spec.benefits.reduce((sum, b) => sum + usedOf(b, tierCap), 0))
-      if (tierCap - used <= 0) continue
       out.push({ card: spec.card, area: spec.benefits.map((b) => b.area).join(' · '),
         rate: Math.max(...spec.benefits.map((b) => b.rate)), cap: tierCap, used, remaining: tierCap - used,
         keywords: spec.benefits.flatMap((b) => b.keywords), locked: isLocked, lockGap })
@@ -701,11 +705,23 @@ export function unusedBenefits(
       if (cap <= 0) continue
       const used = usedOf(b, cap)
       const remaining = cap - used
-      if (remaining <= 0) continue
       out.push({ card: spec.card, area: b.area, rate: b.rate, cap, used, remaining,
         minAmount: b.minAmount, keywords: b.keywords, note: b.note, locked: isLocked, lockGap })
     }
   }
+  return out
+}
+
+/**
+ * 이번 달 아직 안 쓴 혜택만 낸다.
+ * "놓친 혜택"이 이미 지나간 결제를 되짚는 것이라면, 이건 앞으로 쓸 수 있는 여유분이다.
+ */
+export function unusedBenefits(
+  transactions: (SplitTxLike & { payment?: string })[],
+  yearMonth: string,
+  specs: CardSpec[] = CARD_SPECS.filter((s) => s.owned),
+): UnusedBenefit[] {
+  const out = benefitBalances(transactions, yearMonth, specs).filter((item) => item.remaining > 0)
   return out.sort((a, b) => Number(a.locked) - Number(b.locked) || b.remaining - a.remaining)
 }
 

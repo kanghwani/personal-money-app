@@ -27,19 +27,19 @@ const env = (k: string) => {
 }
 
 /** GAS는 가끔 302/404를 뱉어서 재시도한다. */
-async function gasGet(action: string, extra = ''): Promise<any> {
+async function gasGet<T = unknown>(action: string, extra = ''): Promise<T> {
   const url = `${env('SYNC_URL')}?action=${action}&token=${encodeURIComponent(env('SYNC_TOKEN'))}${extra}`
   for (let i = 0; i < 4; i++) {
     try {
       const r = await fetch(url, { redirect: 'follow' })
-      if (r.ok) return await r.json()
+      if (r.ok) return await r.json() as T
     } catch { /* 재시도 */ }
     await new Promise((s) => setTimeout(s, 1500))
   }
   throw new Error('가계부 서버 응답 실패 (잠시 후 다시)')
 }
 
-async function gasPost(body: Record<string, unknown>): Promise<any> {
+async function gasPost(body: Record<string, unknown>): Promise<unknown> {
   for (let i = 0; i < 3; i++) {
     try {
       const r = await fetch(env('SYNC_URL'), {
@@ -54,7 +54,7 @@ async function gasPost(body: Record<string, unknown>): Promise<any> {
   throw new Error('가계부 저장 실패 (잠시 후 다시)')
 }
 
-const rows = async (): Promise<Tx[]> => (await gasGet('ledger')).transactions ?? []
+const rows = async (): Promise<Tx[]> => (await gasGet<{ transactions?: Tx[] }>('ledger')).transactions ?? []
 const won = (n: number) => `${n.toLocaleString('ko-KR')}원`
 const thisMonth = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 7)  // KST
 const today = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
@@ -95,7 +95,7 @@ const TOOLS = [
 ]
 
 // ── 도구 실행 ───────────────────────────────────────────────
-async function runTool(name: string, args: any): Promise<string> {
+async function runTool(name: string, args: Record<string, unknown>): Promise<string> {
   if (name === 'ledger_check') {
     const d = await rows(); const t0 = today()
     const mis = d.filter((t) => (t.category || '미분류') === '미분류')
@@ -114,7 +114,7 @@ async function runTool(name: string, args: any): Promise<string> {
   }
 
   if (name === 'ledger_month') {
-    const m = args?.month || thisMonth(); const d = await rows()
+    const m = typeof args.month === 'string' ? args.month : thisMonth(); const d = await rows()
     const exp = d.filter((t) => t.date.startsWith(m) && t.type === 'expense')
     const inc = d.filter((t) => t.date.startsWith(m) && t.type === 'income')
     const tot = exp.reduce((s, t) => s + t.amount, 0)
@@ -140,7 +140,7 @@ async function runTool(name: string, args: any): Promise<string> {
   }
 
   if (name === 'ledger_split') {
-    const m = args?.month || thisMonth()
+    const m = typeof args.month === 'string' ? args.month : thisMonth()
     const ts = (await rows()).filter((t) => t.date.startsWith(m) && (t.split || 0) > 0)
     const isRefund = (t: Tx) => ['환급', '리워드'].some((w) => (t.memo || '').includes(w))
     const refund = ts.filter(isRefund), settle = ts.filter((t) => !isRefund(t))
@@ -156,7 +156,7 @@ async function runTool(name: string, args: any): Promise<string> {
   }
 
   if (name === 'ledger_fixed') {
-    const defs: FixedDef[] = ((await gasGet('fixedList')).defs ?? []).filter((f: FixedDef) => f.active)
+    const defs = ((await gasGet<{ defs?: FixedDef[] }>('fixedList')).defs ?? []).filter((f) => f.active)
     return (['expense', 'income'] as const).map((kind) => {
       const g = defs.filter((f) => f.kind === kind)
       const label = kind === 'expense' ? '고정비' : '정기수입'
@@ -169,20 +169,21 @@ async function runTool(name: string, args: any): Promise<string> {
   }
 
   if (name === 'ledger_add') {
-    const r = await gasGet('add', `&raw=${encodeURIComponent(String(args.text || ''))}`)
+    const r = await gasGet<{ parsed?: Record<string, unknown> }>('add', `&raw=${encodeURIComponent(String(args.text || ''))}`)
     const p = r.parsed || {}
-    return `추가됨: ${p.date} ${p.memo} ${won(p.amount || 0)} [${p.payment || '-'}] ${p.mainCategory}/${p.subCategory}`
+    const amount = typeof p.amount === 'number' ? p.amount : Number(p.amount) || 0
+    return `추가됨: ${p.date} ${p.memo} ${won(amount)} [${p.payment || '-'}] ${p.mainCategory}/${p.subCategory}`
   }
 
   if (name === 'ledger_edit') {
     const t = await findOne(String(args.id))
     const before = { ...t }
     for (const k of ['amount', 'memo', 'payment', 'date', 'split', 'category', 'subCategory'] as const) {
-      if (args[k] !== undefined) (t as any)[k] = args[k]
+      if (args[k] !== undefined) Object.assign(t, { [k]: args[k] })
     }
     await gasPost({ action: 'updateLedger', tx: t })
-    const chg = Object.keys(t).filter((k) => (before as any)[k] !== (t as any)[k])
-      .map((k) => `${k}: ${(before as any)[k]} → ${(t as any)[k]}`)
+    const chg = (Object.keys(t) as (keyof Tx)[]).filter((k) => before[k] !== t[k])
+      .map((k) => `${k}: ${before[k]} → ${t[k]}`)
     return `수정됨 ${t.id.slice(0, 8)} ${t.memo}\n${chg.join('\n')}`
   }
 

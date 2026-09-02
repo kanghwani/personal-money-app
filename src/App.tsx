@@ -64,6 +64,7 @@ import {
   installmentCharges,
   type CardSpec,
   unusedBenefits,
+  benefitBalances,
   paymentPlaybook,
   isSaving,
   isLoanRepay,
@@ -72,6 +73,7 @@ import {
   SAVING_CATEGORY,
   parseBankDeposits,
   type DepositRow,
+  type SplitTxLike,
 } from './dashboardLogic'
 import { loadLearnedRules, saveLearnedRule, classifyByLearned } from './learnedRules'
 import { RULES, LANG, classifyMemo } from './classifyRules'
@@ -491,7 +493,14 @@ function App() {
               </div>
             )}
           </div>
-          <Dashboard summary={summary} transactions={mergedTransactions} categoryOptions={categoryOptions} onAssign={assignCategoryFor} onEdit={editTransaction} />
+          <Dashboard
+            summary={summary}
+            transactions={mergedTransactions}
+            categoryOptions={categoryOptions}
+            onAssign={assignCategoryFor}
+            onEdit={editTransaction}
+            onOpenInsights={() => setActiveTab('insights')}
+          />
         </>
       )}
       {activeTab === 'ledger' && (
@@ -691,15 +700,14 @@ const RING_COLORS = [
 
 function CategoryRing({ total, subtitle, data }: { total: string; subtitle: string | null; data: NameValue[] }) {
   const sum = data.reduce((s, d) => s + d.value, 0) || 1
-  let acc = 0
-  const stops = data
-    .map((d, i) => {
-      const start = (acc / sum) * 100
-      acc += d.value
-      const end = (acc / sum) * 100
-      return `${RING_COLORS[i % RING_COLORS.length]} ${start}% ${end}%`
-    })
-    .join(', ')
+  const stops = data.reduce<{ total: number; values: string[] }>((state, d, i) => {
+    const start = (state.total / sum) * 100
+    const end = ((state.total + d.value) / sum) * 100
+    return {
+      total: state.total + d.value,
+      values: [...state.values, `${RING_COLORS[i % RING_COLORS.length]} ${start}% ${end}%`],
+    }
+  }, { total: 0, values: [] }).values.join(', ')
   return (
     <>
       {/* 라벨은 도넛 구멍보다 넓어서 안에 넣으면 링에 물린다. 구멍에는 숫자만 둔다. */}
@@ -801,26 +809,29 @@ function CategoryDetailSheet({ category, transactions, categoryOptions, onAssign
   )
 }
 
-function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit }: {
+function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit, onOpenInsights }: {
   summary: Summary
   transactions: Transaction[]
   categoryOptions: { category: string; subCategory: string }[]
   onAssign: (id: string, category: string, subCategory: string, memo: string) => void
   onEdit: (updated: Transaction) => void
+  onOpenInsights: () => void
 }) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  // 주요 카드(하나·NH)는 이번 달 실적을 홈에 항상 한 줄씩 보여준다.
-  const perfRows = useMemo(() => {
+  const cardRows = useMemo(() => {
     // 할부는 결제한 달에 총액이 실적으로 잡힌다 - 인사이트 탭과 같은 기준으로 맞춘다.
-    const rows = [...transactions, ...installmentCharges(readFixedDefsCache())]
-    const perf = cardPerformance(rows as never, summary.monthKey)
-    return PRIMARY_CARDS.map((name) => {
-      const c = perf.find((x) => x.name === name) ?? { name, charged: 0, excluded: 0, qualified: 0 }
-      const tiers = CARD_TIERS[name]
+    return [...transactions, ...installmentCharges(readFixedDefsCache())]
+  }, [transactions])
+  // 실적 구간이 있는 카드만 보여준다. 삼성 마일리지 카드는 실적 조건이 없어 0원 행이 오히려 혼란스럽다.
+  const perfRows = useMemo(() => {
+    const perf = cardPerformance(cardRows as never, summary.monthKey)
+    return CARD_SPECS.filter((spec) => spec.owned && spec.tiers.length).map((spec) => {
+      const c = perf.find((x) => x.name === spec.card) ?? { name: spec.card, charged: 0, excluded: 0, qualified: 0 }
+      const tiers = CARD_TIERS[spec.card]
       const st = tiers ? tierStatus(c.qualified, tiers) : null
-      return { name, qualified: c.qualified, st }
+      return { name: spec.card, qualified: c.qualified, st, familyPooled: Boolean(spec.familyPooled) }
     })
-  }, [transactions, summary.monthKey])
+  }, [cardRows, summary.monthKey])
   // 홈 대표 숫자는 '고정비 뺀 내가 쓴 돈'(변동지출). 총지출은 아래 고정/변동 패널에서 확인.
   const prev = summary.previousMonth?.variable ?? 0
   const rate = changeRate(summary.thisMonth.variable, prev)
@@ -828,17 +839,12 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit }:
 
   return (
     <section className="view-stack">
-      <div className="perf-nudge">
-        {perfRows.map((r) => (
-          <div className="pn-row" key={r.name}>
-            <span className="pn-name"><CreditCard size={13} aria-hidden />{r.name}</span>
-            <span className="pn-amt">{formatMoney(r.qualified)}</span>
-            {r.st?.next
-              ? <span className="pn-goal">{t('perf_gap', { gap: formatMoney(r.st.next.gap), cap: formatMoney(r.st.next.cap) })}</span>
-              : r.st ? <span className="pn-done">{r.st.cap > 0 ? t('perf_max', { cap: formatMoney(r.st.cap) }) : t('perf_met')}</span> : null}
-          </div>
-        ))}
-      </div>
+      <CardBenefitOverview
+        rows={cardRows}
+        monthKey={summary.monthKey}
+        perfRows={perfRows}
+        onOpenInsights={onOpenInsights}
+      />
 
       <article className="ring-card">
         <CategoryRing
@@ -882,6 +888,110 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit }:
           onClose={() => setSelectedCategory(null)}
         />
       )}
+    </section>
+  )
+}
+
+function CardBenefitOverview({ rows, monthKey, perfRows, onOpenInsights }: {
+  rows: (SplitTxLike & { payment?: string })[]
+  monthKey: string
+  perfRows: { name: string; qualified: number; st: ReturnType<typeof tierStatus> | null; familyPooled: boolean }[]
+  onOpenInsights: () => void
+}) {
+  const [selectedCard, setSelectedCard] = useState('')
+  const balances = useMemo(() => benefitBalances(rows as never, monthKey), [rows, monthKey])
+  const missed = useMemo(() => missedBenefits(rows as never, monthKey), [rows, monthKey])
+  const cardGroups = CARD_SPECS.filter((spec) => spec.owned && spec.benefits.length)
+    .map((spec) => ({ spec, items: balances.filter((item) => item.card === spec.card) }))
+    .filter((group) => group.items.length)
+  const preferred = cardGroups.find((group) => group.items.some((item) => item.used > 0))?.spec.card
+    ?? cardGroups[0]?.spec.card ?? ''
+  const currentCard = cardGroups.some((group) => group.spec.card === selectedCard) ? selectedCard : preferred
+  const current = cardGroups.find((group) => group.spec.card === currentCard)
+  const missedTotal = missed.reduce((sum, item) => sum + item.discount, 0)
+  const pct = (rate: number) => `${Math.round(rate * 100)}%`
+
+  return (
+    <section className="benefit-board" aria-labelledby="home-card-benefit-title">
+      <div className="benefit-board-head">
+        <div>
+          <p className="benefit-eyebrow">{t('home_benefit_eyebrow')}</p>
+          <h2 id="home-card-benefit-title">{t('home_benefit_title')}</h2>
+        </div>
+        <button type="button" className="benefit-more" onClick={onOpenInsights}>{t('home_benefit_more')} <span aria-hidden>→</span></button>
+      </div>
+
+      {missedTotal > 0 && (
+        <p className="benefit-missed"><Sparkles size={14} aria-hidden />{t('home_benefit_missed', { amt: formatMoney(missedTotal) })}</p>
+      )}
+
+      {current ? (
+        <div className="benefit-wallet">
+          <div className="benefit-card-tabs" role="tablist" aria-label={t('home_benefit_cards')}>
+            {cardGroups.map((group) => {
+              const isActive = group.spec.card === currentCard
+              const exhausted = group.items.every((item) => item.remaining <= 0)
+              return (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  className={isActive ? 'active' : undefined}
+                  key={group.spec.card}
+                  onClick={() => setSelectedCard(group.spec.card)}
+                >
+                  {group.spec.card.replace('카드', '')}
+                  {exhausted && <span aria-label={t('home_benefit_exhausted')}>✓</span>}
+                </button>
+              )
+            })}
+          </div>
+          <p className="benefit-estimate">{current.spec.sharedCap ? t('home_benefit_shared') : t('home_benefit_estimate')}</p>
+          <div className="benefit-balance-list" role="tabpanel">
+            {current.items.map((item) => {
+              const progress = item.cap ? Math.min(100, (item.used / item.cap) * 100) : 0
+              return (
+                <article className={`benefit-balance${item.locked ? ' locked' : ''}`} key={`${item.card}/${item.area}`}>
+                  <div className="benefit-balance-head">
+                    <p><strong>{item.area}</strong><span>{pct(item.rate)}</span></p>
+                    <b>{item.locked ? t('playbook_locked') : t('home_benefit_remaining', { amt: formatMoney(item.remaining) })}</b>
+                  </div>
+                  <div className="benefit-progress" aria-label={t('home_benefit_progress', { used: formatMoney(item.used), cap: formatMoney(item.cap) })}>
+                    <span style={{ width: `${progress}%` }} />
+                  </div>
+                  <div className="benefit-balance-meta">
+                    <span>{item.locked ? t('unused_locked', { gap: formatMoney(item.lockGap) }) : t('home_benefit_used', { used: formatMoney(item.used), cap: formatMoney(item.cap) })}</span>
+                    <span>{item.keywords.slice(0, 3).join(' · ')}</span>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        </div>
+      ) : (
+        <p className="benefit-empty">{t('home_benefit_empty')}</p>
+      )}
+
+      <div className="perf-nudge">
+        <p className="perf-nudge-title">{t('home_perf_title')} <span>{monthKey}</span></p>
+        {perfRows.map((r) => (
+          <div className="pn-row" key={r.name}>
+            <span className="pn-name"><CreditCard size={13} aria-hidden />{r.name}</span>
+            {r.familyPooled ? (
+              <span className="pn-family">{t('home_perf_family')}</span>
+            ) : (
+              <>
+                <span className="pn-amt">{formatMoney(r.qualified)}</span>
+                {r.st?.next
+                  ? <span className="pn-goal">{r.st.next.cap > 0
+                    ? t('perf_gap', { gap: formatMoney(r.st.next.gap), cap: formatMoney(r.st.next.cap) })
+                    : t('perf_gap_unlock', { gap: formatMoney(r.st.next.gap) })}</span>
+                  : r.st ? <span className="pn-done">{r.st.cap > 0 ? t('perf_max', { cap: formatMoney(r.st.cap) }) : t('perf_met')}</span> : null}
+              </>
+            )}
+          </div>
+        ))}
+      </div>
     </section>
   )
 }
@@ -1515,6 +1625,19 @@ function FixedView({ monthKey }: { monthKey: string }) {
 
   const [view, setView] = useState<'expense' | 'income'>('expense')
 
+  useEffect(() => {
+    let active = true
+    loadFixedDefs()
+      .then((next) => {
+        if (!active) return
+        setDefs(next)
+        try { window.localStorage.setItem(FIXED_DEFS_CACHE_KEY, JSON.stringify(next)) } catch { /* 용량 초과 등은 무시 */ }
+      })
+      .catch(() => { /* 오프라인이면 캐시 유지 */ })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [])
+
   const applyDefs = (next: FixedDef[]) => {
     setDefs(next)
     try { window.localStorage.setItem(FIXED_DEFS_CACHE_KEY, JSON.stringify(next)) } catch { /* 용량 초과 등은 무시 */ }
@@ -1525,7 +1648,6 @@ function FixedView({ monthKey }: { monthKey: string }) {
       .catch(() => { /* 오프라인이면 캐시 유지 */ })
       .finally(() => setLoading(false))
   }
-  useEffect(() => { reload() }, [])
 
   const shown = defs.filter((d) => (d.kind || 'expense') === view)
   const activeTotal = shown.filter((d) => d.active).reduce((s, d) => s + d.amount, 0)
@@ -2009,7 +2131,7 @@ function usePersistentStore() {
   useEffect(() => {
     storeRef.current = store
   })
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(() => getSyncConfig() ? 'syncing' : 'idle')
   const updatedAtRef = useRef<string>(
     window.localStorage.getItem(UPDATED_AT_KEY) || new Date(0).toISOString(),
   )
@@ -2031,7 +2153,6 @@ function usePersistentStore() {
   useEffect(() => {
     if (!getSyncConfig()) return
     let cancelled = false
-    setSyncStatus('syncing')
     loadFromServer<FinanceStore>()
       .then((remote) => {
         if (cancelled) return
@@ -2059,7 +2180,6 @@ function usePersistentStore() {
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // 변경 시 localStorage 저장 + debounce push
