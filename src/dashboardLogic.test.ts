@@ -568,6 +568,18 @@ describe('unusedBenefits 한도 종류', () => {
     expect(rows[0].uses).toEqual([expect.objectContaining({ memo: '넷플릭스', discount: 13500, area: '영상 스트리밍' })])
   })
 
+  it('하나 간편결제는 건당 1만원 이상만 통합 한도를 쓴다', () => {
+    const hana = CARD_SPECS.filter((s) => s.card === '하나카드')
+    const rows = benefitBalances([
+      tx('2026-07-10', '전월', 1200000, '하나카드'),
+      tx('2026-08-05', '네이버페이 온라인결제', 20000, '하나카드'),
+      tx('2026-08-06', '카카오페이 소액결제', 9000, '하나카드'),
+    ], '2026-08', hana)
+    expect(rows[0].used).toBe(2000)
+    expect(rows[0].remaining).toBe(58000)
+    expect(rows[0].uses).toEqual([expect.objectContaining({ area: '간편결제', discount: 2000 })])
+  })
+
   it('통합 한도 카드가 잠겨도 최저 구간 한도와 실적 부족액을 보여준다', () => {
     const hana = CARD_SPECS.filter((s) => s.card === '하나카드')
     const rows = benefitBalances([], '2026-08', hana)

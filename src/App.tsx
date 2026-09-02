@@ -427,7 +427,7 @@ function App() {
         <button
           className="icon-button"
           type="button"
-          onClick={() => { syncNow(); refreshHistory() }}
+          onClick={() => { syncNow(); refreshHistory(); void refreshServiceWorker() }}
           aria-label={t('btn_sync')}
           title={
             syncStatus === 'syncing' ? t('sync_syncing') :
@@ -999,7 +999,7 @@ function CardBenefitOverview({ rows, monthKey, perfRows, onOpenInsights, ledgerS
               return (
                 <article className={`benefit-balance${item.locked ? ' locked' : ''}`} key={`${item.card}/${item.area}`}>
                   <div className="benefit-balance-head">
-                    <p><strong>{item.area}</strong><span>{pct(item.rate)}</span></p>
+                    <p><strong>{item.area}</strong><span>{current.spec.sharedCap ? t('home_benefit_shared_cap') : pct(item.rate)}</span></p>
                     <b>{item.locked ? t('playbook_locked') : t('home_benefit_remaining', { amt: formatMoney(item.remaining) })}</b>
                   </div>
                   <div className="benefit-progress" aria-label={t('home_benefit_progress', { used: formatMoney(item.used), cap: formatMoney(item.cap) })}>
@@ -1009,6 +1009,16 @@ function CardBenefitOverview({ rows, monthKey, perfRows, onOpenInsights, ledgerS
                     <span>{item.locked ? t('unused_locked', { gap: formatMoney(item.lockGap) }) : t('home_benefit_used', { used: formatMoney(item.used), cap: formatMoney(item.cap) })}</span>
                     <span>{item.keywords.slice(0, 3).join(' · ')}</span>
                   </div>
+                  {current.spec.sharedCap && (
+                    <div className="benefit-shared-areas">
+                      {current.spec.benefits.map((benefit) => (
+                        <div key={benefit.area}>
+                          <span><strong>{benefit.area}</strong> {pct(benefit.rate)}</span>
+                          <small>{benefit.minAmount ? t('home_benefit_minimum', { amt: formatMoney(benefit.minAmount) }) : benefit.note}</small>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {item.uses.length > 0 && (
                     <div className="benefit-use-list">
                       {item.uses.map((use, i) => (
@@ -2152,6 +2162,12 @@ function readLedgerCache(): Transaction[] {
   } catch {
     return []
   }
+}
+
+async function refreshServiceWorker() {
+  if (!('serviceWorker' in navigator)) return
+  const registration = await navigator.serviceWorker.getRegistration().catch(() => undefined)
+  await registration?.update().catch(() => undefined)
 }
 
 function useLedgerHistory(): [Transaction[], () => void, LedgerLoadStatus] {

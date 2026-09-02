@@ -442,13 +442,16 @@ export const CARD_SPECS: CardSpec[] = [
     card: '하나카드', owned: true, annualFee: 17000, sharedCap: true,
     tiers: [{ min: 300000, cap: 15000 }, { min: 600000, cap: 30000 }, { min: 1000000, cap: 60000 }],
     benefits: [
+      { area: '간편결제', rate: 0.1, cap: 0,
+        keywords: ['네이버페이', '카카오페이', '토스페이', 'SSG페이', '11pay', '스마일페이'], minAmount: 10000,
+        note: '건당 1만원 이상. 원장 메모에 간편결제명이 남은 거래만 자동 확인할 수 있다.' },
       { area: '영상 스트리밍', rate: 0.5, cap: 0, keywords: ['유튜브', '디즈니', 'Wavve', '웨이브', '넷플릭스', '티빙'],
         note: '월 정기결제 건만. 간편결제·인앱결제로 내면 할인 없음 - 카드를 직접 등록해야 한다.' },
       { area: '디지털 멤버십', rate: 0.5, cap: 0, keywords: ['네이버플러스', '컬리멤버', '쿠팡 와우', '쿠팡와우'],
         note: '월 정기결제 건만. 연 정기결제는 1회만 제공.' },
     ],
     notes: [
-      '간편결제 10%(네이버페이·카카오페이·토스페이·SSG페이·11pay·스마일페이, 건당 1만원↑) - 결제수단이라 내역만으로는 판별이 안 돼 놓친혜택 계산에서 뺐다.',
+      '간편결제 10%는 원장 메모에 네이버페이·카카오페이·토스페이·SSG페이·11pay·스마일페이가 남은 거래만 자동 계산한다.',
       '할인 대상이 겹치면 할인액이 큰 것 하나만 적용된다(매출 건당 1개).',
       '무이자·부분무이자 할부는 할인 대상에서 전액 제외(단, 실적에는 포함).',
     ],
@@ -718,7 +721,7 @@ export function benefitBalances(
         uses.push({ date: t.date, memo: t.memo || '', amount: t.amount, discount, area: b.area })
         used += discount
       }
-      out.push({ card: spec.card, area: spec.benefits.map((b) => b.area).join(' · '),
+      out.push({ card: spec.card, area: '통합 할인',
         rate: Math.max(...spec.benefits.map((b) => b.rate)), cap: tierCap, used, remaining: tierCap - used,
         keywords: spec.benefits.flatMap((b) => b.keywords), uses, locked: isLocked, lockGap })
       continue
