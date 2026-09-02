@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f7f7f5" />
+    <title>가계부 업데이트</title>
+    <style>
+      :root { font-family: -apple-system, BlinkMacSystemFont, "Noto Sans KR", sans-serif; color: #14201a; background: #f7f7f5; }
+      * { box-sizing: border-box; }
+      body { display: grid; min-height: 100svh; margin: 0; padding: 24px; place-items: center; }
+      main { width: min(100%, 390px); padding: 28px; border: 1px solid rgba(20,32,26,.11); border-radius: 20px; background: #fff; box-shadow: 0 8px 28px rgba(20,32,26,.08); }
+      .mark { display: grid; width: 48px; height: 48px; margin-bottom: 20px; border-radius: 14px; background: #1f6f4a; color: #fff; font-size: 24px; place-items: center; }
+      h1 { margin: 0; font-size: 24px; letter-spacing: -.04em; }
+      p { margin: 10px 0 0; color: #5c6862; font-size: 15px; line-height: 1.6; }
+      .track { overflow: hidden; height: 6px; margin-top: 24px; border-radius: 999px; background: rgba(31,111,74,.1); }
+      .track::after { display: block; width: 45%; height: 100%; border-radius: inherit; background: #1f6f4a; animation: move 1s ease-in-out infinite alternate; content: ""; }
+      button { width: 100%; margin-top: 20px; padding: 12px; border: 0; border-radius: 10px; background: #1f6f4a; color: #fff; font: inherit; font-weight: 700; }
+      [hidden] { display: none; }
+      @keyframes move { to { transform: translateX(122%); } }
+      @media (prefers-reduced-motion: reduce) { .track::after { animation: none; width: 100%; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="mark" aria-hidden="true">↻</div>
+      <h1>최신 가계부로 바꾸는 중</h1>
+      <p id="status">저장한 원장 데이터는 그대로 두고, 이전 화면 파일만 정리합니다.</p>
+      <div class="track" id="track" aria-hidden="true"></div>
+      <button id="retry" type="button" hidden>다시 시도</button>
+    </main>
+    <script>
+      const status = document.getElementById('status');
+      const retry = document.getElementById('retry');
+      const track = document.getElementById('track');
+
+      async function updateApp() {
+        retry.hidden = true;
+        track.hidden = false;
+        try {
+          if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map((registration) => registration.unregister()));
+          }
+          if ('caches' in window) {
+            const names = await caches.keys();
+            await Promise.all(names.map((name) => caches.delete(name)));
+          }
+          status.textContent = '업데이트 완료. 최신 홈을 엽니다.';
+          window.setTimeout(() => window.location.replace('/?updated=' + Date.now()), 350);
+        } catch {
+          status.textContent = '화면 파일을 정리하지 못했습니다. 다시 시도해 주세요.';
+          track.hidden = true;
+          retry.hidden = false;
+        }
+      }
+
+      retry.addEventListener('click', updateApp);
+      updateApp();
+    </script>
+  </body>
+</html>
