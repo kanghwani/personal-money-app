@@ -646,10 +646,15 @@ export function installmentCharges(defs: FixedDef[]): (SplitTxLike & { payment?:
   return out
 }
 
+export type BenefitUse = {
+  date: string; memo: string; amount: number; discount: number; area: string
+}
+
 export type UnusedBenefit = {
   card: string; area: string; rate: number
   cap: number; used: number; remaining: number
   minAmount?: number; keywords: string[]; note?: string
+  uses: BenefitUse[]
   locked: boolean          // 전월 실적 미달이라 이번 달엔 아예 못 받는 상태
   lockGap: number          // locked일 때 이번 달에 얼마를 더 써야 다음 달이 열리는지
 }
@@ -683,34 +688,48 @@ export function benefitBalances(
           : tierStatus(prevQ, spec.tiers).cap)
       : 0
     const isLocked = locked && !unknown
-    const usedOf = (b: BenefitArea, cap: number) => {
-      if (isLocked) return 0
-      let u = 0
-      for (const t of rows) {
+    const usageOf = (b: BenefitArea, cap: number) => {
+      if (isLocked) return { used: 0, uses: [] as BenefitUse[] }
+      let used = 0
+      const uses: BenefitUse[] = []
+      for (const t of [...rows].sort((a, b) => a.date.localeCompare(b.date))) {
         if ((t.payment || '').trim() !== spec.card) continue
         if (isExcluded(t.memo || '', spec.card)) continue
         if (b.minAmount && t.amount < b.minAmount) continue
         if (!b.keywords.some((k) => (t.memo || '').includes(k))) continue
-        u = Math.min(cap, u + Math.round(t.amount * b.rate))
+        const discount = Math.min(Math.round(t.amount * b.rate), cap - used)
+        if (discount <= 0) continue
+        uses.push({ date: t.date, memo: t.memo || '', amount: t.amount, discount, area: b.area })
+        used += discount
       }
-      return u
+      return { used, uses }
     }
     if (spec.sharedCap) {
       // 통합 한도 카드는 영역이 한 주머니를 나눠 쓴다. 영역별로 나눠 보여주면 한도가 몇 배로 부풀어 보인다.
       if (tierCap <= 0) continue
-      const used = Math.min(tierCap, spec.benefits.reduce((sum, b) => sum + usedOf(b, tierCap), 0))
+      let used = 0
+      const uses: BenefitUse[] = []
+      if (!isLocked) for (const t of [...rows].sort((a, b) => a.date.localeCompare(b.date))) {
+        if ((t.payment || '').trim() !== spec.card) continue
+        const b = matchArea(t.memo || '', t.amount, spec)
+        if (!b) continue
+        const discount = Math.min(Math.round(t.amount * b.rate), tierCap - used)
+        if (discount <= 0) continue
+        uses.push({ date: t.date, memo: t.memo || '', amount: t.amount, discount, area: b.area })
+        used += discount
+      }
       out.push({ card: spec.card, area: spec.benefits.map((b) => b.area).join(' · '),
         rate: Math.max(...spec.benefits.map((b) => b.rate)), cap: tierCap, used, remaining: tierCap - used,
-        keywords: spec.benefits.flatMap((b) => b.keywords), locked: isLocked, lockGap })
+        keywords: spec.benefits.flatMap((b) => b.keywords), uses, locked: isLocked, lockGap })
       continue
     }
     for (const b of spec.benefits) {
       const cap = b.cap > 0 ? b.cap : tierCap
       if (cap <= 0) continue
-      const used = usedOf(b, cap)
+      const { used, uses } = usageOf(b, cap)
       const remaining = cap - used
       out.push({ card: spec.card, area: b.area, rate: b.rate, cap, used, remaining,
-        minAmount: b.minAmount, keywords: b.keywords, note: b.note, locked: isLocked, lockGap })
+        minAmount: b.minAmount, keywords: b.keywords, note: b.note, uses, locked: isLocked, lockGap })
     }
   }
   return out

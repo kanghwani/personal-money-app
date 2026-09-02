@@ -510,6 +510,7 @@ describe('unusedBenefits', () => {
     const coffee = rows.find((r) => r.area === '커피')!
     expect(coffee.used).toBe(6000)          // 12,000 × 50%
     expect(coffee.remaining).toBe(4000)
+    expect(coffee.uses).toEqual([expect.objectContaining({ date: '2026-08-05', memo: '스타벅스', amount: 12000, discount: 6000 })])
   })
 
   it('다른 카드로 쓴 건 그 카드 한도를 깎지 않는다', () => {
@@ -564,6 +565,7 @@ describe('unusedBenefits 한도 종류', () => {
     expect(rows[0].cap).toBe(60000)
     expect(rows[0].used).toBe(13500)
     expect(rows[0].remaining).toBe(46500)
+    expect(rows[0].uses).toEqual([expect.objectContaining({ memo: '넷플릭스', discount: 13500, area: '영상 스트리밍' })])
   })
 
   it('통합 한도 카드가 잠겨도 최저 구간 한도와 실적 부족액을 보여준다', () => {

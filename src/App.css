@@ -1111,6 +1111,7 @@
 .benefit-basis > b { flex: 0 0 auto; padding: 4px 7px; border-radius: var(--r-pill); font-size: 10px; }
 .benefit-basis > b.available { background: var(--green-soft); color: var(--green); }
 .benefit-basis > b.locked { background: var(--amber-soft); color: var(--amber); }
+.benefit-basis > b.checking { background: var(--blue-soft); color: var(--blue); }
 .benefit-estimate { margin: 0; padding: 0 18px 10px; color: var(--muted); font-size: 10.5px; font-weight: 700; }
 .benefit-balance-list { border-top: 1px solid var(--line); }
 .benefit-balance { padding: 11px 18px 10px; }
@@ -1125,6 +1126,13 @@
 .benefit-progress span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
 .benefit-balance-meta { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 10.5px; font-weight: 700; }
 .benefit-balance-meta span:last-child { overflow: hidden; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.benefit-use-list {
+  display: flex; flex-direction: column; gap: 5px; margin-top: 8px; padding-top: 7px;
+  border-top: 1px dashed var(--line);
+}
+.benefit-use-list div { display: flex; justify-content: space-between; gap: 10px; font-size: 10.5px; }
+.benefit-use-list span { overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+.benefit-use-list b { flex: 0 0 auto; color: var(--accent); font-variant-numeric: tabular-nums; }
 .benefit-empty { margin: 0; padding: 16px 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; line-height: 1.55; }
 
 /* 메인: 다음 달 혜택을 여는 카드 실적 */

@@ -84,6 +84,7 @@ import './App.css'
 type Tab = 'dashboard' | 'ledger' | 'assets' | 'insights' | 'fixed'
 type TransactionType = 'expense' | 'income'
 type FixedType = 'fixed' | 'variable'
+type LedgerLoadStatus = 'loading' | 'ready' | 'error'
 
 type Transaction = {
   id: string
@@ -207,7 +208,7 @@ function App() {
     const isDismissed = window.localStorage.getItem('shiba-pwa-dismissed') === 'true'
     return !!(isIos && !isStandalone && !isDismissed)
   })
-  const [history, refreshHistory] = useLedgerHistory()
+  const [history, refreshHistory, ledgerStatus] = useLedgerHistory()
   const mergedTransactions = useMemo(
     () =>
       dedupById(history, store.transactions).sort((a, b) =>
@@ -426,7 +427,7 @@ function App() {
         <button
           className="icon-button"
           type="button"
-          onClick={syncNow}
+          onClick={() => { syncNow(); refreshHistory() }}
           aria-label={t('btn_sync')}
           title={
             syncStatus === 'syncing' ? t('sync_syncing') :
@@ -501,6 +502,7 @@ function App() {
             onAssign={assignCategoryFor}
             onEdit={editTransaction}
             onOpenInsights={() => setActiveTab('insights')}
+            ledgerStatus={ledgerStatus}
           />
         </>
       )}
@@ -810,19 +812,41 @@ function CategoryDetailSheet({ category, transactions, categoryOptions, onAssign
   )
 }
 
-function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit, onOpenInsights }: {
+function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit, onOpenInsights, ledgerStatus }: {
   summary: Summary
   transactions: Transaction[]
   categoryOptions: { category: string; subCategory: string }[]
   onAssign: (id: string, category: string, subCategory: string, memo: string) => void
   onEdit: (updated: Transaction) => void
   onOpenInsights: () => void
+  ledgerStatus: LedgerLoadStatus
 }) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [fixedDefs, setFixedDefs] = useState<FixedDef[]>(() => readFixedDefsCache())
+  const [fixedDefsStatus, setFixedDefsStatus] = useState<LedgerLoadStatus>(() => readFixedDefsCache().length ? 'ready' : 'loading')
+
+  useEffect(() => {
+    let cancelled = false
+    loadFixedDefs()
+      .then((next) => {
+        if (cancelled) return
+        setFixedDefs(next)
+        cacheFixedDefs(next)
+        setFixedDefsStatus('ready')
+      })
+      .catch(() => {
+        if (!cancelled) setFixedDefsStatus(readFixedDefsCache().length ? 'ready' : 'error')
+      })
+    return () => { cancelled = true }
+  }, [])
+
   const cardRows = useMemo(() => {
     // 할부는 결제한 달에 총액이 실적으로 잡힌다 - 인사이트 탭과 같은 기준으로 맞춘다.
-    return [...transactions, ...installmentCharges(readFixedDefsCache())]
-  }, [transactions])
+    return [...transactions, ...installmentCharges(fixedDefs)]
+  }, [transactions, fixedDefs])
+  const benefitDataStatus: LedgerLoadStatus = ledgerStatus === 'error' || fixedDefsStatus === 'error'
+    ? 'error'
+    : ledgerStatus === 'loading' || fixedDefsStatus === 'loading' ? 'loading' : 'ready'
   // 실적 구간이 있는 카드만 보여준다. 삼성 마일리지 카드는 실적 조건이 없어 0원 행이 오히려 혼란스럽다.
   const perfRows = useMemo(() => {
     const perf = cardPerformance(cardRows as never, summary.monthKey)
@@ -845,6 +869,7 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit, o
         monthKey={summary.monthKey}
         perfRows={perfRows}
         onOpenInsights={onOpenInsights}
+        ledgerStatus={benefitDataStatus}
       />
 
       <article className="ring-card">
@@ -893,11 +918,12 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit, o
   )
 }
 
-function CardBenefitOverview({ rows, monthKey, perfRows, onOpenInsights }: {
+function CardBenefitOverview({ rows, monthKey, perfRows, onOpenInsights, ledgerStatus }: {
   rows: (SplitTxLike & { payment?: string })[]
   monthKey: string
   perfRows: { name: string; qualified: number; st: ReturnType<typeof tierStatus> | null; familyPooled: boolean }[]
   onOpenInsights: () => void
+  ledgerStatus: LedgerLoadStatus
 }) {
   const [selectedCard, setSelectedCard] = useState('')
   const basisMonth = previousMonthKey(monthKey)
@@ -912,6 +938,7 @@ function CardBenefitOverview({ rows, monthKey, perfRows, onOpenInsights }: {
   const currentCard = cardGroups.some((group) => group.spec.card === selectedCard) ? selectedCard : preferred
   const current = cardGroups.find((group) => group.spec.card === currentCard)
   const currentLocked = current?.items.some((item) => item.locked) ?? false
+  const currentChecking = !current?.spec.familyPooled && ledgerStatus !== 'ready'
   const currentBasisAmount = basisPerf.find((item) => item.name === currentCard)?.qualified ?? 0
   const missedTotal = missed.reduce((sum, item) => sum + item.discount, 0)
   const pct = (rate: number) => `${Math.round(rate * 100)}%`
@@ -956,10 +983,13 @@ function CardBenefitOverview({ rows, monthKey, perfRows, onOpenInsights }: {
               <strong>{t('home_benefit_basis', { month: monthKey, prev: basisMonth })}</strong>
               <span>{current.spec.familyPooled
                 ? t('home_perf_family')
+                : ledgerStatus === 'loading' ? t('home_benefit_loading')
+                : ledgerStatus === 'error' ? t('home_benefit_load_error')
                 : t('home_benefit_prev_perf', { month: basisMonth, amt: formatMoney(currentBasisAmount) })}</span>
             </div>
-            <b className={currentLocked ? 'locked' : 'available'}>
-              {currentLocked ? t('home_benefit_unavailable') : t('home_benefit_available')}
+            <b className={currentChecking ? 'checking' : currentLocked ? 'locked' : 'available'}>
+              {currentChecking ? t('home_benefit_checking')
+                : currentLocked ? t('home_benefit_unavailable') : t('home_benefit_available')}
             </b>
           </div>
           <p className="benefit-estimate">{current.spec.sharedCap ? t('home_benefit_shared') : t('home_benefit_estimate')}</p>
@@ -979,6 +1009,16 @@ function CardBenefitOverview({ rows, monthKey, perfRows, onOpenInsights }: {
                     <span>{item.locked ? t('unused_locked', { gap: formatMoney(item.lockGap) }) : t('home_benefit_used', { used: formatMoney(item.used), cap: formatMoney(item.cap) })}</span>
                     <span>{item.keywords.slice(0, 3).join(' · ')}</span>
                   </div>
+                  {item.uses.length > 0 && (
+                    <div className="benefit-use-list">
+                      {item.uses.map((use, i) => (
+                        <div key={`${use.date}/${use.memo}/${i}`}>
+                          <span>{use.date.slice(5)} · {use.memo}{current.spec.sharedCap ? ` · ${use.area}` : ''}</span>
+                          <b>{t('home_benefit_use_gain', { amt: formatMoney(use.discount) })}</b>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </article>
               )
             })}
@@ -1631,6 +1671,10 @@ function readFixedDefsCache(): FixedDef[] {
   }
 }
 
+function cacheFixedDefs(defs: FixedDef[]) {
+  try { window.localStorage.setItem(FIXED_DEFS_CACHE_KEY, JSON.stringify(defs)) } catch { /* 용량 초과 등은 무시 */ }
+}
+
 function FixedView({ monthKey }: { monthKey: string }) {
   // 캐시된 값으로 즉시 렌더(stale) → 백그라운드에서 서버 갱신(revalidate)
   const [defs, setDefs] = useState<FixedDef[]>(() => readFixedDefsCache())
@@ -1647,7 +1691,7 @@ function FixedView({ monthKey }: { monthKey: string }) {
       .then((next) => {
         if (!active) return
         setDefs(next)
-        try { window.localStorage.setItem(FIXED_DEFS_CACHE_KEY, JSON.stringify(next)) } catch { /* 용량 초과 등은 무시 */ }
+        cacheFixedDefs(next)
       })
       .catch(() => { /* 오프라인이면 캐시 유지 */ })
       .finally(() => { if (active) setLoading(false) })
@@ -1656,7 +1700,7 @@ function FixedView({ monthKey }: { monthKey: string }) {
 
   const applyDefs = (next: FixedDef[]) => {
     setDefs(next)
-    try { window.localStorage.setItem(FIXED_DEFS_CACHE_KEY, JSON.stringify(next)) } catch { /* 용량 초과 등은 무시 */ }
+    cacheFixedDefs(next)
   }
   const reload = () => {
     loadFixedDefs()
@@ -2110,10 +2154,11 @@ function readLedgerCache(): Transaction[] {
   }
 }
 
-function useLedgerHistory(): [Transaction[], () => void] {
+function useLedgerHistory(): [Transaction[], () => void, LedgerLoadStatus] {
   // 캐시된 원장으로 즉시 렌더(stale) → 백그라운드에서 서버 갱신(revalidate)
   const [history, setHistory] = useState<Transaction[]>(() => readLedgerCache())
   const [nonce, setNonce] = useState(0)
+  const [status, setStatus] = useState<LedgerLoadStatus>(() => readLedgerCache().length ? 'ready' : 'loading')
   useEffect(() => {
     if (!getSyncConfig()) return
     let cancelled = false
@@ -2121,12 +2166,14 @@ function useLedgerHistory(): [Transaction[], () => void] {
       .then((rows) => {
         if (cancelled) return
         setHistory(rows)
+        setStatus('ready')
         try { window.localStorage.setItem(LEDGER_CACHE_KEY, JSON.stringify(rows)) } catch { /* 용량 초과 등은 무시 */ }
       })
-      .catch(() => { /* 오프라인이면 캐시 유지 */ })
+      .catch(() => { if (!cancelled) setStatus('error') })
     return () => { cancelled = true }
   }, [nonce])
-  return [history, () => setNonce((n) => n + 1)]
+  const refresh = () => { setStatus('loading'); setNonce((n) => n + 1) }
+  return [history, refresh, status]
 }
 
 function usePersistentStore() {
