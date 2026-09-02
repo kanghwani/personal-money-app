@@ -1100,6 +1100,17 @@
 }
 .benefit-card-tabs button.active { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
 .benefit-card-tabs button span { font-size: 10px; }
+.benefit-basis {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin: 3px 18px 9px; padding: 9px 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--accent-soft);
+}
+.benefit-basis div { min-width: 0; }
+.benefit-basis strong, .benefit-basis span { display: block; }
+.benefit-basis strong { color: var(--ink); font-size: 11.5px; }
+.benefit-basis span { margin-top: 2px; color: var(--muted); font-size: 10.5px; font-weight: 700; }
+.benefit-basis > b { flex: 0 0 auto; padding: 4px 7px; border-radius: var(--r-pill); font-size: 10px; }
+.benefit-basis > b.available { background: var(--green-soft); color: var(--green); }
+.benefit-basis > b.locked { background: var(--amber-soft); color: var(--amber); }
 .benefit-estimate { margin: 0; padding: 0 18px 10px; color: var(--muted); font-size: 10.5px; font-weight: 700; }
 .benefit-balance-list { border-top: 1px solid var(--line); }
 .benefit-balance { padding: 11px 18px 10px; }
@@ -1133,6 +1144,7 @@
   .benefit-board-head { padding: 15px 14px 12px; }
   .benefit-missed { margin-inline: 14px; }
   .benefit-card-tabs { padding-inline: 14px; }
+  .benefit-basis { margin-inline: 14px; }
   .benefit-estimate, .benefit-balance { padding-inline: 14px; }
   .perf-nudge { padding-inline: 14px; }
   .pn-row { flex-wrap: wrap; gap: 4px 7px; }

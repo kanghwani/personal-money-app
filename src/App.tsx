@@ -65,6 +65,7 @@ import {
   type CardSpec,
   unusedBenefits,
   benefitBalances,
+  previousMonthKey,
   paymentPlaybook,
   isSaving,
   isLoanRepay,
@@ -899,7 +900,9 @@ function CardBenefitOverview({ rows, monthKey, perfRows, onOpenInsights }: {
   onOpenInsights: () => void
 }) {
   const [selectedCard, setSelectedCard] = useState('')
+  const basisMonth = previousMonthKey(monthKey)
   const balances = useMemo(() => benefitBalances(rows as never, monthKey), [rows, monthKey])
+  const basisPerf = useMemo(() => cardPerformance(rows as never, basisMonth), [rows, basisMonth])
   const missed = useMemo(() => missedBenefits(rows as never, monthKey), [rows, monthKey])
   const cardGroups = CARD_SPECS.filter((spec) => spec.owned && spec.benefits.length)
     .map((spec) => ({ spec, items: balances.filter((item) => item.card === spec.card) }))
@@ -908,6 +911,8 @@ function CardBenefitOverview({ rows, monthKey, perfRows, onOpenInsights }: {
     ?? cardGroups[0]?.spec.card ?? ''
   const currentCard = cardGroups.some((group) => group.spec.card === selectedCard) ? selectedCard : preferred
   const current = cardGroups.find((group) => group.spec.card === currentCard)
+  const currentLocked = current?.items.some((item) => item.locked) ?? false
+  const currentBasisAmount = basisPerf.find((item) => item.name === currentCard)?.qualified ?? 0
   const missedTotal = missed.reduce((sum, item) => sum + item.discount, 0)
   const pct = (rate: number) => `${Math.round(rate * 100)}%`
 
@@ -945,6 +950,17 @@ function CardBenefitOverview({ rows, monthKey, perfRows, onOpenInsights }: {
                 </button>
               )
             })}
+          </div>
+          <div className="benefit-basis">
+            <div>
+              <strong>{t('home_benefit_basis', { month: monthKey, prev: basisMonth })}</strong>
+              <span>{current.spec.familyPooled
+                ? t('home_perf_family')
+                : t('home_benefit_prev_perf', { month: basisMonth, amt: formatMoney(currentBasisAmount) })}</span>
+            </div>
+            <b className={currentLocked ? 'locked' : 'available'}>
+              {currentLocked ? t('home_benefit_unavailable') : t('home_benefit_available')}
+            </b>
           </div>
           <p className="benefit-estimate">{current.spec.sharedCap ? t('home_benefit_shared') : t('home_benefit_estimate')}</p>
           <div className="benefit-balance-list" role="tabpanel">

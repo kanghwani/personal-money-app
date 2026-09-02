@@ -555,6 +555,12 @@ export type BenefitHit = {
   usedCard: string; bestCard: string; area: string; rate: number; discount: number
 }
 
+/** 혜택 한도를 결정하는 전월(YYYY-MM). 1월이면 전년 12월로 넘긴다. */
+export function previousMonthKey(yearMonth: string): string {
+  const [y, m] = yearMonth.split('-').map(Number)
+  return `${m === 1 ? y - 1 : y}-${String(m === 1 ? 12 : m - 1).padStart(2, '0')}`
+}
+
 /** 결제 한 건이 이 카드의 어느 혜택 영역에 걸리는지. 안 걸리면 null. */
 function matchArea(memo: string, amount: number, spec: CardSpec): BenefitArea | null {
   // 상품권·선불카드 충전처럼 실적/할인 공통 제외인 거래는 가맹점명이 혜택 키워드와 같아도 제외한다.
@@ -581,8 +587,7 @@ export function missedBenefits(
   assumeQualified = false,   // true면 모든 카드가 최고 구간을 채운 셈 치고 '받을 수 있었던 최대'를 낸다
 ): BenefitHit[] {
   // 할인한도는 '전월' 실적으로 정해진다(약관 공통). 이번 달 실적을 쓰면 월초엔 늘 0이 된다.
-  const [y, m] = yearMonth.split('-').map(Number)
-  const prevMonth = `${m === 1 ? y - 1 : y}-${String(m === 1 ? 12 : m - 1).padStart(2, '0')}`
+  const prevMonth = previousMonthKey(yearMonth)
   const perf = new Map(cardPerformance(transactions, prevMonth).map((c) => [c.name, c.qualified]))
   const capOf = (spec: CardSpec, b: BenefitArea) => {
     // 미보유 후보 카드는 이력이 없다. "그 카드가 있고 실적을 채웠다면"을 보려는 것이라 최고 구간으로 본다.
@@ -658,8 +663,7 @@ export function benefitBalances(
   yearMonth: string,
   specs: CardSpec[] = CARD_SPECS.filter((s) => s.owned),
 ): UnusedBenefit[] {
-  const [y, m] = yearMonth.split('-').map(Number)
-  const prevMonth = `${m === 1 ? y - 1 : y}-${String(m === 1 ? 12 : m - 1).padStart(2, '0')}`
+  const prevMonth = previousMonthKey(yearMonth)
   const prevPerf = new Map(cardPerformance(transactions, prevMonth).map((c) => [c.name, c.qualified]))
   const thisPerf = new Map(cardPerformance(transactions, yearMonth).map((c) => [c.name, c.qualified]))
   const rows = transactions.filter((t) => t.type === 'expense' && t.date.slice(0, 7) === yearMonth)

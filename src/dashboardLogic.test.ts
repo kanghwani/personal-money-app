@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, benefitBalances, unusedBenefits, paymentPlaybook, isSaving, isLoanRepay, isNonSpend, isCardPayment, parseBankDeposits,
+  deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, benefitBalances, unusedBenefits, paymentPlaybook, previousMonthKey, isSaving, isLoanRepay, isNonSpend, isCardPayment, parseBankDeposits,
 } from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
@@ -542,6 +542,13 @@ describe('unusedBenefits', () => {
     expect(coffee.locked).toBe(true)
     expect(coffee.lockGap).toBe(180000)     // 30만 − 이번 달 12만
     expect(coffee.used).toBe(0)
+  })
+})
+
+describe('previousMonthKey', () => {
+  it('이번 달 혜택 기준월을 전월로 돌린다', () => {
+    expect(previousMonthKey('2026-09')).toBe('2026-08')
+    expect(previousMonthKey('2026-01')).toBe('2025-12')
   })
 })
 
