@@ -467,6 +467,10 @@ describe('installmentCharges', () => {
     expect(installmentCharges([def({ installmentTotal: null })])).toHaveLength(0)
   })
 
+  it('같은 할부의 비활성 이전 정의가 남아 있어도 한 번만 더한다', () => {
+    expect(installmentCharges([def({ id: 'old', active: false }), def({ id: 'new', active: true })])).toHaveLength(1)
+  })
+
   it('실적에 더하면 카드사 숫자에 가까워진다', () => {
     const tx = [{ id: 'a', date: '2026-08-05', memo: '일반결제', amount: 900000, payment: '하나카드', type: 'expense' as const, split: 0 }]
     const before = cardPerformance(tx, '2026-08')[0].qualified

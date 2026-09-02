@@ -638,8 +638,14 @@ export function missedBenefits(
  */
 export function installmentCharges(defs: FixedDef[]): (SplitTxLike & { payment?: string })[] {
   const out: (SplitTxLike & { payment?: string })[] = []
+  const seen = new Set<string>()
   for (const d of defs) {
     if (!d.installmentTotal || d.kind !== 'expense') continue
+    // 수정하면서 이전 정의를 비활성화하고 새 정의를 저장한 경우가 있다.
+    // 둘 다 과거 결제 기록으로는 필요하지만 같은 할부를 두 번 더하면 안 된다.
+    const key = [d.name.trim(), d.amount, d.payment.trim(), d.startMonth, d.installmentTotal].join('|')
+    if (seen.has(key)) continue
+    seen.add(key)
     const [y, m] = d.startMonth.split('-').map(Number)
     if (!y || !m) continue
     const paidMonth = `${m === 1 ? y - 1 : y}-${String(m === 1 ? 12 : m - 1).padStart(2, '0')}`
