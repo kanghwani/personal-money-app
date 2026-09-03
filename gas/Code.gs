@@ -841,6 +841,11 @@ function doPost(e) {
     if (!checkToken_(body.token)) return json_({ ok: false, error: 'unauthorized' });
     return json_(batchReclassify_(SpreadsheetApp.openById(SPREADSHEET_ID), body.items || []));
   }
+  // 건강 데이터 대량 적재(과거 내보내기 백필). 단축어는 GET(action=health), 스크립트는 POST.
+  if (body && body.action === 'health') {
+    if (!checkToken_(body.token)) return json_({ ok: false, error: 'unauthorized' });
+    return json_(healthAppend_(body.type, body.rows));
+  }
   if (body && body.action === 'appendLedger') {
     if (!checkToken_(body.token)) return json_({ ok: false, error: 'unauthorized' });
     return json_(appendLedgerRow_(SpreadsheetApp.openById(SPREADSHEET_ID), body.tx || {}));
