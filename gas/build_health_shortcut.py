@@ -48,8 +48,9 @@ def upload_block(health_type, sheet_type, days, group_by=None, props=('Start Dat
                 row(1001, 'Start Date', {'Number': str(days), 'Unit': 16}, True),   # 최근 N일 (NSCalendarUnitDay=16)
             ]}, 'WFSerializationType': 'WFContentPredicateTableTemplate'},
             WFContentItemSortProperty='Start Date', WFContentItemSortOrder='Latest First',
-            WFContentItemLimitEnabled=True, WFContentItemLimitNumber=200,   # 필터가 깨져도 전체 기록을 돌지 않게
-            **({'WFHKSampleFilteringGroupBy': group_by, 'WFHKSampleFilteringFillMissing': False} if group_by else {})),
+            # 제한은 그룹화 전(샘플 단위)에 걸려서, 하루 수백 샘플인 칼로리 같은 건 합계가 잘린다 → 일 그룹화 블록은 제한 없음
+            **({'WFHKSampleFilteringGroupBy': group_by, 'WFHKSampleFilteringFillMissing': False} if group_by
+               else {'WFContentItemLimitEnabled': True, 'WFContentItemLimitNumber': 200})),
         act('count', UUID=cnt, WFCountType='Items', Input=out_ref(find, 'Health Samples'), WFInput=out_ref(find, 'Health Samples')),
         act('repeat.each', GroupingIdentifier=loop, WFControlFlowMode=0, WFInput=out_ref(find, 'Health Samples')),
         act('gettext', UUID=U(), WFTextActionText=token_string(sum(
