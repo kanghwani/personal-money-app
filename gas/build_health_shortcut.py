@@ -37,7 +37,7 @@ def item_prop(prop, date_fmt=None):
 def act(ident, **params):
     return {'WFWorkflowActionIdentifier': f'is.workflow.actions.{ident}', 'WFWorkflowActionParameters': params}
 
-def upload_block(health_type, sheet_type, days):
+def upload_block(health_type, sheet_type, days, group_by=None, props=('Start Date', 'End Date', 'Value')):
     """Find Health Samples → 반복(시작|종료|값) → 결합 → URL인코딩 → GET. 마지막 액션 UUID 반환."""
     find, loop, end, comb, enc, get, cnt = U(), U(), U(), U(), U(), U(), U()
     row = lambda op, prop, values, removable: {'Bounded': True, 'Operator': op, 'Property': prop, 'Removable': removable, 'Values': values}
@@ -48,11 +48,12 @@ def upload_block(health_type, sheet_type, days):
                 row(1001, 'Start Date', {'Number': str(days), 'Unit': 16}, True),   # 최근 N일 (NSCalendarUnitDay=16)
             ]}, 'WFSerializationType': 'WFContentPredicateTableTemplate'},
             WFContentItemSortProperty='Start Date', WFContentItemSortOrder='Latest First',
-            WFContentItemLimitEnabled=True, WFContentItemLimitNumber=200),   # 필터가 깨져도 전체 기록을 돌지 않게
+            WFContentItemLimitEnabled=True, WFContentItemLimitNumber=200,   # 필터가 깨져도 전체 기록을 돌지 않게
+            **({'WFHKSampleFilteringGroupBy': group_by, 'WFHKSampleFilteringFillMissing': False} if group_by else {})),
         act('count', UUID=cnt, WFCountType='Items', Input=out_ref(find, 'Health Samples'), WFInput=out_ref(find, 'Health Samples')),
         act('repeat.each', GroupingIdentifier=loop, WFControlFlowMode=0, WFInput=out_ref(find, 'Health Samples')),
-        act('gettext', UUID=U(), WFTextActionText=token_string([
-            item_prop('Start Date', 'yyyy-MM-dd HH:mm'), '|', item_prop('End Date', 'yyyy-MM-dd HH:mm'), '|', item_prop('Value')])),
+        act('gettext', UUID=U(), WFTextActionText=token_string(sum(
+            [[item_prop(p, 'yyyy-MM-dd HH:mm' if 'Date' in p else None), '|'] for p in props], [])[:-1])),
         act('repeat.each', GroupingIdentifier=loop, WFControlFlowMode=2, UUID=end),
         act('text.combine', UUID=comb, WFTextSeparator='New Lines', text=out_text(end, 'Repeat Results')),
         act('urlencode', UUID=enc, WFEncodeMode='Encode', WFInput=out_text(comb, 'Combined Text')),
@@ -61,16 +62,28 @@ def upload_block(health_type, sheet_type, days):
     ], {'get': get, 'cnt': cnt}
 
 comment = lambda t: act('comment', WFCommentActionText=t)
-sleep, ref = upload_block('Sleep', 'sleep', 2)
-actions = [
-    comment('건강 업로드: 애플워치 수면 샘플을 가계부 GAS 시트(sleep 탭)로 보낸다. 같은 행은 서버가 버리므로 여러 번 실행해도 됨.'),
-    comment('생성: personal-money-app/gas/build_health_shortcut.py (직접 고치지 말고 스크립트를 수정해서 다시 서명)'),
-] + sleep[:1] + [comment('샘플마다 "시작|종료|값" 한 줄 → 줄바꿈으로 합쳐 GET 전송')] + sleep[1:] + [
-    act('notification', WFNotificationActionSound=False, WFNotificationActionTitle='건강 업로드',
-        WFNotificationActionBody=token_string([
-            '수면 샘플 ', {'OutputUUID': ref['cnt'], 'OutputName': 'Count', 'Type': 'ActionOutput'},
-            '개 · 서버 ', {'OutputUUID': ref['get'], 'OutputName': 'Contents of URL', 'Type': 'ActionOutput'}])),
+# (알림 라벨, 건강 타입 라벨, 탭, 최근 N일, 그룹화, 속성). 하루 종일 쌓이는 값은 Day 그룹화로 하루 한 줄.
+BLOCKS = [
+    ('수면',   'Sleep',                  'sleep',        2, None,  ('Start Date', 'End Date', 'Value')),
+    ('안정심박', 'Resting Heart Rate',   'resting_hr',   3, 'Day', ('Start Date', 'End Date', 'Value')),
+    ('HRV',   'Heart Rate Variability SDNN', 'hrv',          3, 'Day', ('Start Date', 'End Date', 'Value')),
+    ('VO2',   'VO2 Max',                 'vo2max',      14, None,  ('Start Date', 'End Date', 'Value')),
+    ('걸음',   'Steps',                  'steps',        3, 'Day', ('Start Date', 'End Date', 'Value')),
+    ('칼로리', 'Active Calories',        'active_kcal',  3, 'Day', ('Start Date', 'End Date', 'Value')),
+    ('운동분', 'Exercise Minutes',       'exercise_min', 3, 'Day', ('Start Date', 'End Date', 'Value')),
+    ('운동',   'Workouts',               'workout',      3, None,  ('Start Date', 'End Date', 'Name', 'Value', 'Duration')),
 ]
+actions = [
+    comment('건강 업로드: 애플워치 데이터를 가계부 GAS 건강 시트로 보낸다(탭: sleep, resting_hr, hrv, vo2max, steps, active_kcal, exercise_min, workout). 같은 행은 서버가 버리므로 여러 번 실행해도 됨.'),
+    comment('생성: personal-money-app/gas/build_health_shortcut.py (직접 고치지 말고 스크립트를 수정해서 다시 서명)'),
+]
+noti = []
+for label, health_type, tab, days, group_by, props in BLOCKS:
+    blk, ref = upload_block(health_type, tab, days, group_by, props)
+    actions += blk[:1] + [comment(f'{label}: 샘플마다 "{"|".join(props)}" 한 줄 → 줄바꿈으로 합쳐 GET 전송')] + blk[1:]
+    noti += [f'{label} ', {'OutputUUID': ref['cnt'], 'OutputName': 'Count', 'Type': 'ActionOutput'}, ' · ']
+actions.append(act('notification', WFNotificationActionSound=False, WFNotificationActionTitle='건강 업로드',
+    WFNotificationActionBody=token_string(noti[:-1] + ['\n서버(운동) ', {'OutputUUID': ref['get'], 'OutputName': 'Contents of URL', 'Type': 'ActionOutput'}])))
 
 doc = {
     'WFWorkflowName': '건강 업로드',
