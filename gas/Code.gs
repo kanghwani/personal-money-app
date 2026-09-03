@@ -792,6 +792,14 @@ function doGet(e) {
     if (!checkToken_(params.token)) return json_({ ok: false, error: 'unauthorized' });
     return json_(healthAppend_(params.type, params.rows));
   }
+  if (params.action === 'healthAll') {   // 모든 탭의 최근 N일 행을 한 번에 (MCP 리포트용)
+    if (!checkToken_(params.token)) return json_({ ok: false, error: 'unauthorized' });
+    return json_({ ok: true, tabs: healthAll_(Number(params.days) || 7) });
+  }
+  if (params.action === 'healthCompact') {
+    if (!checkToken_(params.token)) return json_({ ok: false, error: 'unauthorized' });
+    return json_(healthCompact_(params.type));
+  }
   if (params.action === 'healthRows') {
     if (!checkToken_(params.token)) return json_({ ok: false, error: 'unauthorized' });
     return json_({ ok: true, rows: healthRows_(params.type, Number(params.days) || 7) });
@@ -2175,8 +2183,12 @@ function healthParse_(rowsText) {
 }
 
 function healthSheet_(type) {
-  const name = String(type || '').toLowerCase().replace(/[^a-z_]/g, '') || 'raw';
-  const sheet = ensureSheet_(healthSpreadsheet_(), name);
+  const name = String(type || '').toLowerCase().replace(/[^a-z0-9_]/g, '') || 'raw';
+  const ss = healthSpreadsheet_();
+  // 예전 정규식이 숫자를 지워 'vomax'·'spo'로 만들어진 탭을 한 번 이름 바꿔 준다
+  const legacy = { vo2max: 'vomax', spo2: 'spo' }[name];
+  if (legacy && !ss.getSheetByName(name) && ss.getSheetByName(legacy)) ss.getSheetByName(legacy).setName(name);
+  const sheet = ensureSheet_(ss, name);
   if (sheet.getLastRow() === 0) {
     sheet.getRange('A:D').setNumberFormat('@');   // 날짜·값 문자열을 Date/숫자로 바꾸지 않게(중복 키 안정)
     sheet.appendRow(HEALTH_HEADERS);
@@ -2184,10 +2196,29 @@ function healthSheet_(type) {
   return sheet;
 }
 
+// 일 단위 탭: 하루 한 행. 같은 날짜(start 앞 10자)가 있으면 그 행을 덮어쓴다(단축어는 오늘 값을 매번 갱신해 보냄).
+const HEALTH_DAILY_TABS = ['resting_hr', 'hrv', 'respiratory_rate', 'wrist_temp', 'spo2', 'breathing_disturb', 'steps', 'active_kcal', 'exercise_min', 'stand_hours'];
+
+function healthUpsertDaily_(sheet, rows) {
+  const values = sheet.getDataRange().getValues();
+  const rowOf = new Map();   // day → 시트 행 번호(1-based)
+  for (let i = 1; i < values.length; i++) rowOf.set(String(values[i][0]).slice(0, 10), i + 1);
+  const now = new Date(); let added = 0, updated = 0;
+  const fresh = [];
+  rows.forEach(r => {
+    const day = r[0].slice(0, 10); const rn = rowOf.get(day);
+    if (rn) { sheet.getRange(rn, 1, 1, 5).setValues([[r[0], r[1], r[2], r[3], now]]); updated++; }
+    else if (!fresh.some(f => f[0].slice(0, 10) === day)) { fresh.push(r); }
+  });
+  if (fresh.length) { sheet.getRange(sheet.getLastRow() + 1, 1, fresh.length, 5).setValues(fresh.map(r => [r[0], r[1], r[2], r[3], now])); added = fresh.length; }
+  return { ok: true, sheet: sheet.getName(), added, updated, url: sheet.getParent().getUrl() };
+}
+
 // 같은 (시작|종료|값)은 건너뛴다 — 단축어가 두 번 돌아도 무해.
 function healthAppend_(type, rowsText) {
   const sheet = healthSheet_(type);
   const rows = healthParse_(rowsText);
+  if (HEALTH_DAILY_TABS.includes(sheet.getName())) return healthUpsertDaily_(sheet, rows);
   const seen = new Set(sheet.getDataRange().getValues().slice(1).map(r => r.slice(0, 3).join('|')));
   const now = new Date();
   const fresh = rows.filter(r => { const k = r.slice(0, 3).join('|'); if (seen.has(k)) return false; seen.add(k); return true; });   // 시트·같은 요청 안 중복 모두 제거
@@ -2203,9 +2234,29 @@ function healthAppend_(type, rowsText) {
 
 // 최근 days일 행. start는 'yyyy-MM-dd ...' 문자열이라 날짜 접두 비교로 자른다.
 function healthRows_(type, days) {
-  const sheet = healthSheet_(type);
+  return healthSheetRows_(healthSheet_(type), days);
+}
+function healthSheetRows_(sheet, days) {
   const since = Utilities.formatDate(new Date(Date.now() - days * 86400000), TZ, 'yyyy-MM-dd');
+  if (sheet.getLastRow() < 2) return [];
   return sheet.getDataRange().getValues().slice(1)
     .filter(r => String(r[0]) >= since)
     .map(r => ({ start: String(r[0]), end: String(r[1]), value: String(r[2]), extra: String(r[3] || '') }));
+}
+// 일 단위 탭 정리: 날짜별로 마지막 행만 남기고 날짜순 정렬해 다시 쓴다(중복 적재 복구용).
+function healthCompact_(type) {
+  const sheet = healthSheet_(type);
+  const values = sheet.getDataRange().getValues();
+  const last = new Map();
+  values.slice(1).forEach(r => { if (String(r[0]).length >= 10) last.set(String(r[0]).slice(0, 10), r); });
+  const rows = [...last.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(e => e[1]);
+  sheet.getRange(2, 1, Math.max(values.length - 1, 1), 5).clearContent();
+  if (rows.length) sheet.getRange(2, 1, rows.length, 5).setValues(rows);
+  return { ok: true, sheet: sheet.getName(), before: values.length - 1, after: rows.length };
+}
+
+function healthAll_(days) {
+  const out = {};
+  healthSpreadsheet_().getSheets().forEach(sh => { out[sh.getName()] = healthSheetRows_(sh, days); });
+  return out;
 }

@@ -33,7 +33,7 @@ def extract(zip_path):
     name = [i.filename for i in z.infolist() if i.filename.endswith('.xml') and 'cda' not in i.filename][0]
     tabs = defaultdict(list)
     daily = defaultdict(lambda: defaultdict(list))   # tab → day → [values]
-    steps = defaultdict(lambda: defaultdict(float))  # day → source → sum (출처별 합 중 최대 = 애플 중복제거 근사)
+    steps = defaultdict(list)   # day → [(start, end, value, is_watch)] — 워치 구간 우선, 겹치지 않는 폰 구간만 더한다(애플 합산 근사)
     for _, el in ET.iterparse(z.open(name), events=('end',)):
         tag = el.tag
         if tag == 'Record':
@@ -48,7 +48,7 @@ def extract(zip_path):
             elif t in RAW:
                 tabs[RAW[t]].append([local(st), local(en), v, ''])
             elif t == 'StepCount':
-                steps[day_of(st)][src] += float(v)
+                steps[day_of(st)].append((st[:19], en[:19], float(v), WATCH in src))
             el.clear()
         elif tag == 'ActivitySummary':   # 애플 공식 일합계: 활동 칼로리·운동 분·서기 시간
             d = el.get('dateComponents', '')
@@ -72,8 +72,12 @@ def extract(zip_path):
     for tab, days in daily.items():
         for d, vals in sorted(days.items()):
             tabs[tab].append(dayrow(d, f'{sum(vals) / len(vals):.1f}'))
-    for d, by in sorted(steps.items()):
-        tabs['steps'].append(dayrow(d, str(int(max(by.values())))))
+    for d, samples in sorted(steps.items()):
+        watch = [x for x in samples if x[3]]
+        total = sum(x[2] for x in watch)
+        for st, en, v, _ in (x for x in samples if not x[3]):
+            if not any(st < wen and en > wst for wst, wen, _, _ in watch): total += v   # 워치 구간과 안 겹치는 폰 걸음만
+        tabs['steps'].append(dayrow(d, str(int(total))))
     return tabs
 
 def send(tabs, url, token, batch=800):

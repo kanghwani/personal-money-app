@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { summarizeSleep, type HealthRow } from './_health.js'
+import { summarizeSleep, summarizeDaily, summarizeWorkouts, summarizeTrend, type HealthRow, type Tabs } from './_health.js'
 
 /**
  * 가계부 + 건강 원격 MCP 서버 (Streamable HTTP).
@@ -93,8 +93,10 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } },
   { name: 'ledger_delete', description: '거래 삭제. 되돌릴 수 없으니 대상(날짜·금액·메모)을 확인하고 실행할 것.',
     inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } },
-  { name: 'health_week', description: '애플워치 수면 데이터(구글시트 자동 수집) 요약 — 밤별 취침→기상, 총수면, 깊은/REM/코어, 각성 횟수, 평균과 취침시각 편차. 수면·잠·취침·기상 관련 질문("이번 주 수면 어때", "어제 잘 잤어?", "요즘 몇 시에 자")은 이 툴로 답한다.',
-    inputSchema: { type: 'object', properties: { days: { type: 'number', description: '최근 며칠 (기본 7)' } } } },
+  { name: 'health_week', description: '애플워치 건강 리포트(구글시트 자동 수집). 수면(밤별 취침→기상·총수면·깊은/REM/코어·각성), 일별 지표(안정심박·HRV·호흡수·손목온도·SpO2·걸음·활동kcal·운동분)와 이전 30일 대비, 운동 세션 목록. 수면·컨디션·피로·회복·운동량·"오늘 몸 상태" 질문은 이 툴로 답한다.',
+    inputSchema: { type: 'object', properties: { days: { type: 'number', description: '최근 며칠 (기본 7, 최대 60)' } } } },
+  { name: 'health_trend', description: '한 지표의 월별 평균 추세(장기). metric: sleep(총수면 h), resting_hr, hrv, vo2max, steps, active_kcal, exercise_min, respiratory_rate, wrist_temp, spo2, workout(월별 횟수·시간). "체력 늘고 있어?", "작년보다 잠 늘었어?" 같은 질문에.',
+    inputSchema: { type: 'object', properties: { metric: { type: 'string' }, months: { type: 'number', description: '최근 몇 달 (기본 12)' } }, required: ['metric'] } },
 ]
 
 // ── 도구 실행 ───────────────────────────────────────────────
@@ -205,8 +207,18 @@ async function runTool(name: string, args: Record<string, unknown>): Promise<str
 
   if (name === 'health_week') {
     const days = Math.min(Math.max(Number(args.days) || 7, 1), 60)
-    const r = await gasGet<{ rows?: HealthRow[] }>('healthRows', `&type=sleep&days=${days + 1}`)  // 전날 밤 취침분 포함
-    return summarizeSleep(r.rows ?? [])
+    const r = await gasGet<{ tabs?: Tabs }>('healthAll', `&days=${days + 31}`)  // 이전 30일 기준선 + 전날 밤 취침분
+    const t = r.tabs ?? {}
+    const since = new Date(Date.now() + 9 * 3600_000 - days * 86400_000).toISOString().slice(0, 10)
+    const recent = (rows: HealthRow[] = []) => rows.filter((x) => x.start >= since)
+    return ['[수면]', summarizeSleep(recent(t.sleep)), '', summarizeDaily(t, days), '', summarizeWorkouts(recent(t.workout))].join('\n')
+  }
+
+  if (name === 'health_trend') {
+    const metric = String(args.metric || '').toLowerCase().replace(/[^a-z0-9_]/g, '')
+    const months = Math.min(Math.max(Number(args.months) || 12, 1), 120)
+    const r = await gasGet<{ rows?: HealthRow[] }>('healthRows', `&type=${metric}&days=${months * 31}`)
+    return summarizeTrend(metric, r.rows ?? [])
   }
 
   throw new Error(`모르는 도구: ${name}`)

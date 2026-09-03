@@ -29,3 +29,27 @@ describe('summarizeSleep', () => {
     expect(summarizeSleep([])).toBe('수면 기록 없음')
   })
 })
+
+import { dailySeries, summarizeDaily, summarizeWorkouts, summarizeTrend } from './_health'
+
+describe('daily/workout/trend', () => {
+  it('dailySeries는 같은 날 뒤 행이 이기고 단위를 벗긴다', () => {
+    const m = dailySeries([{ start: '2026-09-01 00:00', end: '', value: '57' }, { start: '2026-09-01 00:00', end: '', value: '59 count/min' }])
+    expect(m.get('2026-09-01')).toBe(59)
+  })
+  it('summarizeDaily는 최근 표와 기준선을 낸다', () => {
+    const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
+    const s = summarizeDaily({ resting_hr: [{ start: `${today} 00:00`, end: '', value: '59' }] }, 7)
+    expect(s).toContain('안정심박 59')
+    expect(s).toContain('[최근 7일 평균 vs 이전 30일]')
+  })
+  it('summarizeWorkouts는 백필 extra를 풀어 쓴다', () => {
+    const s = summarizeWorkouts([{ start: '2026-09-02 09:15', end: '2026-09-02 10:11', value: 'Swimming', extra: '55.9|218.3|850|112.5' }])
+    expect(s).toContain('09-02 09:15 수영 56분 850m 평균심박 113 218kcal')
+  })
+  it('summarizeTrend는 월별 평균', () => {
+    const s = summarizeTrend('resting_hr', [{ start: '2026-08-01 00:00', end: '', value: '58' }, { start: '2026-08-02 00:00', end: '', value: '60' }, { start: '2026-09-01 00:00', end: '', value: '55' }])
+    expect(s).toContain('2026-08 59 (2일)')
+    expect(s).toContain('2026-09 55 (1일)')
+  })
+})
