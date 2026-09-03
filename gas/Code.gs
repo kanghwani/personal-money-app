@@ -2308,8 +2308,9 @@ function archiveLegacy_(step) {
   }
   const ar = archiveSpreadsheet_();
   const report = [];
-  LEGACY_TABS.forEach(name => {
-    const src = ss.getSheetByName(name); if (!src) return;
+  // 탭 이름 끝에 공백이 붙은 것('12월 ', '고정비 ')도 잡도록 trim 비교
+  ss.getSheets().filter(sh => LEGACY_TABS.includes(sh.getName().trim())).forEach(src => {
+    const name = src.getName().trim();
     let dst = ar.getSheetByName(name);
     if (step === 'copy') {
       if (!dst) { dst = src.copyTo(ar); dst.setName(name); }
