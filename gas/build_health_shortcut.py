@@ -66,7 +66,7 @@ comment = lambda t: act('comment', WFCommentActionText=t)
 BLOCKS = [
     ('수면',   'Sleep',                  'sleep',        2, None,  ('Start Date', 'End Date', 'Value')),
     ('안정심박', 'Resting Heart Rate',   'resting_hr',   3, 'Day', ('Start Date', 'End Date', 'Value')),
-    ('HRV',   'Heart Rate Variability SDNN', 'hrv',          3, 'Day', ('Start Date', 'End Date', 'Value')),
+    ('HRV',   'Heart Rate Variability',  'hrv',          3, 'Day', ('Start Date', 'End Date', 'Value')),
     ('걸음',   'Steps',                  'steps',        3, 'Day', ('Start Date', 'End Date', 'Value')),
     ('칼로리', 'Active Calories',        'active_kcal',  3, 'Day', ('Start Date', 'End Date', 'Value')),
     ('운동분', 'Exercise Minutes',       'exercise_min', 3, 'Day', ('Start Date', 'End Date', 'Value')),
