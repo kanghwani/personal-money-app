@@ -97,16 +97,16 @@ BLOCKS = [
     # 운동 세션은 제외: Find Health Samples 타입 라벨 'Workouts'/'Workout' 모두 미인식. 백필(backfill_health.py)로만 채운다.
     ('VO2',   'VO2 Max',                 'vo2max',      60, None,  ('Start Date', 'End Date', 'Value')),
 ]
-# 하루 1회 가드: iCloud Drive/Shortcuts/health_last_run.txt 에 마지막 실행 날짜를 남기고, 오늘과 같으면 즉시 종료(앱 열 때 트리거로 여러 번 돌아도 한 번만).
-GUARD_FILE = 'health_last_run.txt'
+# 하루 1회 가드: iCloud Drive/Shortcuts/health_run/<오늘>.txt 가 있으면 즉시 종료(앱 열 때 트리거로 여러 번 돌아도 한 번만).
+# 조건문에 변수 비교를 넣으면 앱이 값을 못 읽어서, 파일 이름을 날짜로 하고 "값이 있음"만 검사한다.
 today_txt, last_file, guard = U(), U(), U()
+guard_path = lambda: token_string(['health_run/', {'OutputUUID': today_txt, 'OutputName': 'Text', 'Type': 'ActionOutput'}, '.txt'])
 guard_actions = [
     act('gettext', UUID=today_txt, WFTextActionText=token_string([{'Type': 'CurrentDate', 'Aggrandizements': [
         {'Type': 'WFDateFormatVariableAggrandizement', 'WFDateFormatStyle': 'Custom', 'WFDateFormat': 'yyyy-MM-dd', 'WFISO8601IncludeTime': False}]}])),
-    act('documentpicker.open', UUID=last_file, WFGetFilePath=GUARD_FILE, WFShowFilePicker=False, WFFileErrorIfNotFound=False),
-    act('conditional', GroupingIdentifier=guard, WFControlFlowMode=0, WFCondition=4,
-        WFInput={'Type': 'Variable', 'Variable': out_ref(last_file, 'File')},
-        WFConditionalActionString=out_text(today_txt, 'Text')),
+    act('documentpicker.open', UUID=last_file, WFGetFilePath=guard_path(), WFShowFilePicker=False, WFFileErrorIfNotFound=False),
+    act('conditional', GroupingIdentifier=guard, WFControlFlowMode=0, WFCondition=100,   # 100 = 값이 있음
+        WFInput={'Type': 'Variable', 'Variable': out_ref(last_file, 'File')}),
     act('exit'),
     act('conditional', GroupingIdentifier=guard, WFControlFlowMode=2, UUID=U()),
 ]
@@ -124,7 +124,7 @@ for label, health_type, tab, days, group_by, props in BLOCKS:
 blk, ref = workout_block()
 actions += [comment('운동: Actions 앱의 Find Workout(최신 10개) → "시작|종료|종류|시간|kcal|거리|평균심박" → workout 탭')] + blk
 noti += ['운동 ', {'OutputUUID': ref['cnt'], 'OutputName': 'Count', 'Type': 'ActionOutput'}, ' · ']
-actions.append(act('documentpicker.save', WFInput=out_text(today_txt, 'Text'), WFFileDestinationPath=GUARD_FILE, WFAskWhereToSave=False, WFSaveFileOverwrite=True))
+actions.append(act('documentpicker.save', WFInput=out_text(today_txt, 'Text'), WFFileDestinationPath=guard_path(), WFAskWhereToSave=False, WFSaveFileOverwrite=True))
 actions.append(act('notification', WFNotificationActionSound=False, WFNotificationActionTitle='건강 업로드',
     WFNotificationActionBody=token_string(noti[:-1] + ['\n서버(운동) ', {'OutputUUID': ref['get'], 'OutputName': 'Contents of URL', 'Type': 'ActionOutput'}])))
 
