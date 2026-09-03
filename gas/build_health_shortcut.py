@@ -133,6 +133,21 @@ actions.append(act('downloadurl', UUID=today_get, WFHTTPMethod='GET', WFURL=TODA
 actions.append(act('notification', WFNotificationActionSound=False, WFNotificationActionTitle='오늘 준비도',
     WFNotificationActionBody=token_string([{'OutputUUID': today_get, 'OutputName': 'Contents of URL', 'Type': 'ActionOutput'}, '\n— 업로드 '] + noti[:-1])))
 
+# 알림 뒤 컨디션 자가평가 입력 → /api/log → 저장 결과 알림. 비워두면 건너뜀(자동화에서 입력창이 안 뜨는 경우도 무해).
+ask, cond_if, cond_txt, cond_enc, cond_get = U(), U(), U(), U(), U()
+LOG_URL = f"https://personal-money-app-seven.vercel.app/api/log?t={TOKEN}&text="
+actions += [
+    act('ask', UUID=ask, WFInputType='Text', WFAllowsMultilineText=False,
+        WFAskActionPrompt=token_string(['지금 컨디션은? 수면질 피로 스트레스 근육통 (각 1~5)\n예: 4 3 2 3  ·  비우면 건너뜀'])),
+    act('conditional', GroupingIdentifier=cond_if, WFControlFlowMode=0, WFCondition=100, WFInput={'Type': 'Variable', 'Variable': out_ref(ask, 'Provided Input')}),
+    act('gettext', UUID=cond_txt, WFTextActionText=token_string(['컨디션 ', {'OutputUUID': ask, 'OutputName': 'Provided Input', 'Type': 'ActionOutput'}])),
+    act('urlencode', UUID=cond_enc, WFEncodeMode='Encode', WFInput=out_text(cond_txt, 'Text')),
+    act('downloadurl', UUID=cond_get, WFHTTPMethod='GET', WFURL=token_string([LOG_URL, {'OutputUUID': cond_enc, 'OutputName': 'URL Encoded Text', 'Type': 'ActionOutput'}])),
+    act('notification', WFNotificationActionSound=False, WFNotificationActionTitle='컨디션',
+        WFNotificationActionBody=token_string([{'OutputUUID': cond_get, 'OutputName': 'Contents of URL', 'Type': 'ActionOutput'}])),
+    act('conditional', GroupingIdentifier=cond_if, WFControlFlowMode=2, UUID=U()),
+]
+
 doc = {
     'WFWorkflowName': '건강 업로드',
     'WFWorkflowActions': actions,
