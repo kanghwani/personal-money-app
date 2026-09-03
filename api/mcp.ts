@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { summarizeSleep, summarizeDaily, summarizeWorkouts, summarizeTrend, type HealthRow, type Tabs } from './_health.js'
+import { parseLog, logStamp, summarizeManual } from './_log.js'
 
 /**
  * 가계부 + 건강 원격 MCP 서버 (Streamable HTTP).
@@ -95,6 +96,8 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } },
   { name: 'health_week', description: '애플워치 건강 리포트(구글시트 자동 수집). 수면(밤별 취침→기상·총수면·깊은/REM/코어·각성), 일별 지표(안정심박·HRV·호흡수·손목온도·SpO2·걸음·활동kcal·운동분)와 이전 30일 대비, 운동 세션 목록. 수면·컨디션·피로·회복·운동량·"오늘 몸 상태" 질문은 이 툴로 답한다.',
     inputSchema: { type: 'object', properties: { days: { type: 'number', description: '최근 며칠 (기본 7, 최대 60)' } } } },
+  { name: 'health_log', description: '건강·훈련 한 줄 기록(시트 manual 탭). 형식: "컨디션 4 3 2 3"(수면질 피로 스트레스 근육통 1~5, 아침), "sRPE 수영 55 6 [메모]"(종목 분 RPE1~10, 훈련 직후), "턱걸이 밴드 3x5" / "턱걸이 네거티브 4x8초" / "턱걸이 5 5 4", "태그 술 늦은식사 카페인 출장 아픔", "통증 무릎 3"(0~10), 그 외는 메모. 앞에 "어제 "를 붙이면 어제로 기록. 사용자가 컨디션·훈련·통증·술 같은 걸 한 줄로 말하면 이 툴로 저장한다.',
+    inputSchema: { type: 'object', properties: { text: { type: 'string', description: '예: 컨디션 4 3 2 3' } }, required: ['text'] } },
   { name: 'health_trend', description: '한 지표의 월별 평균 추세(장기). metric: sleep(총수면 h), resting_hr, hrv, vo2max, steps, active_kcal, exercise_min, respiratory_rate, wrist_temp, spo2, workout(월별 횟수·시간). "체력 늘고 있어?", "작년보다 잠 늘었어?" 같은 질문에.',
     inputSchema: { type: 'object', properties: { metric: { type: 'string' }, months: { type: 'number', description: '최근 몇 달 (기본 12)' } }, required: ['metric'] } },
 ]
@@ -211,7 +214,14 @@ async function runTool(name: string, args: Record<string, unknown>): Promise<str
     const t = r.tabs ?? {}
     const since = new Date(Date.now() + 9 * 3600_000 - days * 86400_000).toISOString().slice(0, 10)
     const recent = (rows: HealthRow[] = []) => rows.filter((x) => x.start >= since)
-    return ['[수면]', summarizeSleep(recent(t.sleep)), '', summarizeDaily(t, days), '', summarizeWorkouts(recent(t.workout))].join('\n')
+    return ['[수면]', summarizeSleep(recent(t.sleep)), '', summarizeDaily(t, days), '', summarizeWorkouts(recent(t.workout)), '', summarizeManual(t.manual, since)].join('\n')
+  }
+
+  if (name === 'health_log') {
+    const { stamp, text } = logStamp(String(args.text || ''))
+    const e = parseLog(text)
+    const r = await gasPost({ action: 'health', type: 'manual', rows: [stamp, stamp, e.kind, e.extra].join('|') }) as { added?: number; skipped?: number }
+    return `${r.added ? '기록됨' : '이미 있음'}: ${stamp.slice(5, 16)} ${e.kind} — ${e.echo}`
   }
 
   if (name === 'health_trend') {
@@ -255,7 +265,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           serverInfo: { name: 'ledger', version: '1.1.0' },
           // 클라이언트가 시스템 컨텍스트로 싣는 안내문 — 앱 쪽에 스킬을 따로 저장하지 않아도 툴을 고르게 한다.
           instructions: '이 서버는 사용자의 가계부(구글시트)와 애플워치 건강 데이터를 담당한다. ' +
-            '수면·취침·기상·잘 잤는지 질문은 반드시 health_week 툴로 답한다(노션 일기장을 뒤지지 말 것). ' +
+            '수면·취침·기상·잘 잤는지·컨디션·훈련량 질문은 반드시 health_week 툴로 답한다(노션 일기장을 뒤지지 말 것). 컨디션 점수·sRPE·턱걸이·통증·술/늦은식사 태그 같은 한 줄 기록은 health_log로 저장하고, 주간 리뷰에서는 컨디션 자가평가를 반드시 인용한다. ' +
             '지출·수입·분담금·고정비 질문과 "5000 스타벅스 하나카드" 같은 한 줄 입력은 ledger_* 툴을 쓴다. ' +
             '결과는 폰에서 읽기 좋게 3~5줄로 요약한다.',
         })
