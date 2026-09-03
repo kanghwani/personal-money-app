@@ -2190,7 +2190,10 @@ function healthAppend_(type, rowsText) {
     sheet.getRange(sheet.getLastRow() + 1, 1, fresh.length, 4)
       .setValues(fresh.map(r => [r[0], r[1], r[2] || '', now]));
   }
-  return { ok: true, sheet: sheet.getName(), added: fresh.length, skipped: rows.length - fresh.length, url: sheet.getParent().getUrl() };
+  const out = { ok: true, sheet: sheet.getName(), added: fresh.length, skipped: rows.length - fresh.length, url: sheet.getParent().getUrl() };
+  // 파싱된 행이 0이면 뭘 받았는지 앞부분을 돌려줘 단축어 알림에서 바로 진단하게 한다.
+  if (!rows.length) { out.rawLen = String(rowsText || '').length; out.rawHead = String(rowsText || '').slice(0, 160); }
+  return out;
 }
 
 // 최근 days일 행. start는 'yyyy-MM-dd ...' 문자열이라 날짜 접두 비교로 자른다.
