@@ -67,11 +67,12 @@ BLOCKS = [
     ('수면',   'Sleep',                  'sleep',        2, None,  ('Start Date', 'End Date', 'Value')),
     ('안정심박', 'Resting Heart Rate',   'resting_hr',   3, 'Day', ('Start Date', 'End Date', 'Value')),
     ('HRV',   'Heart Rate Variability SDNN', 'hrv',          3, 'Day', ('Start Date', 'End Date', 'Value')),
-    ('VO2',   'VO2 Max',                 'vo2max',      14, None,  ('Start Date', 'End Date', 'Value')),
     ('걸음',   'Steps',                  'steps',        3, 'Day', ('Start Date', 'End Date', 'Value')),
     ('칼로리', 'Active Calories',        'active_kcal',  3, 'Day', ('Start Date', 'End Date', 'Value')),
     ('운동분', 'Exercise Minutes',       'exercise_min', 3, 'Day', ('Start Date', 'End Date', 'Value')),
+    # 샘플 0개면 단축어가 멈추므로, 비어 있을 수 있는 블록은 맨 뒤에 둔다
     ('운동',   'Workouts',               'workout',      3, None,  ('Start Date', 'End Date', 'Name', 'Value', 'Duration')),
+    ('VO2',   'VO2 Max',                 'vo2max',      60, None,  ('Start Date', 'End Date', 'Value')),
 ]
 actions = [
     comment('건강 업로드: 애플워치 데이터를 가계부 GAS 건강 시트로 보낸다(탭: sleep, resting_hr, hrv, vo2max, steps, active_kcal, exercise_min, workout). 같은 행은 서버가 버리므로 여러 번 실행해도 됨.'),
