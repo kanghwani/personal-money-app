@@ -70,7 +70,7 @@ BLOCKS = [
     # 걸음은 제외: 일 그룹화 합이 워치+폰을 이중 합산함(건강 앱 8,935 vs 단축어 17,399). 백필(backfill_health.py)로만 채운다.
     ('칼로리', 'Active Calories',        'active_kcal',  3, 'Day', ('Start Date', 'End Date', 'Value')),
     # 샘플 0개면 단축어가 멈추므로, 비어 있을 수 있는 블록은 맨 뒤에 둔다
-    ('운동',   'Workouts',               'workout',      3, None,  ('Start Date', 'End Date', 'Name', 'Value', 'Duration')),
+    ('운동',   'Workout',                'workout',      3, None,  ('Start Date', 'End Date', 'Name', 'Value', 'Duration')),
     ('VO2',   'VO2 Max',                 'vo2max',      60, None,  ('Start Date', 'End Date', 'Value')),
 ]
 actions = [
