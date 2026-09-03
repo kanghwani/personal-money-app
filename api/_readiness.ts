@@ -80,3 +80,29 @@ export function formatReadiness(r: ReturnType<typeof readiness>, today: string):
   return `준비도 ${r.score} · ${r.band} (${today})\n` + r.reasons.map((x) => '- ' + x).join('\n') +
     `\n\n[구성] ` + r.comps.map((c) => `${c.label} ${Math.round(c.sub)}`).join(' · ')
 }
+
+/** 알림용 쉬운 말 버전. 숫자 대신 "평소보다 ~" 문장, 눈에 띄는 항목만. */
+export function formatFriendly(r: ReturnType<typeof readiness>): string {
+  if (isNaN(r.score)) return `준비도 계산 중 — ${r.reasons[0]}`
+  const verdict = r.score >= 75 ? '몸이 준비됐어요. 계획한 운동, 강하게 해도 좋아요.'
+    : r.score >= 50 ? '무리 없이 계획대로 하면 되는 날이에요.'
+    : r.score >= 30 ? '가볍게만. 강도는 낮추고 시간은 유지하세요.' : '오늘은 쉬는 게 이득이에요.'
+  const by = Object.fromEntries(r.comps.map((c) => [c.key, c]))
+  const lines: string[] = []
+  const num = (t: string, re: RegExp) => t.match(re)?.[1]
+  // 잠: 항상 한 줄
+  if (by.sleep) {
+    const m = by.sleep.text.match(/수면 (\S+) \(평소 (\S+), ([+-])(\S+)\)/)
+    if (m) lines.push(`잠 ${m[1].replace('h', '시간 ').replace('m', '분')} — 평소보다 ${m[4].replace('h', '시간 ').replace('m', '분')} ${m[3] === '-' ? '부족' : '더 잠'}${by.sleep.text.includes('전날 기준') ? ' (어젯밤 기록 아직 없음)' : ''}`)
+  }
+  // 회복 신호: HRV 7일 평균 기준
+  const h = by.hrv7 ?? by.hrv1
+  if (h) lines.push(`회복 신호(심박 변이) — ${h.z < -1 ? '평소보다 낮음, 피로가 쌓이는 중' : h.z > 0.5 ? '평소보다 좋음' : '평소 수준'}`)
+  if (by.rhr && Math.abs(by.rhr.z) >= 1) lines.push(`안정시 심박 ${num(by.rhr.text, /안정심박 (\d+)/)} — 평소보다 ${by.rhr.z < 0 ? '높음, 몸이 아직 회복 중' : '낮음, 좋은 신호'}`)
+  if (by.temp && by.temp.z <= -1) lines.push(`손목 온도 평소보다 ${num(by.temp.text, /손목온도 (\S+)°/)}° — 무리했거나 아플 수 있어요`)
+  if (by.rr && by.rr.z <= -1) lines.push(`호흡수 평소보다 높음 — 컨디션 저하 신호`)
+  if (by.load && by.load.z < 0) lines.push(`어제 활동량이 평소보다 많았음 — 오늘은 회복 쪽으로`)
+  if (by.debt && by.debt.z <= -1) lines.push(`이번 주 잠이 계속 부족한 편`)
+  const caps = r.reasons.filter((x) => x.startsWith('⚠')).map((x) => x.replace('⚠ ', '⚠ '))
+  return [`준비도 ${r.score} — ${verdict}`, ...caps, ...lines.slice(0, 4)].join('\n')
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { readiness, formatReadiness } from './_readiness'
+import { readiness, formatReadiness, formatFriendly } from './_readiness'
 
 const day = (i: number) => new Date(Date.UTC(2026, 7, 1) + i * 86400_000).toISOString().slice(0, 10)  // 08-01 + i
 const rows = (vals: (number | null)[], unit = '') => vals.map((v, i) => v == null ? null : ({ start: `${day(i)} 00:00`, end: `${day(i + 1)} 00:00`, value: `${v}${unit}` })).filter(Boolean) as { start: string; end: string; value: string }[]
@@ -36,5 +36,20 @@ describe('readiness', () => {
   it('데이터가 적으면 축적 중', () => {
     expect(readiness({ hrv: rows([40, 41, 42]) }, today).band).toBe('기준선 축적 중')
     expect(formatReadiness(readiness({}, today), today)).toContain('축적 중')
+  })
+})
+
+describe('formatFriendly', () => {
+  it('숫자 대신 말로, 잠은 항상 포함', () => {
+    const r = { score: 59, band: '계획대로', reasons: ['수면 5h30m (평소 5h42m, -12m)'], comps: [
+      { key: 'sleep', label: '어젯밤 수면', w: .2, z: -0.3, sub: 48, bad: false, text: '수면 5h30m (평소 5h42m, -12m)' },
+      { key: 'hrv7', label: 'HRV 7일 평균', w: .3, z: -0.1, sub: 47, bad: false, text: 'HRV 7일 평균 38ms (평소 39, -2%)' },
+      { key: 'load', label: '전날 부하', w: .05, z: -0.7, sub: 73, bad: false, text: '전날 활동 697kcal (28일 평균 499)' },
+    ] }
+    const s = formatFriendly(r as never)
+    expect(s).toContain('준비도 59 — 무리 없이 계획대로')
+    expect(s).toContain('잠 5시간 30분 — 평소보다 12분 부족')
+    expect(s).toContain('회복 신호(심박 변이) — 평소 수준')
+    expect(s).toContain('어제 활동량이 평소보다 많았음')
   })
 })
