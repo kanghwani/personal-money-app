@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """iOS 단축어 '건강 업로드' 생성기 — 애플워치 수면 샘플을 GAS ?action=health 로 GET 전송.
 
-    python3 gas/build_health_shortcut.py out.shortcut   # .env의 VITE_SYNC_URL/TOKEN 사용
-    shortcuts sign --mode anyone --input out.shortcut --output "건강 업로드.shortcut"
+    python3 gas/build_health_shortcut.py <out_dir>   # 건강 업로드.xml, 컨디션.xml 생성 (.env의 VITE_SYNC_URL/TOKEN 사용)
+    for n in "건강 업로드" "컨디션"; do cp "<out_dir>/$n.xml" "/tmp/$n.shortcut"; shortcuts sign --mode anyone --input "/tmp/$n.shortcut" --output ~/Downloads/"$n.shortcut"; done
 
 단축어 POST는 GAS 302에서 깨지므로 GET. 같은 행은 서버가 버리므로 여러 번 돌아도 무해.
 """
@@ -131,14 +131,17 @@ TODAY_URL = f"{GAS_URL.split('/macros/')[0] and 'https://personal-money-app-seve
 today_get = U()
 actions.append(act('downloadurl', UUID=today_get, WFHTTPMethod='GET', WFURL=TODAY_URL))
 actions.append(act('notification', WFNotificationActionSound=False, WFNotificationActionTitle='오늘 준비도',
-    WFNotificationActionBody=token_string([{'OutputUUID': today_get, 'OutputName': 'Contents of URL', 'Type': 'ActionOutput'}, '\n— 업로드 '] + noti[:-1])))
+    WFNotificationActionBody=token_string([{'OutputUUID': today_get, 'OutputName': 'Contents of URL', 'Type': 'ActionOutput'}, '\n컨디션 기록 → 액션 버튼(컨디션 단축어)\n— 업로드 '] + noti[:-1])))
 
-# 알림 뒤 컨디션 자가평가 입력 → /api/log → 저장 결과 알림. 비워두면 건너뜀(자동화에서 입력창이 안 뜨는 경우도 무해).
-ask, cond_if, cond_txt, cond_enc, cond_get = U(), U(), U(), U(), U()
 LOG_URL = f"https://personal-money-app-seven.vercel.app/api/log?t={TOKEN}&text="
-actions += [
+ck_today, ask, cond_if, cond_txt, cond_enc, cond_get = U(), U(), U(), U(), U(), U()
+checkin = [
+    comment('아침 체크인: 업로드(오늘 안 됐으면) → 준비도 보여주며 컨디션 4개 입력 → 저장. 액션 버튼/위젯에 걸어 손으로 실행.'),
+    act('runworkflow', WFWorkflowName='건강 업로드', WFShowWorkflow=False),
+    act('downloadurl', UUID=ck_today, WFHTTPMethod='GET', WFURL=TODAY_URL),
     act('ask', UUID=ask, WFInputType='Text', WFAllowsMultilineText=False,
-        WFAskActionPrompt=token_string(['지금 컨디션은? 수면질 피로 스트레스 근육통 (각 1~5)\n예: 4 3 2 3  ·  비우면 건너뜀'])),
+        WFAskActionPrompt=token_string([{'OutputUUID': ck_today, 'OutputName': 'Contents of URL', 'Type': 'ActionOutput'},
+                                        '\n\n지금 컨디션은? 수면질 피로 스트레스 근육통 (각 1~5)\n예: 4 3 2 3'])),
     act('conditional', GroupingIdentifier=cond_if, WFControlFlowMode=0, WFCondition=100, WFInput={'Type': 'Variable', 'Variable': out_ref(ask, 'Provided Input')}),
     act('gettext', UUID=cond_txt, WFTextActionText=token_string(['컨디션 ', {'OutputUUID': ask, 'OutputName': 'Provided Input', 'Type': 'ActionOutput'}])),
     act('urlencode', UUID=cond_enc, WFEncodeMode='Encode', WFInput=out_text(cond_txt, 'Text')),
@@ -147,6 +150,16 @@ actions += [
         WFNotificationActionBody=token_string([{'OutputUUID': cond_get, 'OutputName': 'Contents of URL', 'Type': 'ActionOutput'}])),
     act('conditional', GroupingIdentifier=cond_if, WFControlFlowMode=2, UUID=U()),
 ]
+
+def document(name, acts, glyph, color):
+    return {
+        'WFWorkflowName': name, 'WFWorkflowActions': acts,
+        'WFWorkflowClientVersion': '2700.0.4', 'WFWorkflowClientRelease': '26A0000a',
+        'WFWorkflowMinimumClientVersion': 900, 'WFWorkflowMinimumClientVersionString': '900',
+        'WFWorkflowIcon': {'WFWorkflowIconGlyphNumber': glyph, 'WFWorkflowIconStartColor': color},
+        'WFWorkflowHasOutputFallback': False, 'WFWorkflowImportQuestions': [], 'WFWorkflowOutputContentItemClasses': [],
+        'WFWorkflowTypes': ['Watch'], 'WFWorkflowInputContentItemClasses': [],
+    }
 
 doc = {
     'WFWorkflowName': '건강 업로드',
@@ -157,6 +170,7 @@ doc = {
     'WFWorkflowHasOutputFallback': False, 'WFWorkflowImportQuestions': [], 'WFWorkflowOutputContentItemClasses': [],
     'WFWorkflowTypes': [], 'WFWorkflowInputContentItemClasses': [],
 }
-out = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else 'health.shortcut')
-out.write_bytes(plistlib.dumps(doc, fmt=plistlib.FMT_XML))
-print(out, len(actions), 'actions')
+out_dir = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else '.')
+for name, acts, glyph, color in [('건강 업로드', actions, 61440, 4282601983), ('컨디션', checkin, 61440, 463140863)]:
+    (out_dir / f'{name}.xml').write_bytes(plistlib.dumps(document(name, acts, glyph, color), fmt=plistlib.FMT_XML))
+    print(out_dir / f'{name}.xml', len(acts), 'actions')
