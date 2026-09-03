@@ -1,7 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { summarizeSleep, type HealthRow } from './_health.js'
 
 /**
- * 가계부 원격 MCP 서버 (Streamable HTTP).
+ * 가계부 + 건강 원격 MCP 서버 (Streamable HTTP).
  * 폰의 Claude 앱 등 어느 대화에서든 커스텀 커넥터로 붙여 쓴다.
  *
  * 환경변수(모두 서버 전용 — VITE_ 접두어 금지):
@@ -92,6 +93,8 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } },
   { name: 'ledger_delete', description: '거래 삭제. 되돌릴 수 없으니 대상(날짜·금액·메모)을 확인하고 실행할 것.',
     inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } },
+  { name: 'health_week', description: '애플워치 수면 요약(밤별 총수면·깊은/REM/코어·각성, 평균·취침시각 편차). "이번 주 수면 어때", "어제 잘 잤어?"에 사용.',
+    inputSchema: { type: 'object', properties: { days: { type: 'number', description: '최근 며칠 (기본 7)' } } } },
 ]
 
 // ── 도구 실행 ───────────────────────────────────────────────
@@ -198,6 +201,12 @@ async function runTool(name: string, args: Record<string, unknown>): Promise<str
     const t = await findOne(String(args.id))
     await gasPost({ action: 'deleteLedger', id: t.id })
     return `삭제됨 ${t.date} ${t.memo} ${won(t.amount)}`
+  }
+
+  if (name === 'health_week') {
+    const days = Math.min(Math.max(Number(args.days) || 7, 1), 60)
+    const r = await gasGet<{ rows?: HealthRow[] }>('healthRows', `&type=sleep&days=${days + 1}`)  // 전날 밤 취침분 포함
+    return summarizeSleep(r.rows ?? [])
   }
 
   throw new Error(`모르는 도구: ${name}`)
