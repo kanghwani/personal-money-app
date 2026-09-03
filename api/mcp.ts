@@ -93,7 +93,7 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } },
   { name: 'ledger_delete', description: '거래 삭제. 되돌릴 수 없으니 대상(날짜·금액·메모)을 확인하고 실행할 것.',
     inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } },
-  { name: 'health_week', description: '애플워치 수면 요약(밤별 총수면·깊은/REM/코어·각성, 평균·취침시각 편차). "이번 주 수면 어때", "어제 잘 잤어?"에 사용.',
+  { name: 'health_week', description: '애플워치 수면 데이터(구글시트 자동 수집) 요약 — 밤별 취침→기상, 총수면, 깊은/REM/코어, 각성 횟수, 평균과 취침시각 편차. 수면·잠·취침·기상 관련 질문("이번 주 수면 어때", "어제 잘 잤어?", "요즘 몇 시에 자")은 이 툴로 답한다.',
     inputSchema: { type: 'object', properties: { days: { type: 'number', description: '최근 며칠 (기본 7)' } } } },
 ]
 
@@ -240,7 +240,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return reply({
           protocolVersion: msg?.params?.protocolVersion ?? PROTOCOL,
           capabilities: { tools: {} },
-          serverInfo: { name: 'ledger', version: '1.0.0' },
+          serverInfo: { name: 'ledger', version: '1.1.0' },
+          // 클라이언트가 시스템 컨텍스트로 싣는 안내문 — 앱 쪽에 스킬을 따로 저장하지 않아도 툴을 고르게 한다.
+          instructions: '이 서버는 사용자의 가계부(구글시트)와 애플워치 건강 데이터를 담당한다. ' +
+            '수면·취침·기상·잘 잤는지 질문은 반드시 health_week 툴로 답한다(노션 일기장을 뒤지지 말 것). ' +
+            '지출·수입·분담금·고정비 질문과 "5000 스타벅스 하나카드" 같은 한 줄 입력은 ledger_* 툴을 쓴다. ' +
+            '결과는 폰에서 읽기 좋게 3~5줄로 요약한다.',
         })
       case 'notifications/initialized':
       case 'notifications/cancelled':
