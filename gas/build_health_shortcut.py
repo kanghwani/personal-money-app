@@ -97,10 +97,25 @@ BLOCKS = [
     # 운동 세션은 제외: Find Health Samples 타입 라벨 'Workouts'/'Workout' 모두 미인식. 백필(backfill_health.py)로만 채운다.
     ('VO2',   'VO2 Max',                 'vo2max',      60, None,  ('Start Date', 'End Date', 'Value')),
 ]
+# 하루 1회 가드: iCloud Drive/Shortcuts/health_last_run.txt 에 마지막 실행 날짜를 남기고, 오늘과 같으면 즉시 종료(앱 열 때 트리거로 여러 번 돌아도 한 번만).
+GUARD_FILE = 'health_last_run.txt'
+today_txt, last_file, guard = U(), U(), U()
+guard_actions = [
+    act('gettext', UUID=today_txt, WFTextActionText=token_string([{'Type': 'CurrentDate', 'Aggrandizements': [
+        {'Type': 'WFDateFormatVariableAggrandizement', 'WFDateFormatStyle': 'Custom', 'WFDateFormat': 'yyyy-MM-dd', 'WFISO8601IncludeTime': False}]}])),
+    act('documentpicker.open', UUID=last_file, WFGetFilePath=GUARD_FILE, WFShowFilePicker=False, WFFileErrorIfNotFound=False),
+    act('conditional', GroupingIdentifier=guard, WFControlFlowMode=0, WFCondition=4,
+        WFInput={'Type': 'Variable', 'Variable': out_ref(last_file, 'File')},
+        WFConditionalActionString=out_text(today_txt, 'Text')),
+    act('exit'),
+    act('conditional', GroupingIdentifier=guard, WFControlFlowMode=2, UUID=U()),
+]
+
 actions = [
     comment('건강 업로드: 애플워치 데이터를 가계부 GAS 건강 시트로 보낸다(탭: sleep, resting_hr, hrv, active_kcal, vo2max, workout). 같은 행은 서버가 버리므로 여러 번 실행해도 됨.'),
     comment('생성: personal-money-app/gas/build_health_shortcut.py (직접 고치지 말고 스크립트를 수정해서 다시 서명)'),
-]
+    comment('하루 1회 가드: 마지막 실행 날짜 파일이 오늘이면 종료'),
+] + guard_actions
 noti = []
 for label, health_type, tab, days, group_by, props in BLOCKS:
     blk, ref = upload_block(health_type, tab, days, group_by, props)
@@ -109,6 +124,7 @@ for label, health_type, tab, days, group_by, props in BLOCKS:
 blk, ref = workout_block()
 actions += [comment('운동: Actions 앱의 Find Workout(최신 10개) → "시작|종료|종류|시간|kcal|거리|평균심박" → workout 탭')] + blk
 noti += ['운동 ', {'OutputUUID': ref['cnt'], 'OutputName': 'Count', 'Type': 'ActionOutput'}, ' · ']
+actions.append(act('documentpicker.save', WFInput=out_text(today_txt, 'Text'), WFFileDestinationPath=GUARD_FILE, WFAskWhereToSave=False, WFSaveFileOverwrite=True))
 actions.append(act('notification', WFNotificationActionSound=False, WFNotificationActionTitle='건강 업로드',
     WFNotificationActionBody=token_string(noti[:-1] + ['\n서버(운동) ', {'OutputUUID': ref['get'], 'OutputName': 'Contents of URL', 'Type': 'ActionOutput'}])))
 
