@@ -11,7 +11,9 @@ export function parseLog(text: string): LogEntry {
   const h = head.toLowerCase()
 
   if (['컨디션', '웰니스'].includes(h)) {
-    const n = rest.slice(0, 4).map(Number)
+    // "4 3 2 3" 외에 "4323", "4,3,2,3", "4/3/2/3" 도 허용 — 숫자만 뽑아 4자리면 한 자리씩
+    const digits = rest.join('').replace(/[^0-9]/g, '')
+    const n = digits.length === 4 ? [...digits].map(Number) : rest.slice(0, 4).map(Number)
     if (n.length !== 4 || n.some((v) => !(v >= 1 && v <= 5))) throw new Error('컨디션은 1~5 숫자 4개: 수면질 피로 스트레스 근육통 (예: 컨디션 4 3 2 3)')
     return { kind: '컨디션', extra: n.join('|'), echo: WELL.map((w, i) => `${w} ${n[i]}`).join(' · ') }
   }

@@ -4,6 +4,8 @@ import { parseLog, logStamp, summarizeManual } from './_log'
 describe('parseLog', () => {
   it('컨디션 4항목', () => {
     expect(parseLog('컨디션 4 3 2 3')).toMatchObject({ kind: '컨디션', extra: '4|3|2|3' })
+    expect(parseLog('컨디션 4323').extra).toBe('4|3|2|3')
+    expect(parseLog('컨디션 4,3,2,3').extra).toBe('4|3|2|3')
     expect(() => parseLog('컨디션 4 3')).toThrow()
     expect(() => parseLog('컨디션 6 3 2 3')).toThrow()
   })
