@@ -41,9 +41,10 @@ def upload_block(health_type, sheet_type, days):
         act('filter.health.quantity', UUID=find, WFContentItemFilter={
             'Value': {'WFActionParameterFilterPrefix': 1, 'WFContentPredicateBoundedDate': False, 'WFActionParameterFilterTemplates': [
                 row(4, 'Type', {'Enumeration': {'Value': health_type, 'WFSerializationType': 'WFStringSubstitutableState'}}, False),
-                row(1001, 'Start Date', {'Number': days, 'Unit': 16384}, True),   # 최근 N일
+                row(1001, 'Start Date', {'Number': days, 'Unit': 16}, True),   # 최근 N일 (NSCalendarUnitDay=16)
             ]}, 'WFSerializationType': 'WFContentPredicateTableTemplate'},
-            WFContentItemSortProperty='Start Date', WFContentItemSortOrder='Oldest First'),
+            WFContentItemSortProperty='Start Date', WFContentItemSortOrder='Latest First',
+            WFContentItemLimitEnabled=True, WFContentItemLimitNumber=200),   # 필터가 깨져도 전체 기록을 돌지 않게
         act('repeat.each', GroupingIdentifier=loop, WFControlFlowMode=0, WFInput=out_ref(find, 'Health Samples')),
         act('gettext', UUID=U(), WFTextActionText=token_string([
             item_prop('Start Date', 'yyyy-MM-dd HH:mm'), '|', item_prop('End Date', 'yyyy-MM-dd HH:mm'), '|', item_prop('Value')])),
