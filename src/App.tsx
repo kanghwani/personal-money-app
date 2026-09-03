@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   Area,
   AreaChart,
@@ -209,6 +209,7 @@ function App() {
     return !!(isIos && !isStandalone && !isDismissed)
   })
   const [history, refreshHistory, ledgerStatus] = useLedgerHistory()
+  const ledgerAppendInFlight = useRef(new Set<string>())
   const mergedTransactions = useMemo(
     () =>
       dedupById(history, store.transactions).sort((a, b) =>
@@ -227,6 +228,23 @@ function App() {
       return kept.length === cur.transactions.length ? cur : { ...cur, transactions: kept }
     })
   }, [history, setStore])
+
+  // 입력 당시 네트워크가 끊기면 거래는 로컬에는 남지만 원장 append가 실패할 수 있다.
+  // store는 원장에 아직 없는 거래만 보관하므로, 원장을 읽을 수 있게 될 때마다 안전하게 재전송한다.
+  // 서버는 같은 id를 중복 등록하지 않아 StrictMode나 재시도에도 안전하다.
+  useEffect(() => {
+    if (ledgerStatus !== 'ready' || !store.transactions.length) return
+    const ledgerIds = new Set(history.map((item) => item.id))
+    const pending = store.transactions.filter((item) => !ledgerIds.has(item.id) && !ledgerAppendInFlight.current.has(item.id))
+    if (!pending.length) return
+    pending.forEach((item) => ledgerAppendInFlight.current.add(item.id))
+    void Promise.all(pending.map((item) => appendLedger(item).catch(() => false)))
+      .then((results) => {
+        if (results.some(Boolean)) refreshHistory()
+        if (results.some((ok) => !ok)) setLastMessage(t('status_ledger_pending'))
+      })
+      .finally(() => pending.forEach((item) => ledgerAppendInFlight.current.delete(item.id)))
+  }, [history, ledgerStatus, refreshHistory, store.transactions])
 
   const categoryOptions = useMemo(() => distinctCategoryOptions(mergedTransactions), [mergedTransactions])
   async function assignCategoryFor(id: string, category: string, subCategory: string, memo: string) {
@@ -363,7 +381,6 @@ function App() {
   // 인앱 거래를 로컬에 즉시 표시 + 시트 원장에 기록(단일 원천화, 리포트 집계 포함)
   function recordTransaction(t: Transaction) {
     setStore((cur) => ({ ...cur, transactions: [t, ...cur.transactions] }))
-    appendLedger(t).catch(() => {})
   }
 
   // 카드 명세 붙여넣기 → 파싱·자동분류 후 일괄 등록. 중복(같은 날짜+금액+가맹점)은 건너뛴다.
@@ -2156,7 +2173,7 @@ function useLedgerHistory(): [Transaction[], () => void, LedgerLoadStatus] {
       .catch(() => { if (!cancelled) setStatus('error') })
     return () => { cancelled = true }
   }, [nonce])
-  const refresh = () => { setStatus('loading'); setNonce((n) => n + 1) }
+  const refresh = useCallback(() => { setStatus('loading'); setNonce((n) => n + 1) }, [])
   return [history, refresh, status]
 }
 
