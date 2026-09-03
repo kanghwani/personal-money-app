@@ -62,6 +62,30 @@ def upload_block(health_type, sheet_type, days, group_by=None, props=('Start Dat
     ], {'get': get, 'cnt': cnt}
 
 comment = lambda t: act('comment', WFCommentActionText=t)
+# Actions 앱(https://sindresorhus.com/actions, 무료, iOS 전용)의 "Find Workout". 애플 기본 액션엔 운동 세션 읽기가 없다.
+# 식별자·속성명은 /Applications/Actions.app/Contents/Resources/Metadata.appintents/extract.actionsdata 에서 확인.
+WORKOUT_PROPS = ('startDate', 'endDate', 'workoutType', 'duration', 'activeCalories', 'totalDistance', 'averageHeartRate')
+
+def workout_block(limit=10):
+    find, loop, end, comb, enc, get, cnt = U(), U(), U(), U(), U(), U(), U()
+    return [
+        {'WFWorkflowActionIdentifier': 'com.sindresorhus.Actions.WorkoutAppEntity', 'WFWorkflowActionParameters': {
+            'UUID': find,
+            'AppIntentDescriptor': {'BundleIdentifier': 'com.sindresorhus.Actions', 'Name': 'Workout', 'TeamIdentifier': 'YG56YK5RN5', 'AppIntentIdentifier': 'WorkoutAppEntity'},
+            'WFContentItemInputParameter': 'Library', 'WFCompoundType': 1,
+            'WFContentItemSortProperty': 'startDate', 'WFContentItemSortOrder': 'Latest First',
+            'WFContentItemLimitEnabled': True, 'WFContentItemLimitNumber': limit}},
+        act('count', UUID=cnt, WFCountType='Items', Input=out_ref(find, 'Workouts'), WFInput=out_ref(find, 'Workouts')),
+        act('repeat.each', GroupingIdentifier=loop, WFControlFlowMode=0, WFInput=out_ref(find, 'Workouts')),
+        act('gettext', UUID=U(), WFTextActionText=token_string(sum(
+            [[item_prop(p, 'yyyy-MM-dd HH:mm' if 'Date' in p else None), '|'] for p in WORKOUT_PROPS], [])[:-1])),
+        act('repeat.each', GroupingIdentifier=loop, WFControlFlowMode=2, UUID=end),
+        act('text.combine', UUID=comb, WFTextSeparator='New Lines', text=out_text(end, 'Repeat Results')),
+        act('urlencode', UUID=enc, WFEncodeMode='Encode', WFInput=out_text(comb, 'Combined Text')),
+        act('downloadurl', UUID=get, WFHTTPMethod='GET', WFURL=token_string([
+            f'{GAS_URL}?action=health&type=workout&token={TOKEN}&rows=', {'OutputUUID': enc, 'OutputName': 'URL Encoded Text', 'Type': 'ActionOutput'}])),
+    ], {'get': get, 'cnt': cnt}
+
 # (알림 라벨, 건강 타입 라벨, 탭, 최근 N일, 그룹화, 속성). 하루 종일 쌓이는 값은 Day 그룹화로 하루 한 줄.
 BLOCKS = [
     ('수면',   'Sleep',                  'sleep',        2, None,  ('Start Date', 'End Date', 'Value')),
@@ -74,7 +98,7 @@ BLOCKS = [
     ('VO2',   'VO2 Max',                 'vo2max',      60, None,  ('Start Date', 'End Date', 'Value')),
 ]
 actions = [
-    comment('건강 업로드: 애플워치 데이터를 가계부 GAS 건강 시트로 보낸다(탭: sleep, resting_hr, hrv, active_kcal, vo2max). 같은 행은 서버가 버리므로 여러 번 실행해도 됨.'),
+    comment('건강 업로드: 애플워치 데이터를 가계부 GAS 건강 시트로 보낸다(탭: sleep, resting_hr, hrv, active_kcal, vo2max, workout). 같은 행은 서버가 버리므로 여러 번 실행해도 됨.'),
     comment('생성: personal-money-app/gas/build_health_shortcut.py (직접 고치지 말고 스크립트를 수정해서 다시 서명)'),
 ]
 noti = []
@@ -82,8 +106,11 @@ for label, health_type, tab, days, group_by, props in BLOCKS:
     blk, ref = upload_block(health_type, tab, days, group_by, props)
     actions += blk[:1] + [comment(f'{label}: 샘플마다 "{"|".join(props)}" 한 줄 → 줄바꿈으로 합쳐 GET 전송')] + blk[1:]
     noti += [f'{label} ', {'OutputUUID': ref['cnt'], 'OutputName': 'Count', 'Type': 'ActionOutput'}, ' · ']
+blk, ref = workout_block()
+actions += [comment('운동: Actions 앱의 Find Workout(최신 10개) → "시작|종료|종류|시간|kcal|거리|평균심박" → workout 탭')] + blk
+noti += ['운동 ', {'OutputUUID': ref['cnt'], 'OutputName': 'Count', 'Type': 'ActionOutput'}, ' · ']
 actions.append(act('notification', WFNotificationActionSound=False, WFNotificationActionTitle='건강 업로드',
-    WFNotificationActionBody=token_string(noti[:-1] + ['\n서버(VO2) ', {'OutputUUID': ref['get'], 'OutputName': 'Contents of URL', 'Type': 'ActionOutput'}])))
+    WFNotificationActionBody=token_string(noti[:-1] + ['\n서버(운동) ', {'OutputUUID': ref['get'], 'OutputName': 'Contents of URL', 'Type': 'ActionOutput'}])))
 
 doc = {
     'WFWorkflowName': '건강 업로드',
