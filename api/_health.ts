@@ -101,8 +101,8 @@ export function summarizeWorkouts(rows: HealthRow[] = []): string {
     // 백필: "분|kcal|거리|평균심박" 숫자만. 단축어(Actions 앱): "56 min|218|0.85 km|113" 처럼 단위가 붙을 수 있다.
     const [durS = '', kcalS = '', distS = '', hrS = ''] = (r.extra || '').split('|')
     const dur = num(durS) * (/\bh(our|r)?s?\b/.test(durS) ? 60 : 1)
-    const dist = num(distS) * (/km/.test(distS) ? 1000 : 1)
-    const parts = [durS && `${Math.round(dur)}분`, distS && !isNaN(dist) && (dist >= 1000 && !/\bm\b/.test(distS) && /km/.test(distS) ? `${(dist / 1000).toFixed(1)}km` : `${Math.round(dist)}m`),
+    const dist = meters(distS, r.value)
+    const parts = [durS && `${Math.round(dur)}분`, distS && !isNaN(dist) && (/swim/i.test(r.value) ? `${Math.round(dist)}m` : `${(dist / 1000).toFixed(1)}km`),
       hrS && `평균심박 ${Math.round(num(hrS))}`, kcalS && `${Math.round(num(kcalS))}kcal`].filter(Boolean)
     return `${r.start.slice(5)} ${KO[r.value] || KO[r.value.charAt(0).toUpperCase() + r.value.slice(1)] || r.value} ${parts.join(' ')}`
   })
@@ -136,8 +136,8 @@ export function summarizeTrend(tab: string, rows: HealthRow[] = []): string {
 }
 
 const WORKOUT_ALIAS: Record<string, string> = { running: 'Running', 러닝: 'Running', 달리기: 'Running', swimming: 'Swimming', 수영: 'Swimming', yoga: 'Yoga', 요가: 'Yoga', walking: 'Walking', 걷기: 'Walking', cycling: 'Cycling', 자전거: 'Cycling' }
-/** 거리 문자열 → m. "0.85 km"·"850 m"·숫자만(50 미만이면 km로 간주: 백필 러닝은 km, 수영은 m) */
-const meters = (s: string) => { const v = num(s); if (isNaN(v)) return NaN; if (/km/.test(s)) return v * 1000; if (/\bm\b/.test(s)) return v; return v < 50 ? v * 1000 : v }
+/** 거리 문자열 → m. 단위가 붙어 있으면 그대로("0.85 km"·"850 m"), 숫자만이면 종목으로 판단(백필: 수영은 m, 나머지는 km) */
+const meters = (s: string, type = '') => { const v = num(s); if (isNaN(v)) return NaN; if (/km/.test(s)) return v * 1000; if (/\bm\b/.test(s)) return v; return /swim/i.test(type) ? v : v * 1000 }
 const minutes = (s: string) => { const v = num(s); return /\bh(our|r)?s?\b/.test(s) ? v * 60 : v }
 
 /** 종목별 월간: 횟수·총시간·거리·평균 페이스(분/km, 러닝)·평균심박 */
@@ -147,7 +147,7 @@ export function workoutTrend(rows: HealthRow[], onlyType?: string): string {
     if (onlyType && r.value.toLowerCase() !== onlyType.toLowerCase()) continue
     const k = `${r.start.slice(0, 7)} ${r.value}`; const [d = '', , dist = '', hr = ''] = (r.extra || '').split('|')
     const cur = by.get(k) || { n: 0, min: 0, m: 0, hr: [] }
-    cur.n++; cur.min += minutes(d) || 0; cur.m += meters(dist) || 0; if (num(hr) > 0) cur.hr.push(num(hr)); by.set(k, cur)
+    cur.n++; cur.min += minutes(d) || 0; cur.m += meters(dist, r.value) || 0; if (num(hr) > 0) cur.hr.push(num(hr)); by.set(k, cur)
   }
   if (!by.size) return `${onlyType || 'workout'}: 기록 없음`
   const lines = [...by.entries()].sort().map(([k, v]) => {
