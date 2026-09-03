@@ -2190,7 +2190,7 @@ function healthAppend_(type, rowsText) {
   const rows = healthParse_(rowsText);
   const seen = new Set(sheet.getDataRange().getValues().slice(1).map(r => r.slice(0, 3).join('|')));
   const now = new Date();
-  const fresh = rows.filter(r => !seen.has(r.join('|')));
+  const fresh = rows.filter(r => { const k = r.slice(0, 3).join('|'); if (seen.has(k)) return false; seen.add(k); return true; });   // 시트·같은 요청 안 중복 모두 제거
   if (fresh.length) {
     sheet.getRange(sheet.getLastRow() + 1, 1, fresh.length, 5)
       .setValues(fresh.map(r => [r[0], r[1], r[2], r[3], now]));
