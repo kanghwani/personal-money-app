@@ -811,6 +811,11 @@ function doGet(e) {
     });
     return json_({ ok: true, spreadsheet: ss.getName(), tabs });
   }
+  // 옛 수기 가계부 탭 보관: step=copy(보관 시트로 복사) | delete(대조 후 원본 삭제) | reorder(남은 탭 정렬)
+  if (params.action === 'archiveLegacy') {
+    if (!checkToken_(params.token)) return json_({ ok: false, error: 'unauthorized' });
+    return json_(archiveLegacy_(String(params.step || 'copy')));
+  }
   if (params.action === 'healthDrop') {   // 잡탭 삭제(허용 목록만)
     if (!checkToken_(params.token)) return json_({ ok: false, error: 'unauthorized' });
     const ss = healthSpreadsheet_(); const sh = ss.getSheetByName(String(params.name || ''));
@@ -2281,4 +2286,39 @@ function healthAll_(days) {
   const out = {};
   healthSpreadsheet_().getSheets().forEach(sh => { out[sh.getName()] = healthSheetRows_(sh, days); });
   return out;
+}
+
+
+// ── 가계부 시트 정리 ─────────────────────────────────────────
+const LEGACY_TABS = ['10월', '11월', '12월', '2026년 1월', '2026년 2월', '2026년 3월', '2026년 4월', '2026년 5월', '고정비'];
+const TAB_ORDER = ['v2_거래원장', 'v2_빠른입력', 'v2_고정비', 'v2_분류규칙', 'v2_월간리포트', 'v2_인사이트', 'v2_자산', 'v2_투자', 'v2_대출', 'AppState', 'es_거래원장', 'es_고정비', 'es_AppState'];
+
+function archiveSpreadsheet_() {
+  const props = PropertiesService.getScriptProperties();
+  let id = props.getProperty('ARCHIVE_SHEET_ID');
+  if (!id) { id = SpreadsheetApp.create('가계부 보관 (옛 수기 탭)').getId(); props.setProperty('ARCHIVE_SHEET_ID', id); }
+  return SpreadsheetApp.openById(id);
+}
+
+function archiveLegacy_(step) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  if (step === 'reorder') {
+    TAB_ORDER.forEach((name, i) => { const sh = ss.getSheetByName(name); if (sh) { ss.setActiveSheet(sh); ss.moveActiveSheet(i + 1); } });
+    return { ok: true, order: ss.getSheets().map(s => s.getName()) };
+  }
+  const ar = archiveSpreadsheet_();
+  const report = [];
+  LEGACY_TABS.forEach(name => {
+    const src = ss.getSheetByName(name); if (!src) return;
+    let dst = ar.getSheetByName(name);
+    if (step === 'copy') {
+      if (!dst) { dst = src.copyTo(ar); dst.setName(name); }
+      report.push({ name, srcRows: src.getLastRow(), dstRows: dst.getLastRow() });
+    } else if (step === 'delete') {
+      if (dst && dst.getLastRow() === src.getLastRow() && dst.getLastColumn() === src.getLastColumn()) { ss.deleteSheet(src); report.push({ name, deleted: true }); }
+      else report.push({ name, deleted: false, reason: dst ? 'row/col mismatch' : 'no archive copy' });
+    }
+  });
+  if (step === 'copy') { const first = ar.getSheetByName('시트1'); if (first && ar.getSheets().length > 1) ar.deleteSheet(first); }
+  return { ok: true, step, archive: ar.getUrl(), report };
 }
