@@ -2150,7 +2150,7 @@ function installFixedTrigger() {
 // ── 건강 데이터 (별도 스프레드시트) ──────────────────────────
 // 가계부 시트에 탭을 섞지 않는다: migrateExistingTransactions가 모르는 탭을 원장으로 빨아들임.
 // 시트는 첫 호출 때 스크립트 계정에 만들고 ID를 스크립트 속성에 저장한다(다른 계정 시트는 권한 오류).
-const HEALTH_HEADERS = ['start', 'end', 'value', 'received'];
+const HEALTH_HEADERS = ['start', 'end', 'value', 'extra', 'received'];   // extra: 4번째 이후 필드를 |로 합침(운동 세션 등)
 
 function healthSpreadsheet_() {
   const props = PropertiesService.getScriptProperties();
@@ -2162,18 +2162,18 @@ function healthSpreadsheet_() {
   return SpreadsheetApp.openById(id);
 }
 
-// "시작|종료|값" 줄들 → [[시작, 종료, 값], ...]. 빈 줄·구분자 없는 줄은 버린다.
+// "시작|종료|값[|추가...]" 줄들 → [[시작, 종료, 값, 추가], ...]. 빈 줄·구분자 없는 줄은 버린다.
 function healthParse_(rowsText) {
   return String(rowsText || '').replace(/%0A/gi, '\n').split(/\r?\n/)
     .map(l => l.trim()).filter(l => l.includes('|'))
-    .map(l => l.split('|').slice(0, 3).map(x => x.trim()));
+    .map(l => { const f = l.split('|').map(x => x.trim()); return [f[0], f[1], f[2] || '', f.slice(3).join('|')]; });
 }
 
 function healthSheet_(type) {
   const name = String(type || '').toLowerCase().replace(/[^a-z_]/g, '') || 'raw';
   const sheet = ensureSheet_(healthSpreadsheet_(), name);
   if (sheet.getLastRow() === 0) {
-    sheet.getRange('A:C').setNumberFormat('@');   // 날짜 문자열을 Date로 바꾸지 않게(중복 키 안정)
+    sheet.getRange('A:D').setNumberFormat('@');   // 날짜·값 문자열을 Date/숫자로 바꾸지 않게(중복 키 안정)
     sheet.appendRow(HEALTH_HEADERS);
   }
   return sheet;
@@ -2187,8 +2187,8 @@ function healthAppend_(type, rowsText) {
   const now = new Date();
   const fresh = rows.filter(r => !seen.has(r.join('|')));
   if (fresh.length) {
-    sheet.getRange(sheet.getLastRow() + 1, 1, fresh.length, 4)
-      .setValues(fresh.map(r => [r[0], r[1], r[2] || '', now]));
+    sheet.getRange(sheet.getLastRow() + 1, 1, fresh.length, 5)
+      .setValues(fresh.map(r => [r[0], r[1], r[2], r[3], now]));
   }
   const out = { ok: true, sheet: sheet.getName(), added: fresh.length, skipped: rows.length - fresh.length, url: sheet.getParent().getUrl() };
   // 파싱된 행이 0이면 뭘 받았는지 앞부분을 돌려줘 단축어 알림에서 바로 진단하게 한다.
@@ -2202,5 +2202,5 @@ function healthRows_(type, days) {
   const since = Utilities.formatDate(new Date(Date.now() - days * 86400000), TZ, 'yyyy-MM-dd');
   return sheet.getDataRange().getValues().slice(1)
     .filter(r => String(r[0]) >= since)
-    .map(r => ({ start: String(r[0]), end: String(r[1]), value: String(r[2]) }));
+    .map(r => ({ start: String(r[0]), end: String(r[1]), value: String(r[2]), extra: String(r[3] || '') }));
 }
