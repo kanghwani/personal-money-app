@@ -2243,12 +2243,13 @@ function healthSheetRows_(sheet, days) {
     .filter(r => String(r[0]) >= since)
     .map(r => ({ start: String(r[0]), end: String(r[1]), value: String(r[2]), extra: String(r[3] || '') }));
 }
-// 일 단위 탭 정리: 날짜별로 마지막 행만 남기고 날짜순 정렬해 다시 쓴다(중복 적재 복구용).
+// 탭 정리(중복 적재 복구용): 일 단위 탭은 날짜별 마지막 행만, 그 외는 (시작|종료|값) 기준 한 행만 남기고 날짜순으로 다시 쓴다.
 function healthCompact_(type) {
   const sheet = healthSheet_(type);
   const values = sheet.getDataRange().getValues();
+  const daily = HEALTH_DAILY_TABS.includes(sheet.getName());
   const last = new Map();
-  values.slice(1).forEach(r => { if (String(r[0]).length >= 10) last.set(String(r[0]).slice(0, 10), r); });
+  values.slice(1).forEach(r => { if (String(r[0]).length >= 10) last.set(daily ? String(r[0]).slice(0, 10) : r.slice(0, 3).map(String).join('|'), r); });
   const rows = [...last.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(e => e[1]);
   sheet.getRange(2, 1, Math.max(values.length - 1, 1), 5).clearContent();
   if (rows.length) sheet.getRange(2, 1, rows.length, 5).setValues(rows);
