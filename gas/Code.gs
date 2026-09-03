@@ -786,6 +786,16 @@ function doGet(e) {
     if (!checkToken_(params.token)) return json_({ ok: false, error: 'unauthorized' });
     return handleQuickText_(SpreadsheetApp.openById(SPREADSHEET_ID), params);
   }
+  // 건강(애플워치→iOS 단축어). POST는 302로 깨지므로 add와 같이 GET.
+  // ?action=health&token=..&type=sleep&rows=시작|종료|값%0A시작|종료|값...
+  if (params.action === 'health') {
+    if (!checkToken_(params.token)) return json_({ ok: false, error: 'unauthorized' });
+    return json_(healthAppend_(params.type, params.rows));
+  }
+  if (params.action === 'healthRows') {
+    if (!checkToken_(params.token)) return json_({ ok: false, error: 'unauthorized' });
+    return json_({ ok: true, rows: healthRows_(params.type, Number(params.days) || 7) });
+  }
   return json_({ ok: true, message: 'ManageMoney quick input is alive' });
 }
 
@@ -2136,3 +2146,48 @@ function installFixedTrigger() {
   return { ok: true, created: true };
 }
 
+
+// ── 건강 데이터 (별도 스프레드시트) ──────────────────────────
+// 가계부 시트에 탭을 섞지 않는다: migrateExistingTransactions가 모르는 탭을 원장으로 빨아들임.
+const HEALTH_SHEET_ID = '1LfX1CeQIsM1SxqKn8a4AACDU140xKiUfuv9T05fu--k';
+const HEALTH_HEADERS = ['start', 'end', 'value', 'received'];
+
+// "시작|종료|값" 줄들 → [[시작, 종료, 값], ...]. 빈 줄·구분자 없는 줄은 버린다.
+function healthParse_(rowsText) {
+  return String(rowsText || '').replace(/%0A/gi, '\n').split(/\r?\n/)
+    .map(l => l.trim()).filter(l => l.includes('|'))
+    .map(l => l.split('|').slice(0, 3).map(x => x.trim()));
+}
+
+function healthSheet_(type) {
+  const name = String(type || '').toLowerCase().replace(/[^a-z_]/g, '') || 'raw';
+  const sheet = ensureSheet_(SpreadsheetApp.openById(HEALTH_SHEET_ID), name);
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange('A:C').setNumberFormat('@');   // 날짜 문자열을 Date로 바꾸지 않게(중복 키 안정)
+    sheet.appendRow(HEALTH_HEADERS);
+  }
+  return sheet;
+}
+
+// 같은 (시작|종료|값)은 건너뛴다 — 단축어가 두 번 돌아도 무해.
+function healthAppend_(type, rowsText) {
+  const sheet = healthSheet_(type);
+  const rows = healthParse_(rowsText);
+  const seen = new Set(sheet.getDataRange().getValues().slice(1).map(r => r.slice(0, 3).join('|')));
+  const now = new Date();
+  const fresh = rows.filter(r => !seen.has(r.join('|')));
+  if (fresh.length) {
+    sheet.getRange(sheet.getLastRow() + 1, 1, fresh.length, 4)
+      .setValues(fresh.map(r => [r[0], r[1], r[2] || '', now]));
+  }
+  return { ok: true, sheet: sheet.getName(), added: fresh.length, skipped: rows.length - fresh.length };
+}
+
+// 최근 days일 행. start는 'yyyy-MM-dd ...' 문자열이라 날짜 접두 비교로 자른다.
+function healthRows_(type, days) {
+  const sheet = healthSheet_(type);
+  const since = Utilities.formatDate(new Date(Date.now() - days * 86400000), TZ, 'yyyy-MM-dd');
+  return sheet.getDataRange().getValues().slice(1)
+    .filter(r => String(r[0]) >= since)
+    .map(r => ({ start: String(r[0]), end: String(r[1]), value: String(r[2]) }));
+}
