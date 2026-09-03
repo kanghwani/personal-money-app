@@ -45,3 +45,17 @@ describe('summarizeManual', () => {
     expect(s).toContain('밴드 3×5')
   })
 })
+
+describe('계획 대비 실행', () => {
+  const r = (start: string, value: string, extra: string) => ({ start, end: start, value, extra })
+  it('요일 계획과 워크아웃·턱걸이 기록을 대조한다', () => {
+    expect(parseLog('계획 월 수영 턱걸이').extra).toBe('월|수영,턱걸이')
+    expect(() => parseLog('계획 화')).toThrow()
+    const rows = [r('2026-08-01 08:00:00', '계획', '월|수영,턱걸이'), r('2026-08-01 08:01:00', '계획', '화|러닝,요가'), r('2026-08-31 12:00:00', '턱걸이', '밴드|3|5')]
+    const workouts = [{ start: '2026-08-31 09:15', end: '2026-08-31 10:11', value: 'Swimming', extra: '55|218|850|112' }]   // 8/31 = 월
+    const s = summarizeManual(rows, '2026-08-31', workouts, '2026-09-01')
+    expect(s).toContain('[계획 대비 실행 2/4]')
+    expect(s).toContain('08-31(월) 수영✓ 턱걸이✓')
+    expect(s).toContain('09-01(화) 러닝✗ 요가✗')
+  })
+})

@@ -114,13 +114,46 @@ export function summarizeTrend(tab: string, rows: HealthRow[] = []): string {
   const by = new Map<string, number[]>()
   if (tab === 'sleep') {
     for (const n of groupNights(rows)) { const k = n.key.slice(0, 7); by.set(k, [...(by.get(k) || []), (n.core + n.rem + n.deep) / 60]) }
-  } else if (tab === 'workout') {
-    for (const r of rows) { const k = r.start.slice(0, 7); const dur = +(r.extra || '').split('|')[0] || 0; by.set(k, [...(by.get(k) || []), dur]) }
-    return `[${tab} 월별 운동 횟수·총시간]\n` + [...by.entries()].sort().map(([k, v]) => `${k} ${v.length}회 ${Math.round(v.reduce((s, x) => s + x, 0) / 60)}h`).join('\n')
+  } else if (tab === 'workout' || WORKOUT_ALIAS[tab]) {
+    return workoutTrend(rows, WORKOUT_ALIAS[tab])
+  } else if (tab === 'pullups' || tab === '턱걸이') {
+    // manual 탭: extra = 변형|세트|횟수(콤마 또는 단일)
+    const m = new Map<string, { total: number; max: number; n: number }>()
+    for (const r of rows.filter((x) => x.value === '턱걸이')) {
+      const k = r.start.slice(0, 7); const [, sets, reps] = (r.extra || '').split('|')
+      const list = String(reps || '').replace(/초/g, '').split(',').map(Number).filter((v) => v > 0)
+      const total = list.length > 1 ? list.reduce((s, v) => s + v, 0) : (+sets || 1) * (list[0] || 0)
+      const cur = m.get(k) || { total: 0, max: 0, n: 0 }; cur.total += total; cur.max = Math.max(cur.max, ...list); cur.n++; m.set(k, cur)
+    }
+    if (!m.size) return '턱걸이 기록 없음'
+    return `[턱걸이 월별]\n` + [...m.entries()].sort().map(([k, v]) => `${k} ${v.n}회 세션 · 총 ${v.total}개 · 최대 세트 ${v.max}`).join('\n')
   } else {
     for (const [d, v] of dailySeries(rows)) { const k = d.slice(0, 7); by.set(k, [...(by.get(k) || []), v]) }
   }
   if (!by.size) return `${tab}: 기록 없음`
   const dec = tab === 'sleep' || tab === 'vo2max' || tab === 'wrist_temp' ? 1 : 0
   return `[${tab} 월별 평균]\n` + [...by.entries()].sort().map(([k, v]) => `${k} ${fmt(mean(v), dec)} (${v.length}일)`).join('\n')
+}
+
+const WORKOUT_ALIAS: Record<string, string> = { running: 'Running', 러닝: 'Running', 달리기: 'Running', swimming: 'Swimming', 수영: 'Swimming', yoga: 'Yoga', 요가: 'Yoga', walking: 'Walking', 걷기: 'Walking', cycling: 'Cycling', 자전거: 'Cycling' }
+/** 거리 문자열 → m. "0.85 km"·"850 m"·숫자만(50 미만이면 km로 간주: 백필 러닝은 km, 수영은 m) */
+const meters = (s: string) => { const v = num(s); if (isNaN(v)) return NaN; if (/km/.test(s)) return v * 1000; if (/\bm\b/.test(s)) return v; return v < 50 ? v * 1000 : v }
+const minutes = (s: string) => { const v = num(s); return /\bh(our|r)?s?\b/.test(s) ? v * 60 : v }
+
+/** 종목별 월간: 횟수·총시간·거리·평균 페이스(분/km, 러닝)·평균심박 */
+export function workoutTrend(rows: HealthRow[], onlyType?: string): string {
+  const by = new Map<string, { n: number; min: number; m: number; hr: number[] }>()
+  for (const r of rows) {
+    if (onlyType && r.value.toLowerCase() !== onlyType.toLowerCase()) continue
+    const k = `${r.start.slice(0, 7)} ${r.value}`; const [d = '', , dist = '', hr = ''] = (r.extra || '').split('|')
+    const cur = by.get(k) || { n: 0, min: 0, m: 0, hr: [] }
+    cur.n++; cur.min += minutes(d) || 0; cur.m += meters(dist) || 0; if (num(hr) > 0) cur.hr.push(num(hr)); by.set(k, cur)
+  }
+  if (!by.size) return `${onlyType || 'workout'}: 기록 없음`
+  const lines = [...by.entries()].sort().map(([k, v]) => {
+    const km = v.m / 1000; const pace = v.m > 0 && v.min > 0 ? v.min / km : NaN
+    const parts = [`${v.n}회`, `${Math.round(v.min)}분`, v.m > 0 ? (k.includes('Swimming') ? `${Math.round(v.m)}m` : `${km.toFixed(1)}km`) : '', !isNaN(pace) && k.includes('Running') ? `페이스 ${Math.floor(pace)}'${String(Math.round((pace % 1) * 60)).padStart(2, '0')}"/km` : '', v.hr.length ? `평균심박 ${Math.round(v.hr.reduce((s, x) => s + x, 0) / v.hr.length)}` : ''].filter(Boolean)
+    return `${k} ${parts.join(' · ')}`
+  })
+  return `[${onlyType || '운동'} 월별]\n${lines.join('\n')}`
 }

@@ -66,9 +66,9 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: { days: { type: 'number', description: '최근 며칠 (기본 7, 최대 60)' } } } },
   { name: 'health_today', description: '오늘 준비도(0~100)와 사유. 60일 개인 기준선 대비 HRV 7일 평균·어젯밤 HRV·안정심박·어젯밤 수면·수면 부채·손목온도·호흡수·전날 부하로 계산, 질병 패턴이면 상한. 밴드: 75+ 강하게, 50~74 계획대로, 30~49 가볍게, 30 미만 휴식. "오늘 컨디션 어때", "오늘 운동해도 돼", "에너지 레벨" 질문에 사용. 숫자와 사유만 전달하고 원인을 지어내지 말 것.',
     inputSchema: { type: 'object', properties: {} } },
-  { name: 'health_log', description: '건강·훈련 한 줄 기록(시트 manual 탭). 형식: "컨디션 4 3 2 3"(수면질 피로 스트레스 근육통 1~5, 아침), "sRPE 수영 55 6 [메모]"(종목 분 RPE1~10, 훈련 직후), "턱걸이 밴드 3x5" / "턱걸이 네거티브 4x8초" / "턱걸이 5 5 4", "태그 술 늦은식사 카페인 출장 아픔", "통증 무릎 3"(0~10), "인바디 72.3 33.1 18.5"(체중 골격근량 체지방률), 그 외는 메모. 앞에 "어제 "를 붙이면 어제로 기록. 사용자가 컨디션·훈련·통증·술 같은 걸 한 줄로 말하면 이 툴로 저장한다.',
+  { name: 'health_log', description: '건강·훈련 한 줄 기록(시트 manual 탭). 형식: "컨디션 4 3 2 3"(수면질 피로 스트레스 근육통 1~5, 아침), "sRPE 수영 55 6 [메모]"(종목 분 RPE1~10, 훈련 직후), "턱걸이 밴드 3x5" / "턱걸이 네거티브 4x8초" / "턱걸이 5 5 4", "태그 술 늦은식사 카페인 출장 아픔", "통증 무릎 3"(0~10), "인바디 72.3 33.1 18.5"(체중 골격근량 체지방률), "계획 월 수영 턱걸이"/"계획 토 휴식"(요일별 훈련 계획, 주간 리포트의 계획 대비 실행에 사용), 그 외는 메모. 앞에 "어제 "를 붙이면 어제로 기록. 사용자가 컨디션·훈련·통증·술 같은 걸 한 줄로 말하면 이 툴로 저장한다.',
     inputSchema: { type: 'object', properties: { text: { type: 'string', description: '예: 컨디션 4 3 2 3' } }, required: ['text'] } },
-  { name: 'health_trend', description: '한 지표의 월별 평균 추세(장기). metric: sleep(총수면 h), resting_hr, hrv, vo2max, steps, active_kcal, exercise_min, respiratory_rate, wrist_temp, spo2, workout(월별 횟수·시간). "체력 늘고 있어?", "작년보다 잠 늘었어?" 같은 질문에.',
+  { name: 'health_trend', description: '한 지표의 월별 추세(장기). metric: sleep(총수면 h), resting_hr, hrv, vo2max, steps, active_kcal, exercise_min, respiratory_rate, wrist_temp, spo2, workout(전 종목), running/수영/swimming/yoga(종목별 횟수·시간·거리·러닝 페이스·평균심박), pullups/턱걸이(총 개수·최대 세트). "체력 늘고 있어?", "러닝 페이스 빨라졌어?", "턱걸이 늘었어?" 같은 질문에.',
     inputSchema: { type: 'object', properties: { metric: { type: 'string' }, months: { type: 'number', description: '최근 몇 달 (기본 12)' } }, required: ['metric'] } },
 ]
 
@@ -184,7 +184,7 @@ async function runTool(name: string, args: Record<string, unknown>): Promise<str
     const t = r.tabs ?? {}
     const since = new Date(Date.now() + 9 * 3600_000 - days * 86400_000).toISOString().slice(0, 10)
     const recent = (rows: HealthRow[] = []) => rows.filter((x) => x.start >= since)
-    return ['[수면]', summarizeSleep(recent(t.sleep)), '', summarizeDaily(t, days), '', summarizeWorkouts(recent(t.workout)), '', summarizeManual(t.manual, since)].join('\n')
+    return ['[수면]', summarizeSleep(recent(t.sleep)), '', summarizeDaily(t, days), '', summarizeWorkouts(recent(t.workout)), '', summarizeManual(t.manual, since, t.workout, today())].join('\n')
   }
 
   if (name === 'health_today') {
@@ -201,9 +201,11 @@ async function runTool(name: string, args: Record<string, unknown>): Promise<str
   }
 
   if (name === 'health_trend') {
-    const metric = String(args.metric || '').toLowerCase().replace(/[^a-z0-9_]/g, '')
+    const metric = String(args.metric || '').toLowerCase().replace(/[^a-z0-9_가-힣]/g, '')
     const months = Math.min(Math.max(Number(args.months) || 12, 1), 120)
-    const r = await gasGet<{ rows?: HealthRow[] }>('healthRows', `&type=${metric}&days=${months * 31}`)
+    const tab = ['running', '러닝', '달리기', 'swimming', '수영', 'yoga', '요가', 'walking', '걷기', 'cycling', '자전거'].includes(metric) ? 'workout'
+      : ['pullups', '턱걸이'].includes(metric) ? 'manual' : metric
+    const r = await gasGet<{ rows?: HealthRow[] }>('healthRows', `&type=${tab}&days=${months * 31}`)
     return summarizeTrend(metric, r.rows ?? [])
   }
 

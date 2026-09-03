@@ -3,6 +3,9 @@ import type { HealthRow } from './_health.js'
 
 export type LogEntry = { kind: string; extra: string; echo: string }
 const WELL = ['수면질', '피로', '스트레스', '근육통']   // 컨디션 4항목 순서 고정(Hooper 최소형)
+const DAYS = ['일', '월', '화', '수', '목', '금', '토']
+/** 계획 종목(한글) ↔ 워치 워크아웃 타입 */
+export const SPORT: Record<string, string> = { 수영: 'Swimming', 러닝: 'Running', 달리기: 'Running', 걷뛰: 'Running', 요가: 'Yoga', 걷기: 'Walking', 자전거: 'Cycling', 등산: 'Hiking', 근력: 'FunctionalStrengthTraining', 코어: 'CoreTraining' }
 
 /** "컨디션 4 3 2 3" / "sRPE 수영 55 6 무릎 살짝" / "턱걸이 밴드 3x5" / "태그 술 늦은식사" / "통증 무릎 3" / 그 외 → 메모 */
 export function parseLog(text: string): LogEntry {
@@ -42,6 +45,12 @@ export function parseLog(text: string): LogEntry {
     if (!(+w > 0) || !(+smm > 0) || !(+fat >= 0)) throw new Error('인바디는 "인바디 체중 골격근량 체지방률" (예: 인바디 72.3 33.1 18.5)')
     return { kind: '인바디', extra: [+w, +smm, +fat, memo.join(' ')].join('|'), echo: `체중 ${+w}kg · 골격근 ${+smm}kg · 체지방 ${+fat}%` }
   }
+  if (h === '계획') {
+    // 계획 월 수영 턱걸이 / 계획 토 휴식 — 요일별 마지막 것이 유효
+    const [d, ...items] = rest
+    if (!DAYS.includes(d) || !items.length) throw new Error('계획은 "계획 요일 종목..." (예: 계획 월 수영 턱걸이, 계획 토 휴식)')
+    return { kind: '계획', extra: [d, items.join(',')].join('|'), echo: `${d}요일: ${items.join(', ')}` }
+  }
   if (h === '태그') {
     if (!rest.length) throw new Error('태그 뒤에 어휘를 (예: 태그 술 늦은식사 카페인 출장 아픔)')
     return { kind: '태그', extra: rest.join('|'), echo: rest.join(', ') }
@@ -71,10 +80,33 @@ const sd = (xs: number[]) => { const m = mean(xs); return Math.sqrt(mean(xs.map(
 const day = (r: HealthRow) => r.start.slice(0, 10)
 
 /** rows: manual 탭 전체(기준선용 30일 포함), since: 최근 구간 시작일 'yyyy-MM-dd' */
-export function summarizeManual(rows: HealthRow[] = [], since: string): string {
+export function summarizeManual(rows: HealthRow[] = [], since: string, workouts: HealthRow[] = [], today?: string): string {
   const out: string[] = []
   const recent = rows.filter((r) => day(r) >= since)
   const older = rows.filter((r) => day(r) < since)
+
+  // 계획 대비 실행: 요일별 최신 계획 × since~today 날짜에 워치 워크아웃/턱걸이/sRPE 기록이 있는지
+  const plan = new Map<string, string[]>()
+  rows.filter((r) => r.value === '계획').forEach((r) => { const [d, items] = (r.extra || '').split('|'); plan.set(d, items.split(',').filter(Boolean)) })
+  if (plan.size) {
+    const end = today || (recent.length ? day(recent[recent.length - 1]) : since)
+    const lines: string[] = []; let planned = 0, done = 0
+    for (let d = since; d <= end; d = shift(d, 1)) {
+      const wd = DAYS[new Date(d + 'T00:00:00Z').getUTCDay()]; const items = plan.get(wd); if (!items) continue
+      const marks = items.map((it) => {
+        if (it === '휴식') return '휴식'
+        planned++
+        const type = SPORT[it]
+        const hit = (type && workouts.some((w) => day(w) === d && w.value.toLowerCase() === type.toLowerCase()))
+          || (it === '턱걸이' && rows.some((r) => day(r) === d && r.value === '턱걸이'))
+          || rows.some((r) => day(r) === d && r.value === 'sRPE' && (r.extra || '').split('|')[0] === it)
+        if (hit) done++
+        return `${it}${hit ? '✓' : '✗'}`
+      })
+      lines.push(`${d.slice(5)}(${wd}) ${marks.join(' ')}`)
+    }
+    if (lines.length) out.push(`[계획 대비 실행 ${done}/${planned}]\n${lines.join('\n')}`)
+  }
 
   // 컨디션: 최근 일별 + 개인 평균 대비 1 SD 밖만 표시
   const well = (rs: HealthRow[]) => { const m = new Map<string, number[]>(); rs.filter((r) => r.value === '컨디션').forEach((r) => m.set(day(r), (r.extra || '').split('|').map(Number))); return m }

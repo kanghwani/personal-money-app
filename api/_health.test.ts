@@ -60,3 +60,18 @@ describe('summarizeWorkouts (단축어 형식)', () => {
     expect(s).toContain('09-02 09:15 수영 56분 850m 평균심박 113 218kcal')
   })
 })
+
+import { workoutTrend } from './_health'
+describe('workoutTrend', () => {
+  it('러닝 페이스와 수영 거리를 종목별 월간으로', () => {
+    const rows = [
+      { start: '2026-08-10 07:00', end: '', value: 'Running', extra: '30|300|5.0|150' },
+      { start: '2026-08-12 07:00', end: '', value: 'Running', extra: '30 min|300|5 km|160' },
+      { start: '2026-08-11 09:00', end: '', value: 'Swimming', extra: '55|218|850|112' },
+    ]
+    const s = workoutTrend(rows)
+    expect(s).toContain("2026-08 Running 2회 · 60분 · 10.0km · 페이스 6'00\"/km · 평균심박 155")
+    expect(s).toContain('2026-08 Swimming 1회 · 55분 · 850m')
+    expect(workoutTrend(rows, 'Swimming')).not.toContain('Running')
+  })
+})
