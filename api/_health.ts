@@ -98,9 +98,13 @@ export function summarizeWorkouts(rows: HealthRow[] = []): string {
   if (!rows.length) return '[운동] 기록 없음'
   const KO: Record<string, string> = { Swimming: '수영', Running: '달리기', Walking: '걷기', Cycling: '자전거', Hiking: '등산', Yoga: '요가', CoreTraining: '코어', FunctionalStrengthTraining: '근력' }
   const lines = rows.map((r) => {
-    const [dur, kcal, dist, hr] = (r.extra || '').split('|')
-    const parts = [dur && `${Math.round(+dur)}분`, dist && (+dist > 20 ? `${Math.round(+dist)}m` : `${(+dist).toFixed(1)}km`), hr && `평균심박 ${Math.round(+hr)}`, kcal && `${Math.round(+kcal)}kcal`].filter(Boolean)
-    return `${r.start.slice(5)} ${KO[r.value] || r.value} ${parts.join(' ')}`
+    // 백필: "분|kcal|거리|평균심박" 숫자만. 단축어(Actions 앱): "56 min|218|0.85 km|113" 처럼 단위가 붙을 수 있다.
+    const [durS = '', kcalS = '', distS = '', hrS = ''] = (r.extra || '').split('|')
+    const dur = num(durS) * (/\bh(our|r)?s?\b/.test(durS) ? 60 : 1)
+    const dist = num(distS) * (/km/.test(distS) ? 1000 : 1)
+    const parts = [durS && `${Math.round(dur)}분`, distS && !isNaN(dist) && (dist >= 1000 && !/\bm\b/.test(distS) && /km/.test(distS) ? `${(dist / 1000).toFixed(1)}km` : `${Math.round(dist)}m`),
+      hrS && `평균심박 ${Math.round(num(hrS))}`, kcalS && `${Math.round(num(kcalS))}kcal`].filter(Boolean)
+    return `${r.start.slice(5)} ${KO[r.value] || KO[r.value.charAt(0).toUpperCase() + r.value.slice(1)] || r.value} ${parts.join(' ')}`
   })
   return `[운동 ${rows.length}회]\n${lines.join('\n')}`
 }

@@ -53,3 +53,10 @@ describe('daily/workout/trend', () => {
     expect(s).toContain('2026-09 55 (1일)')
   })
 })
+
+describe('summarizeWorkouts (단축어 형식)', () => {
+  it('단위 붙은 값과 소문자 종류를 처리한다', () => {
+    const s = summarizeWorkouts([{ start: '2026-09-02 09:15', end: '2026-09-02 10:11', value: 'swimming', extra: '56 min|218|0.85 km|113' }])
+    expect(s).toContain('09-02 09:15 수영 56분 850m 평균심박 113 218kcal')
+  })
+})
