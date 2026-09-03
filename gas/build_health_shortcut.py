@@ -126,8 +126,12 @@ blk, ref = workout_block()
 actions += [comment('운동: Actions 앱의 Find Workout(최신 10개) → "시작|종료|종류|시간|kcal|거리|평균심박" → workout 탭')] + blk
 noti += ['운동 ', {'OutputUUID': ref['cnt'], 'OutputName': 'Count', 'Type': 'ActionOutput'}, ' · ']
 actions.append(act('documentpicker.save', WFInput=out_text(today_txt, 'Text'), WFFileDestinationPath=guard_path(), WFAskWhereToSave=False, WFSaveFileOverwrite=True))
-actions.append(act('notification', WFNotificationActionSound=False, WFNotificationActionTitle='건강 업로드',
-    WFNotificationActionBody=token_string(noti[:-1] + ['\n서버(운동) ', {'OutputUUID': ref['get'], 'OutputName': 'Contents of URL', 'Type': 'ActionOutput'}])))
+# 업로드 직후 서버에서 오늘 준비도 텍스트를 받아 알림으로(워치에도 뜸). /api/today 는 GAS 토큰으로 인증.
+TODAY_URL = f"{GAS_URL.split('/macros/')[0] and 'https://personal-money-app-seven.vercel.app'}/api/today?t={TOKEN}"
+today_get = U()
+actions.append(act('downloadurl', UUID=today_get, WFHTTPMethod='GET', WFURL=TODAY_URL))
+actions.append(act('notification', WFNotificationActionSound=False, WFNotificationActionTitle='오늘 준비도',
+    WFNotificationActionBody=token_string([{'OutputUUID': today_get, 'OutputName': 'Contents of URL', 'Type': 'ActionOutput'}, '\n— 업로드 '] + noti[:-1])))
 
 doc = {
     'WFWorkflowName': '건강 업로드',
