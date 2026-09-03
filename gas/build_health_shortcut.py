@@ -24,6 +24,10 @@ def token_string(parts):
 def out_ref(uid, name):
     return {'Value': {'OutputUUID': uid, 'OutputName': name, 'Type': 'ActionOutput'}, 'WFSerializationType': 'WFTextTokenAttachment'}
 
+def out_text(uid, name):
+    """텍스트형(Text) 파라미터용 — 첨부 형식이면 실행 시 빈 값이 되므로 문자열 토큰으로 감싼다."""
+    return token_string([{'OutputUUID': uid, 'OutputName': name, 'Type': 'ActionOutput'}])
+
 def item_prop(prop, date_fmt=None):
     ag = [{'PropertyName': prop, 'Type': 'WFPropertyVariableAggrandizement'}]
     if date_fmt:
@@ -35,34 +39,37 @@ def act(ident, **params):
 
 def upload_block(health_type, sheet_type, days):
     """Find Health Samples → 반복(시작|종료|값) → 결합 → URL인코딩 → GET. 마지막 액션 UUID 반환."""
-    find, loop, end, comb, enc, get = U(), U(), U(), U(), U(), U()
+    find, loop, end, comb, enc, get, cnt = U(), U(), U(), U(), U(), U(), U()
     row = lambda op, prop, values, removable: {'Bounded': True, 'Operator': op, 'Property': prop, 'Removable': removable, 'Values': values}
     return [
         act('filter.health.quantity', UUID=find, WFContentItemFilter={
             'Value': {'WFActionParameterFilterPrefix': 1, 'WFContentPredicateBoundedDate': False, 'WFActionParameterFilterTemplates': [
                 row(4, 'Type', {'Enumeration': {'Value': health_type, 'WFSerializationType': 'WFStringSubstitutableState'}}, False),
-                row(1001, 'Start Date', {'Number': days, 'Unit': 16}, True),   # 최근 N일 (NSCalendarUnitDay=16)
+                row(1001, 'Start Date', {'Number': str(days), 'Unit': 16}, True),   # 최근 N일 (NSCalendarUnitDay=16)
             ]}, 'WFSerializationType': 'WFContentPredicateTableTemplate'},
             WFContentItemSortProperty='Start Date', WFContentItemSortOrder='Latest First',
             WFContentItemLimitEnabled=True, WFContentItemLimitNumber=200),   # 필터가 깨져도 전체 기록을 돌지 않게
+        act('count', UUID=cnt, WFCountType='Items', Input=out_ref(find, 'Health Samples'), WFInput=out_ref(find, 'Health Samples')),
         act('repeat.each', GroupingIdentifier=loop, WFControlFlowMode=0, WFInput=out_ref(find, 'Health Samples')),
         act('gettext', UUID=U(), WFTextActionText=token_string([
             item_prop('Start Date', 'yyyy-MM-dd HH:mm'), '|', item_prop('End Date', 'yyyy-MM-dd HH:mm'), '|', item_prop('Value')])),
         act('repeat.each', GroupingIdentifier=loop, WFControlFlowMode=2, UUID=end),
-        act('text.combine', UUID=comb, WFTextSeparator='New Lines', text=out_ref(end, 'Repeat Results')),
-        act('urlencode', UUID=enc, WFEncodeMode='Encode', WFInput=out_ref(comb, 'Combined Text')),
+        act('text.combine', UUID=comb, WFTextSeparator='New Lines', text=out_text(end, 'Repeat Results')),
+        act('urlencode', UUID=enc, WFEncodeMode='Encode', WFInput=out_text(comb, 'Combined Text')),
         act('downloadurl', UUID=get, WFHTTPMethod='GET', WFURL=token_string([
             f'{GAS_URL}?action=health&type={sheet_type}&token={TOKEN}&rows=', {'OutputUUID': enc, 'OutputName': 'URL Encoded Text', 'Type': 'ActionOutput'}])),
-    ], get
+    ], {'get': get, 'cnt': cnt}
 
 comment = lambda t: act('comment', WFCommentActionText=t)
-sleep, sleep_out = upload_block('Sleep', 'sleep', 2)
+sleep, ref = upload_block('Sleep', 'sleep', 2)
 actions = [
     comment('건강 업로드: 애플워치 수면 샘플을 가계부 GAS 시트(sleep 탭)로 보낸다. 같은 행은 서버가 버리므로 여러 번 실행해도 됨.'),
     comment('생성: personal-money-app/gas/build_health_shortcut.py (직접 고치지 말고 스크립트를 수정해서 다시 서명)'),
 ] + sleep[:1] + [comment('샘플마다 "시작|종료|값" 한 줄 → 줄바꿈으로 합쳐 GET 전송')] + sleep[1:] + [
     act('notification', WFNotificationActionSound=False, WFNotificationActionTitle='건강 업로드',
-        WFNotificationActionBody=token_string(['수면 ', {'OutputUUID': sleep_out, 'OutputName': 'Contents of URL', 'Type': 'ActionOutput'}])),
+        WFNotificationActionBody=token_string([
+            '수면 샘플 ', {'OutputUUID': ref['cnt'], 'OutputName': 'Count', 'Type': 'ActionOutput'},
+            '개 · 서버 ', {'OutputUUID': ref['get'], 'OutputName': 'Contents of URL', 'Type': 'ActionOutput'}])),
 ]
 
 doc = {
