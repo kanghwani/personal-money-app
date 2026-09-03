@@ -796,6 +796,21 @@ function doGet(e) {
     if (!checkToken_(params.token)) return json_({ ok: false, error: 'unauthorized' });
     return json_({ ok: true, tabs: healthAll_(Number(params.days) || 7) });
   }
+  if (params.action === 'inventory') {   // 가계부 시트 탭 현황(읽기 전용): 이름·행·열·마지막 행 날짜 후보·숨김 여부
+    if (!checkToken_(params.token)) return json_({ ok: false, error: 'unauthorized' });
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const tabs = ss.getSheets().map(sh => {
+      const rows = sh.getLastRow(), cols = sh.getLastColumn();
+      const head = rows ? sh.getRange(1, 1, 1, Math.min(cols, 12)).getValues()[0].map(String) : [];
+      let lastDate = '';
+      if (rows > 1) {
+        const tail = sh.getRange(Math.max(2, rows - 4), 1, Math.min(5, rows - 1), Math.min(cols, 12)).getValues().flat();
+        tail.forEach(v => { if (v instanceof Date && !isNaN(v)) { const d = Utilities.formatDate(v, TZ, 'yyyy-MM-dd'); if (d > lastDate) lastDate = d; } else if (/^\d{4}-\d{2}-\d{2}/.test(String(v))) { const d = String(v).slice(0, 10); if (d > lastDate) lastDate = d; } });
+      }
+      return { name: sh.getName(), rows, cols, hidden: sh.isSheetHidden(), lastDate, head };
+    });
+    return json_({ ok: true, spreadsheet: ss.getName(), tabs });
+  }
   if (params.action === 'healthDrop') {   // 잡탭 삭제(허용 목록만)
     if (!checkToken_(params.token)) return json_({ ok: false, error: 'unauthorized' });
     const ss = healthSpreadsheet_(); const sh = ss.getSheetByName(String(params.name || ''));
