@@ -796,6 +796,12 @@ function doGet(e) {
     if (!checkToken_(params.token)) return json_({ ok: false, error: 'unauthorized' });
     return json_({ ok: true, tabs: healthAll_(Number(params.days) || 7) });
   }
+  if (params.action === 'healthDrop') {   // 잡탭 삭제(허용 목록만)
+    if (!checkToken_(params.token)) return json_({ ok: false, error: 'unauthorized' });
+    const ss = healthSpreadsheet_(); const sh = ss.getSheetByName(String(params.name || ''));
+    if (!sh || !['zz_test', '시트1'].includes(sh.getName())) return json_({ ok: false, error: 'not_allowed' });
+    ss.deleteSheet(sh); return json_({ ok: true, dropped: params.name });
+  }
   if (params.action === 'healthCompact') {
     if (!checkToken_(params.token)) return json_({ ok: false, error: 'unauthorized' });
     return json_(healthCompact_(params.type));
