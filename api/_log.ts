@@ -34,6 +34,12 @@ export function parseLog(text: string): LogEntry {
     }
     return { kind: '턱걸이', extra: [variant, sets, reps].join('|'), echo: `${variant} ${sets}세트 × ${reps}` }
   }
+  if (h === '인바디') {
+    // 인바디 체중 골격근량 체지방률 [메모] — 앱 수치 그대로(kg, kg, %)
+    const [w, smm, fat, ...memo] = rest
+    if (!(+w > 0) || !(+smm > 0) || !(+fat >= 0)) throw new Error('인바디는 "인바디 체중 골격근량 체지방률" (예: 인바디 72.3 33.1 18.5)')
+    return { kind: '인바디', extra: [+w, +smm, +fat, memo.join(' ')].join('|'), echo: `체중 ${+w}kg · 골격근 ${+smm}kg · 체지방 ${+fat}%` }
+  }
   if (h === '태그') {
     if (!rest.length) throw new Error('태그 뒤에 어휘를 (예: 태그 술 늦은식사 카페인 출장 아픔)')
     return { kind: '태그', extra: rest.join('|'), echo: rest.join(', ') }
@@ -96,6 +102,9 @@ export function summarizeManual(rows: HealthRow[] = [], since: string): string {
 
   const pain = recent.filter((r) => r.value === '통증')
   if (pain.length) out.push(`[통증]\n` + pain.map((r) => { const [site, lv, memo] = (r.extra || '').split('|'); return `${day(r).slice(5)} ${site} ${lv}/10${+lv >= 3 ? ' ⚠' : ''}${memo ? ' · ' + memo : ''}` }).join('\n'))
+
+  const body = rows.filter((r) => r.value === '인바디').slice(-3)
+  if (body.length) out.push(`[인바디 최근]\n` + body.map((r) => { const [w, smm, fat] = (r.extra || '').split('|'); return `${day(r)} 체중 ${w} · 골격근 ${smm} · 체지방 ${fat}%` }).join('\n'))
 
   const tags = recent.filter((r) => r.value === '태그' || r.value === '메모')
   if (tags.length) out.push(`[태그·메모]\n` + tags.map((r) => `${day(r).slice(5)} ${r.value === '태그' ? (r.extra || '').split('|').join(', ') : r.extra}`).join('\n'))

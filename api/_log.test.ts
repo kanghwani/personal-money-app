@@ -20,6 +20,7 @@ describe('parseLog', () => {
     expect(parseLog('태그 술 늦은식사').extra).toBe('술|늦은식사')
     expect(parseLog('통증 무릎 3').extra).toBe('무릎|3|')
     expect(parseLog('오늘 수영 물이 차가웠음').kind).toBe('메모')
+    expect(parseLog('인바디 72.3 33.1 18.5').extra).toBe('72.3|33.1|18.5|')
   })
   it('어제 접두', () => {
     const { stamp, text } = logStamp('어제 태그 술', Date.UTC(2026, 8, 3, 3, 0))   // KST 09-03 12:00
