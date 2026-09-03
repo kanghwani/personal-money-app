@@ -2149,8 +2149,18 @@ function installFixedTrigger() {
 
 // ── 건강 데이터 (별도 스프레드시트) ──────────────────────────
 // 가계부 시트에 탭을 섞지 않는다: migrateExistingTransactions가 모르는 탭을 원장으로 빨아들임.
-const HEALTH_SHEET_ID = '1LfX1CeQIsM1SxqKn8a4AACDU140xKiUfuv9T05fu--k';
+// 시트는 첫 호출 때 스크립트 계정에 만들고 ID를 스크립트 속성에 저장한다(다른 계정 시트는 권한 오류).
 const HEALTH_HEADERS = ['start', 'end', 'value', 'received'];
+
+function healthSpreadsheet_() {
+  const props = PropertiesService.getScriptProperties();
+  let id = props.getProperty('HEALTH_SHEET_ID');
+  if (!id) {
+    id = SpreadsheetApp.create('건강 데이터 (health)').getId();
+    props.setProperty('HEALTH_SHEET_ID', id);
+  }
+  return SpreadsheetApp.openById(id);
+}
 
 // "시작|종료|값" 줄들 → [[시작, 종료, 값], ...]. 빈 줄·구분자 없는 줄은 버린다.
 function healthParse_(rowsText) {
@@ -2161,7 +2171,7 @@ function healthParse_(rowsText) {
 
 function healthSheet_(type) {
   const name = String(type || '').toLowerCase().replace(/[^a-z_]/g, '') || 'raw';
-  const sheet = ensureSheet_(SpreadsheetApp.openById(HEALTH_SHEET_ID), name);
+  const sheet = ensureSheet_(healthSpreadsheet_(), name);
   if (sheet.getLastRow() === 0) {
     sheet.getRange('A:C').setNumberFormat('@');   // 날짜 문자열을 Date로 바꾸지 않게(중복 키 안정)
     sheet.appendRow(HEALTH_HEADERS);
@@ -2180,7 +2190,7 @@ function healthAppend_(type, rowsText) {
     sheet.getRange(sheet.getLastRow() + 1, 1, fresh.length, 4)
       .setValues(fresh.map(r => [r[0], r[1], r[2] || '', now]));
   }
-  return { ok: true, sheet: sheet.getName(), added: fresh.length, skipped: rows.length - fresh.length };
+  return { ok: true, sheet: sheet.getName(), added: fresh.length, skipped: rows.length - fresh.length, url: sheet.getParent().getUrl() };
 }
 
 // 최근 days일 행. start는 'yyyy-MM-dd ...' 문자열이라 날짜 접두 비교로 자른다.
