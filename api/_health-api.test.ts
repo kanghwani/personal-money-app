@@ -36,13 +36,14 @@ function fakeTabs(): Tabs {
     row('2026-09-02 10:30', 'sRPE', '수영|56|6|좋았음'), row('2026-09-03 21:00', '태그', '늦은식사|술'),
     row('2026-09-03 21:30', '메모', '어깨가 조금 뻐근'), row('2026-09-03 21:40', '통증', '무릎|3|'),
     row('2026-09-02 12:00', '턱걸이', '밴드|3|5'), row('2026-08-01 09:00', '인바디', '72.3|33.1|18.5|'),
+    row('2026-08-24 09:00', '코치', '주간|add_session|sessions|1|다음 주에 세션 하나 더하기'),
   )
   return tabs
 }
 
-// 발견(insights)은 표본·효과크기 문턱을 넘겨야만 생기므로 합성 데이터로는 비어 있는 게 정상이다.
-// 형태 검증은 _analysis.test.ts 가 맡는다.
-const MAY_BE_EMPTY = new Set(['root.insights'])
+// 발견(insights)과 코치의 목록형 필드는 조건을 넘겨야만 생기므로 합성 데이터로는 비어 있는 게 정상이다.
+// 형태 검증은 _analysis.test.ts 와 _coach.test.ts 가 맡는다.
+const MAY_BE_EMPTY = new Set(['root.insights', 'root.coach.drift', 'root.coach.facts.missed', 'root.coach.facts.pain', 'root.coach.history.recent'])
 
 function expectSameKeys(actual: unknown, expected: unknown, path = 'root'): void {
   if (expected === null || typeof expected !== 'object') return

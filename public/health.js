@@ -373,6 +373,32 @@ function renderTrends(data) {
   $('#loadTrend').innerHTML = load.length ? barChart(load, (row) => row.srpe) : '<p class="load-empty">RPE를 기록하면 주간 훈련 부하가 쌓여요.</p>';
 }
 
+function renderCoach(coach) {
+  if (!coach) { $('#coachBody').innerHTML = '<p class="empty">주간 리뷰는 한 주가 끝나면 생겨요.</p>'; return; }
+  $('#coachWeek').textContent = coach.week ? String(coach.week).replace(/-/g, '.').replace(/\.(\d{2})\.(\d{2}) ~ \d{4}\./, '.$1.$2 ~ ') : '';
+  const f = coach.facts || {};
+  const stat = (label, value) => `<div class="coach-stat"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`;
+  const sleepText = f.sleepMean ? `${Math.floor(f.sleepMean / 60)}시간 ${String(f.sleepMean % 60).padStart(2, '0')}분` : '기록 없음';
+  const stats = stat('계획', `${f.done ?? 0}/${f.planned ?? 0}`) + stat('세션', `${f.sessions ?? 0}회`) +
+    stat('수면 평균', sleepText) + stat('자가평가', f.wellnessDays ? `${f.wellnessDays}일` : '없음');
+  const notes = [];
+  if (Array.isArray(f.missed) && f.missed.length) notes.push(`빠짐: ${f.missed.join(', ')}`);
+  if (Array.isArray(f.pain) && f.pain.length) notes.push(`통증: ${f.pain.map((p) => `${p.site} ${p.level}/10`).join(', ')}`);
+  (coach.drift || []).forEach((d) => notes.push(d));
+  if (coach.load && coach.load.status) notes.push(`부하 ${coach.load.status}${coach.load.ratio != null ? ` (급성/만성 ${coach.load.ratio})` : ''}`);
+  const review = coach.review
+    ? `<p class="coach-review ${coach.review.met === true ? 'kept' : coach.review.met === false ? 'missed' : ''}">${esc(coach.review.text)}</p>` : '';
+  const a = coach.advice || {};
+  const advice = a.text
+    ? `<div class="today-rule"><small>${a.committed ? '이번 주 지킬 것' : '이번 주 지킬 것 (제안)'}</small><strong>${esc(a.text)}</strong>${a.why ? `<span class="coach-why">${esc(a.why)}</span>` : ''}</div>` : '';
+  const h = coach.history || {};
+  const pips = (h.recent || []).map((r) => `<i class="${r.met === true ? 'kept' : r.met === false ? 'missed' : ''}" title="${esc(r.date)} ${esc(r.text)}"></i>`).join('');
+  const history = h.judged
+    ? `<div class="coach-history"><span>지금까지 제안 ${h.kept}/${h.judged} 지킴</span><div class="pips">${pips}</div></div>`
+    : '<p class="coach-history-empty">제안을 지켰는지는 다음 주에 확인해요.</p>';
+  $('#coachBody').innerHTML = `<div class="coach-stats">${stats}</div>${notes.length ? `<ul class="coach-notes">${notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}${review}${advice}${history}`;
+}
+
 function renderJournal(data) {
   $('#saveJournal').disabled = false;
   state.tags = new Set(data.tags?.today || []);
@@ -391,7 +417,7 @@ function render(data) {
   $('#syncMark').setAttribute('aria-label', fixtureMode ? '샘플 데이터' : '데이터 동기화 완료');
   $('#staleHint').textContent = data.staleness?.hint || '';
   $('#generatedAt').textContent = data.generatedAt ? `마지막 계산 ${new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(data.generatedAt))}` : '';
-  renderAlerts(data); renderReadiness(data.readiness); renderTodayPlan(data.plan, data.readiness?.band); renderSleepStages(data.sleep); renderWorkouts(data.workouts); renderWellness(data.wellness); renderWeek(data.plan); renderTrainingLoad(data.fitness?.load); renderTrends(data); renderFitness(data.fitness); renderInsights(data.insights); renderJournal(data);
+  renderAlerts(data); renderReadiness(data.readiness); renderTodayPlan(data.plan, data.readiness?.band); renderSleepStages(data.sleep); renderWorkouts(data.workouts); renderWellness(data.wellness); renderWeek(data.plan); renderTrainingLoad(data.fitness?.load); renderTrends(data); renderFitness(data.fitness); renderInsights(data.insights); renderCoach(data.coach); renderJournal(data);
   $('#app').setAttribute('aria-busy', 'false');
 }
 

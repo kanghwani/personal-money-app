@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { verify } from './_auth.js'
 import { gasGet, gasPost } from './_gas.js'
 import { dailyLoad, fitnessPayload, insights, nightSegments, stagesFrom } from './_analysis.js'
+import { weekReview, adviceHistory, adviceFromRow, mondayOf as coachMonday } from './_coach.js'
 import { dailySeries, groupNights, type HealthRow, type Tabs } from './_health.js'
 import { logStamp, parseLog, SPORT } from './_log.js'
 import { PLAN_LIBRARY, detailKey } from './_plan.js'
@@ -164,6 +165,36 @@ function alertsPayload(tabs: Tabs, ready: ReturnType<typeof readiness>, today: s
 }
 
 /** GAS tabs만으로 계약 응답을 만드는 순수 함수. */
+/**
+ * 화면용 주간 코치 요약. **여기서는 제안을 저장하지 않는다** — 화면을 여는 것만으로 기록이 생기면 안 된다.
+ * 이번 주에 이미 저장된 제안이 있으면 그것을 보여주고(committed), 없으면 계산된 제안을 미리 보여준다.
+ */
+function coachPayload(tabs: Tabs, today: string) {
+  const r = weekReview(tabs, today)
+  const thisMonday = coachMonday(today)
+  const saved = (tabs.manual ?? []).filter((m) => m.value === '코치' && m.start.slice(0, 10) >= thisMonday).pop()
+  const committed = saved ? adviceFromRow(saved) : null
+  const hist = adviceHistory(tabs, today, 5)
+  const judged = hist.filter((h) => h.result.met !== null)
+  const f = r.facts
+  return {
+    week: r.week,
+    facts: {
+      planned: f.planned, done: f.done, sessions: f.sessions, srpe: f.srpe,
+      sleepMean: f.sleepMean, nights: f.nights, wellnessDays: f.wellnessDays,
+      missed: f.missed.slice(0, 4), pain: f.pain,
+    },
+    load: { status: r.load.status, ratio: r.load.status === '데이터부족' ? null : r.load.ratio },
+    drift: r.drift,
+    advice: { key: committed?.key ?? r.advice.key, text: committed?.text ?? r.advice.text, why: r.advice.why, committed: !!committed },
+    review: r.review ? { text: r.review.text, met: r.review.met } : null,
+    history: {
+      kept: judged.filter((h) => h.result.met === true).length, judged: judged.length,
+      recent: hist.map((h) => ({ date: h.date, text: h.text, met: h.result.met })),
+    },
+  }
+}
+
 export function buildHealthResponse(tabs: Tabs, today: string, now = Date.now()) {
   const manual = tabs.manual ?? [], workoutRows = tabs.workout ?? []
   const workouts = attachLogs(workoutRows.filter((w) => day(w) >= shift(today, -13) && day(w) <= today).map(workoutFromRow).sort((a, b) => `${b.date} ${b.start}`.localeCompare(`${a.date} ${a.start}`)), manual)
@@ -184,6 +215,7 @@ export function buildHealthResponse(tabs: Tabs, today: string, now = Date.now())
     readiness: structuredReadiness(ready), sleep, metrics: metricsPayload(tabs, today), workouts, ...manualParts,
     plan: planPayload(manual, workoutRows, today), trends: trendsPayload(workoutRows, manual, today), alerts: alertsPayload(tabs, ready, today),
     fitness: fitnessPayload(tabs, today, daily), insights: insights(tabs, today, daily),
+    coach: coachPayload(tabs, today),
   }
 }
 

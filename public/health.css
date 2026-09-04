@@ -756,3 +756,23 @@ button, input { font: inherit; color: inherit; }
 .streak-pips { display: flex; gap: 2px; }
 .streak-pips i { width: 7px; height: 12px; border: 1px solid var(--rule); display: block; }
 .streak-pips i.on { background: var(--good); border-color: var(--good); }
+
+/* ── 주간 코치 ─────────────────────────────────────────── */
+.coach-week { font-family: var(--font-mono); font-size: 12px; white-space: nowrap; }
+.coach-body { display: grid; gap: 12px; }
+.coach-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.coach-stat { border: 1px solid var(--rule); padding: 7px 6px; display: grid; gap: 2px; text-align: center; }
+.coach-stat span { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
+.coach-stat strong { font-family: var(--font-mono); font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.coach-notes { margin: 0; padding-left: 16px; display: grid; gap: 4px; font-size: 13.5px; color: var(--muted); }
+.coach-review { font-size: 13.5px; border-left: 6px solid var(--rule); padding: 7px 10px; background: var(--shade); }
+.coach-review.kept { border-left-color: var(--good); color: var(--good); }
+.coach-review.missed { border-left-color: var(--warn); color: var(--warn); }
+.coach-why { display: block; font-size: 13px; color: var(--muted); margin-top: 4px; font-weight: 400; }
+.coach-history { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-family: var(--font-mono); font-size: 12px; color: var(--muted); border-top: 1px solid var(--rule); padding-top: 9px; }
+.coach-history .pips { display: flex; gap: 3px; }
+.coach-history .pips i { width: 11px; height: 14px; border: 2px solid var(--rule); display: block; }
+.coach-history .pips i.kept { background: var(--good); border-color: var(--good); }
+.coach-history .pips i.missed { background: var(--warn); border-color: var(--warn); }
+.coach-history-empty { font-family: var(--font-mono); font-size: 12px; color: var(--muted); border-top: 1px solid var(--rule); padding-top: 9px; }
+@media (max-width: 400px) { .coach-stats { grid-template-columns: repeat(2, 1fr); } }

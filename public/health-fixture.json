@@ -1050,5 +1050,66 @@
    "tone": "warn",
    "n": 233
   }
- ]
+ ],
+ "coach": {
+  "week": "2026-08-24 ~ 2026-08-30",
+  "facts": {
+   "planned": 9,
+   "done": 6,
+   "sessions": 4,
+   "srpe": 540,
+   "sleepMean": 372,
+   "nights": 6,
+   "wellnessDays": 3,
+   "missed": [
+    "화 요가",
+    "목 걷뛰",
+    "금 턱걸이"
+   ],
+   "pain": []
+  },
+  "load": {
+   "status": "유지",
+   "ratio": 1.09
+  },
+  "drift": [
+   "HRV 41.2ms (30일 평균 38.6ms, +2.6) 좋아짐"
+  ],
+  "advice": {
+   "key": "bedtime",
+   "text": "취침을 30분 앞당기기",
+   "why": "이번 주 평균 수면이 평소보다 41분 짧았어요. 기상 시각은 그대로 두고 취침만 당겨요.",
+   "committed": true
+  },
+  "review": {
+   "text": "지난주 제안: 빠진 세션부터 채우기 → 지켰어요 (3에서 6, +3)",
+   "met": true
+  },
+  "history": {
+   "kept": 2,
+   "judged": 3,
+   "recent": [
+    {
+     "date": "2026-08-31",
+     "text": "취침을 30분 앞당기기",
+     "met": null
+    },
+    {
+     "date": "2026-08-24",
+     "text": "빠진 세션부터 채우기",
+     "met": true
+    },
+    {
+     "date": "2026-08-17",
+     "text": "다음 주에 세션 하나 더하기",
+     "met": true
+    },
+    {
+     "date": "2026-08-10",
+     "text": "지금 계획 그대로 유지하기",
+     "met": false
+    }
+   ]
+  }
+ }
 }
