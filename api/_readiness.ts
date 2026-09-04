@@ -1,7 +1,8 @@
 /** 준비도(0~100) — 검토 보고서 공식. 60일 개인 기준선 z-점수, HRV는 ln(SDNN) 7일 평균에 최대 가중, 질병 패턴은 상한(cap). */
 import { groupNights, dailySeries, dur, type Tabs } from './_health.js'
 
-type Comp = { key: string; label: string; w: number; z: number; sub: number; text: string; bad: boolean }
+export type Tone = 'good' | 'neutral' | 'warn' | 'bad'
+export type Comp = { key: string; label: string; w: number; z: number; sub: number; text: string; bad: boolean }
 const mean = (xs: number[]) => xs.length ? xs.reduce((s, v) => s + v, 0) / xs.length : NaN
 const sd = (xs: number[]) => { const m = mean(xs); return Math.sqrt(mean(xs.map((v) => (v - m) ** 2))) }
 const clip = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
@@ -58,7 +59,7 @@ export function readiness(tabs: Tabs, today: string) {
   const kcal = dailySeries(tabs.active_kcal); const y = shift(today, -1)
   if (kcal.has(y)) { const bs = window(kcal, shift(today, -29), shift(today, -2)); const z = zOf(kcal.get(y)!, bs); if (!isNaN(z)) { const pen = Math.max(0, z - 1); comps.push({ key: 'load', label: '전날 부하', w: 0.05, z: -pen, sub: 100 * clip(1 - pen / 2, 0, 1), bad: z > 1.5, text: `전날 활동 ${kcal.get(y)!.toFixed(0)}kcal (28일 평균 ${mean(bs).toFixed(0)})` }) } }
 
-  if (!comps.length || !comps.some((c) => c.key === 'hrv7' || c.key === 'sleep')) return { score: NaN, band: '기준선 축적 중', reasons: ['60일 중 14일 이상 데이터가 쌓이면 점수를 냅니다'], comps }
+  if (!comps.length || !comps.some((c) => c.key === 'hrv7' || c.key === 'sleep')) return { score: NaN, band: '기준선 축적 중', reasons: ['60일 중 14일 이상 데이터가 쌓이면 점수를 냅니다'], comps, caps: [] as string[], illness: false }
 
   // 가중 평균(없는 항목은 가중치 재분배)
   const W = comps.reduce((s, c) => s + c.w, 0)
@@ -69,10 +70,36 @@ export function readiness(tabs: Tabs, today: string) {
   const badN = comps.filter((c) => ['hrv7', 'rhr', 'temp', 'rr'].includes(c.key) && c.z <= -1.5).length
   if (badN >= 2) { score = Math.min(score, 55); caps.push('회복 지표 둘 이상 이탈') }
   score = Math.round(score)
-  const band = score >= 75 ? '강하게 해도 됨' : score >= 50 ? '계획대로' : score >= 30 ? '가볍게' : '휴식'
+  const illness = caps.some((c) => c.startsWith('질병 가능성'))
+  // 낮은 점수만으로 계획을 건너뛰지 않는다. 완전 휴식은 질병 패턴일 때만 권한다.
+  const band = illness ? '휴식' : score >= 75 ? '강하게 해도 됨' : score >= 50 ? '계획대로' : '가볍게'
   const neg = comps.filter((c) => c.z < 0).sort((a, b) => a.z - b.z).slice(0, 3).map((c) => c.text)
   const pos = comps.filter((c) => c.z > 0.5).sort((a, b) => b.z - a.z).slice(0, 1).map((c) => c.text + ' ✓')
-  return { score, band, reasons: [...caps.map((c) => '⚠ ' + c), ...neg, ...pos], comps }
+  return { score, band, reasons: [...caps.map((c) => '⚠ ' + c), ...neg, ...pos], comps, caps, illness }
+}
+
+export const componentTone = (c: Comp): Tone => c.bad || c.z <= -1.5 ? 'bad' : c.z < -0.5 ? 'warn' : c.z > 0.5 ? 'good' : 'neutral'
+
+/** 화면용 준비도. 모든 문장과 tone은 계산된 구성 요소에서 만들며 문자열을 역파싱하지 않는다. */
+export function structuredReadiness(r: ReturnType<typeof readiness>) {
+  const score = isNaN(r.score) ? null : r.score
+  const headline = score == null ? '기록이 더 쌓이면 오늘의 준비도를 계산할 수 있어요.'
+    : r.band === '강하게 해도 됨' ? '몸이 준비됐어요. 계획한 운동을 해도 좋은 날이에요.'
+      : r.band === '계획대로' ? '무리 없이 계획대로 하면 되는 날이에요.'
+        : r.band === '가볍게' ? '건너뛰기보다 강도를 낮춰 움직이는 날이에요.'
+          : '질병 신호를 살피며 회복을 우선할 날이에요.'
+  const preferred = ['sleep', 'hrv7', 'rhr', 'temp', 'rr', 'load', 'debt', 'hrv1']
+  const picked = [...r.comps].sort((a, b) => {
+    const concern = (c: Comp) => c.bad ? 100 : Math.max(0, -c.z) * 10
+    return concern(b) - concern(a) || preferred.indexOf(a.key) - preferred.indexOf(b.key)
+  }).slice(0, 3)
+  const lines = picked.length
+    ? picked.map((c) => ({ text: c.text, tone: componentTone(c) }))
+    : [{ text: r.reasons[0] ?? '기록을 기다리고 있어요.', tone: 'neutral' as const }]
+  return {
+    score, band: r.band, headline, lines,
+    components: r.comps.map((c) => ({ key: c.key, label: c.label, score: Math.round(c.sub), weight: c.w, z: Math.round(c.z * 100) / 100, text: c.text, tone: componentTone(c) })),
+  }
 }
 
 export function formatReadiness(r: ReturnType<typeof readiness>, today: string): string {
@@ -84,9 +111,9 @@ export function formatReadiness(r: ReturnType<typeof readiness>, today: string):
 /** 알림용 쉬운 말 버전. 숫자 대신 "평소보다 ~" 문장, 눈에 띄는 항목만. */
 export function formatFriendly(r: ReturnType<typeof readiness>): string {
   if (isNaN(r.score)) return `준비도 계산 중 — ${r.reasons[0]}`
-  const verdict = r.score >= 75 ? '몸이 준비됐어요. 계획한 운동, 강하게 해도 좋아요.'
-    : r.score >= 50 ? '무리 없이 계획대로 하면 되는 날이에요.'
-    : r.score >= 30 ? '가볍게만. 강도는 낮추고 시간은 유지하세요.' : '오늘은 쉬는 게 이득이에요.'
+  const verdict = r.band === '강하게 해도 됨' ? '몸이 준비됐어요. 계획한 운동, 강하게 해도 좋아요.'
+    : r.band === '계획대로' ? '무리 없이 계획대로 하면 되는 날이에요.'
+      : r.band === '휴식' ? '질병 신호를 살피며 오늘은 쉬는 게 이득이에요.' : '가볍게만. 강도는 낮추고 시간은 유지하세요.'
   const by = Object.fromEntries(r.comps.map((c) => [c.key, c]))
   const lines: string[] = []
   const num = (t: string, re: RegExp) => t.match(re)?.[1]
