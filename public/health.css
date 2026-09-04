@@ -662,6 +662,10 @@ button, input { font: inherit; color: inherit; }
 .primary-btn:active, .secondary-btn:active { transform: translate(2px, 2px); box-shadow: none; }
 .primary-btn:disabled, .secondary-btn:disabled { opacity: .45; box-shadow: none; cursor: default; }
 .watch-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
   background: var(--card);
   color: var(--ink);
   font-size: 12.5px;

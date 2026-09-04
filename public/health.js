@@ -442,7 +442,26 @@ async function load() {
   catch (error) { if (error.message !== 'unauthorized') toast(error.message); }
 }
 
-$('#watchImport').addEventListener('click', () => { location.href = shortcutUrl(); });
+/**
+ * 홈 화면 앱(standalone)에서는 JS 로 커스텀 스킴을 여는 것이 막힐 수 있다.
+ * 그래서 진짜 링크(<a href>)로 두고, 탭한 뒤에도 화면이 그대로면 열리지 않은 것으로 보고 안내한다.
+ */
+(function wireWatchImport() {
+  const link = $('#watchImport');
+  link.setAttribute('href', shortcutUrl());
+  let left = false;
+  const mark = () => { left = true; };
+  addEventListener('pagehide', mark);
+  addEventListener('blur', mark);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) left = true; });
+  link.addEventListener('click', () => {
+    left = false;
+    setTimeout(() => {
+      if (left) return;
+      toast(`단축어가 열리지 않았어요. 단축어 앱에서 '${SHORTCUT_NAME}' 을 직접 실행해 주세요.`);
+    }, 1800);
+  });
+})();
 
 /** 단축어에서 돌아왔을 때 결과를 알려준다. 주소는 바로 정리해 새로고침해도 다시 뜨지 않게 한다. */
 (function handleShortcutReturn() {
