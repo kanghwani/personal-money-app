@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { groupNights, summarizeSleep } from './_health'
+import { groupNights, meters, minutes, summarizeSleep } from './_health'
 
 const rows = [
   { start: '2026-09-02 23:10', end: '2026-09-02 23:40', value: 'Core' },        // 모르는 라벨 → 무시
@@ -74,5 +74,25 @@ describe('workoutTrend', () => {
     expect(s).toContain("2026-08 Running 2회 · 60분 · 10.0km · 페이스 6'00\"/km · 평균심박 155")
     expect(s).toContain('2026-08 Swimming 2회 · 57분 · 899m')
     expect(workoutTrend(rows, 'Swimming')).not.toContain('Running')
+  })
+})
+
+describe('운동 시간 단위', () => {
+  // 단축어(Actions 앱)는 "2,591.927초", 백필은 "55.9"(분). 이걸 헷갈리면
+  // 43분 수영이 2592분(43시간)이 되어 주간 부하가 60배로 부푼다.
+  it('초·분·시간을 모두 분으로 읽는다', () => {
+    expect(minutes('2,591.927초')).toBeCloseTo(43.2, 1)
+    expect(minutes('55.9')).toBe(55.9)
+    expect(minutes('1.5 hr')).toBe(90)
+  })
+  it('거리는 단위가 붙어도 m로 읽는다', () => {
+    expect(meters('900m', 'Swimming')).toBe(900)
+    expect(meters('850', 'Swimming')).toBe(850)
+    expect(meters('5.2 km', 'Running')).toBe(5200)
+  })
+  it('단축어가 준 초 단위 세션이 목록에 43분으로 나온다', () => {
+    const out = summarizeWorkouts([{ start: '2026-09-04 09:07', end: '2026-09-04 09:50', value: 'Swimming', extra: '2,591.927초|172.2|900m|106.7' }])
+    expect(out).toContain('43분')
+    expect(out).toContain('900m')
   })
 })

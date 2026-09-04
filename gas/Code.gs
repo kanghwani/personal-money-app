@@ -2245,9 +2245,18 @@ function healthAppend_(type, rowsText) {
   const sheet = healthSheet_(type);
   const rows = healthParse_(rowsText);
   if (HEALTH_DAILY_TABS.includes(sheet.getName())) return healthUpsertDaily_(sheet, rows);
-  const seen = new Set(sheet.getDataRange().getValues().slice(1).map(r => r.slice(0, 3).join('|')));
+  const values = sheet.getDataRange().getValues();
+  const seen = new Map(values.slice(1).map((r, i) => [r.slice(0, 3).join('|'), i + 2]));
   const now = new Date();
-  const fresh = rows.filter(r => { const k = r.slice(0, 3).join('|'); if (seen.has(k)) return false; seen.add(k); return true; });   // 시트·같은 요청 안 중복 모두 제거
+  // manual 은 사람이 고쳐 쓰는 탭이다. 같은 키가 오면 덮어쓴다(RPE 오타·컨디션 재입력).
+  // 센서 탭은 같은 값이 반복해 올라오므로 그대로 건너뛴다.
+  const overwrite = sheet.getName() === 'manual';
+  const fresh = rows.filter(r => {
+    const k = r.slice(0, 3).join('|');
+    const at = seen.get(k);
+    if (at) { if (overwrite) sheet.getRange(at, 1, 1, 5).setValues([[r[0], r[1], r[2], r[3], now]]); return false; }
+    seen.set(k, sheet.getLastRow() + 1); return true;
+  });   // 시트·같은 요청 안 중복 모두 제거
   if (fresh.length) {
     sheet.getRange(sheet.getLastRow() + 1, 1, fresh.length, 5)
       .setValues(fresh.map(r => [r[0], r[1], r[2], r[3], now]));

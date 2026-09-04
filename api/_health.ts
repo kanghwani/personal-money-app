@@ -100,7 +100,7 @@ export function summarizeWorkouts(rows: HealthRow[] = []): string {
   const lines = rows.map((r) => {
     // 백필: "분|kcal|거리|평균심박" 숫자만. 단축어(Actions 앱): "56 min|218|0.85 km|113" 처럼 단위가 붙을 수 있다.
     const [durS = '', kcalS = '', distS = '', hrS = ''] = (r.extra || '').split('|')
-    const dur = num(durS) * (/\bh(our|r)?s?\b/.test(durS) ? 60 : 1)
+    const dur = minutes(durS)
     const dist = meters(distS, r.value)
     const parts = [durS && `${Math.round(dur)}분`, distS && !isNaN(dist) && (/swim/i.test(r.value) ? `${Math.round(dist)}m` : `${(dist / 1000).toFixed(1)}km`),
       hrS && `평균심박 ${Math.round(num(hrS))}`, kcalS && `${Math.round(num(kcalS))}kcal`].filter(Boolean)
@@ -137,8 +137,9 @@ export function summarizeTrend(tab: string, rows: HealthRow[] = []): string {
 
 const WORKOUT_ALIAS: Record<string, string> = { running: 'Running', 러닝: 'Running', 달리기: 'Running', swimming: 'Swimming', 수영: 'Swimming', yoga: 'Yoga', 요가: 'Yoga', walking: 'Walking', 걷기: 'Walking', cycling: 'Cycling', 자전거: 'Cycling' }
 /** 거리 문자열 → m. 단위가 붙어 있으면 그대로("0.85 km"·"850 m"), 숫자만이면 종목으로 판단(백필: 수영은 m, 나머지는 km) */
-const meters = (s: string, type = '') => { const v = num(s); if (isNaN(v)) return NaN; if (/km/.test(s)) return v * 1000; if (/\bm\b/.test(s)) return v; return /swim/i.test(type) ? v : v * 1000 }
-const minutes = (s: string) => { const v = num(s); return /\bh(our|r)?s?\b/.test(s) ? v * 60 : v }
+export const meters = (s = '', type = '') => { const v = num(s); if (isNaN(v)) return NaN; if (/km/i.test(s)) return v * 1000; if (/m(?![a-z])/i.test(s)) return v; return /swim/i.test(type) ? v : v * 1000 }
+/** 시간 문자열 → 분. 단축어(Actions 앱)는 "2,591.927초", 백필은 "55.9", 일부 소스는 "1.2 hr". */
+export const minutes = (s = '') => { const v = num(s); if (isNaN(v)) return NaN; if (/시간|\bh(our|r)?s?\b/i.test(s)) return v * 60; if (/초|\bs(ec(onds?)?)?\b/i.test(s)) return v / 60; return v }
 
 /** 종목별 월간: 횟수·총시간·거리·평균 페이스(분/km, 러닝)·평균심박 */
 export function workoutTrend(rows: HealthRow[], onlyType?: string): string {

@@ -8,7 +8,7 @@
  * 문구는 "관련이 있다"이고 "때문이다"라고 쓰지 않는다. 근거에 표본 수와 효과크기를 반드시 넣는다.
  * 실제로 검증했다가 버린 것: 취침 시각과 안정심박(문헌과 반대 방향, r=-0.19), 총수면과 다음날 HRV(r=-0.09).
  */
-import { dailySeries, type HealthRow, type Tabs } from './_health.js'
+import { dailySeries, minutes as toMinutes, type HealthRow, type Tabs } from './_health.js'
 
 // ── 작은 통계 도구 ─────────────────────────────────────────
 const mean = (xs: number[]) => xs.length ? xs.reduce((s, v) => s + v, 0) / xs.length : NaN
@@ -105,7 +105,7 @@ export function dailyLoad(workouts: HealthRow[] = [], restingHr = 60): Map<strin
   const out = new Map<string, { load: number; sessions: number }>()
   for (const w of workouts) {
     const [durS = '', , , hrS = ''] = (w.extra || '').split('|')
-    const minutes = num(durS) * (/\bh(our|r)?s?\b/.test(durS) ? 60 : 1)
+    const minutes = toMinutes(durS) || 0
     if (minutes <= 0) continue
     const hr = num(hrS)
     const frac = Math.min(1, Math.max(.2, hr > 0 ? (hr - restingHr) / (hrMax - restingHr) : (SPORT_FRAC[w.value] ?? .6)))

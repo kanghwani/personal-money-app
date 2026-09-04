@@ -3,7 +3,7 @@ import { verify } from './_auth.js'
 import { gasGet, gasPost } from './_gas.js'
 import { dailyLoad, fitnessPayload, insights, nightSegments, stagesFrom } from './_analysis.js'
 import { weekReview, monthReview, adviceHistory, adviceFromRow, mondayOf as coachMonday } from './_coach.js'
-import { dailySeries, groupNights, type HealthRow, type Tabs } from './_health.js'
+import { dailySeries, groupNights, meters, minutes, type HealthRow, type Tabs } from './_health.js'
 import { logStamp, parseLog, SPORT } from './_log.js'
 import { PLAN_LIBRARY, detailKey } from './_plan.js'
 import { readiness, structuredReadiness } from './_readiness.js'
@@ -30,12 +30,10 @@ const mondayOf = (d: string) => shift(d, -((new Date(`${d}T00:00:00Z`).getUTCDay
 const generatedAt = (now: number) => new Date(now + 9 * 3600_000).toISOString().slice(0, 19) + '+09:00'
 const clock = (epochMin: number) => new Date(epochMin * 60000).toISOString().slice(11, 16)
 const numeric = (s = '') => parseFloat(s.replace(/[^0-9.\-]/g, ''))
-const minutes = (s = '') => { const v = numeric(s); return /\bh(our|r)?s?\b/i.test(s) ? v * 60 : v }
-const meters = (s = '', type = '') => { const v = numeric(s); if (isNaN(v)) return 0; if (/km/i.test(s)) return v * 1000; if (/\bm\b/i.test(s)) return v; return /swim/i.test(type) ? v : v * 1000 }
 
 function workoutFromRow(w: HealthRow) {
   const [dur = '', kcal = '', dist = '', hr = ''] = (w.extra || '').split('|')
-  const distanceM = Math.round(meters(dist, w.value))
+  const distanceM = Math.round(meters(dist, w.value) || 0)
   return {
     id: `${w.start.slice(0, 16)}|${w.value}`, date: day(w), start: hhmm(w.start), type: w.value,
     ko: KO[w.value.toLowerCase()] || w.value, minutes: Math.round(minutes(dur) || 0), distanceM,
