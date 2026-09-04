@@ -30,7 +30,7 @@ function compactNumber(value) {
 }
 
 function formatPace(seconds) {
-  if (!Number.isFinite(Number(seconds))) return '–';
+  if (!Number.isFinite(Number(seconds))) return '--';
   const value = Number(seconds);
   return `${Math.floor(value / 60)}′${String(Math.round(value % 60)).padStart(2, '0')}″`;
 }
@@ -60,7 +60,7 @@ async function post(body, successMessage) {
 }
 
 function renderAuth() {
-  document.body.innerHTML = '<main class="shell auth"><section class="card auth-card"><div class="auth-mark">↗</div><h1>인증이 필요해요</h1><p>가계부 인증 링크로 한 번 접속해 주세요.<br>그다음 이 화면을 다시 열면 돼요.</p></section></main>';
+  document.body.innerHTML = '<main class="shell auth"><section class="card auth-card"><div class="auth-mark">[!]</div><h1>인증이 필요해요</h1><p>가계부 인증 링크로 한 번 접속해 주세요.<br>그다음 이 화면을 다시 열면 돼요.</p></section></main>';
 }
 
 function sparkline(series, className = 'spark') {
@@ -87,23 +87,25 @@ function renderAlerts(data) {
 
 function renderReadiness(readiness = {}) {
   const score = isNumberValue(readiness.score) ? Math.max(0, Math.min(100, Number(readiness.score))) : null;
-  $('#readyScore').textContent = score == null ? '–' : Math.round(score);
-  $('#gaugeValue').style.strokeDashoffset = score == null ? 100 : 100 - score;
+  $('#readyScore').textContent = score == null ? '--' : Math.round(score);
+  const filled = score == null ? 0 : Math.round(score / 10);
+  const capped = readiness.band === '휴식' || readiness.band === '가볍게';
+  $('#gaugeValue').innerHTML = Array.from({ length: 10 }, (_, i) => `<i class="${i < filled ? (capped ? 'on cap' : 'on') : ''}"></i>`).join('');
   $('#gauge').setAttribute('aria-label', score == null ? `준비도 ${readiness.band || '기준선 축적 중'}` : `준비도 ${score}점, ${readiness.band}`);
   $('#readyBand').textContent = readiness.band || '기준선 축적 중';
   $('#readyHeadline').textContent = readiness.headline || '기록이 쌓이면 오늘의 강도를 안내해요.';
   const lines = Array.isArray(readiness.lines) ? readiness.lines.slice(0, 3) : [];
   $('#readyLines').innerHTML = lines.length ? lines.map((line) => `<li class="${['good', 'neutral', 'warn', 'bad'].includes(line.tone) ? line.tone : 'neutral'}">${esc(line.text)}</li>`).join('') : '<li>수면과 회복 데이터가 더 필요해요.</li>';
   const components = Array.isArray(readiness.components) ? readiness.components : [];
-  $('#componentCount').textContent = components.length ? `${components.length}개 · 가중치 합 ${Math.round(components.reduce((sum, item) => sum + (Number(item.weight) || 0), 0) * 100)}%` : '';
-  $('#components').innerHTML = components.length ? components.map((item) => `<div class="component"><div class="component-top"><strong>${esc(item.label)}</strong><span>${Math.round(Number(item.score) || 0)}점 · ${Math.round((Number(item.weight) || 0) * 100)}%</span></div><div class="bar"><i style="width:${Math.max(0, Math.min(100, Number(item.score) || 0))}%"></i></div><p class="component-text">${esc(item.text)}</p></div>`).join('') : '<p class="empty">구성 항목은 기준선이 쌓이면 보여요.</p>';
+  $('#componentCount').textContent = components.length ? `${components.length}개 / 가중치 ${Math.round(components.reduce((sum, item) => sum + (Number(item.weight) || 0), 0) * 100)}%` : '';
+  $('#components').innerHTML = components.length ? components.map((item) => `<div class="component"><div class="component-top"><strong>${esc(item.label)}</strong><span>${Math.round(Number(item.score) || 0)} / 가중치 ${Math.round((Number(item.weight) || 0) * 100)}%</span></div><div class="bar"><i style="width:${Math.max(0, Math.min(100, Number(item.score) || 0))}%"></i></div><p class="component-text">${esc(item.text)}</p></div>`).join('') : '<p class="empty">구성 항목은 기준선이 쌓이면 보여요.</p>';
 }
 
 function doneLabel(item) {
   const watchTypes = ['수영', '걷뛰', '러닝', '달리기', '요가'];
-  if (!item.done) return item.rest ? '휴식' : `대기 · ${watchTypes.includes(item.name) ? '워치 자동' : '직접 기록'}`;
-  if (item.doneBy === 'watch') return '완료 · 워치 자동';
-  if (item.doneBy === 'log') return '완료 · 직접 기록';
+  if (!item.done) return item.rest ? '휴식' : (watchTypes.includes(item.name) ? '대기 / 워치 자동' : '대기 / 직접 기록');
+  if (item.doneBy === 'watch') return '완료 / 워치 자동';
+  if (item.doneBy === 'log') return '완료 / 직접 기록';
   return '완료';
 }
 
@@ -112,7 +114,7 @@ function planDetail(detail, band) {
   const rules = detail.readinessRule || {};
   const ruleKey = Object.prototype.hasOwnProperty.call(rules, band) ? band : '계획대로';
   const cautions = Array.isArray(detail.cautions) ? detail.cautions : [];
-  return `<div class="plan-detail"><p class="plan-summary">${esc(detail.summary)}</p><div class="today-rule"><small>오늘 · ${esc(ruleKey)}</small><strong>${esc(rules[ruleKey] || '계획대로')}</strong></div><div class="detail-grid"><div class="detail-block"><h4>목표</h4><p>${esc(detail.target)}</p></div><div class="detail-block"><h4>방법</h4><ol class="steps">${(detail.how || []).map((step) => `<li>${esc(step)}</li>`).join('')}</ol></div><div class="detail-block"><h4>진행 규칙</h4><p>${esc(detail.progression)}</p></div><div class="detail-block"><h4>이유</h4><p>${esc(detail.why)}</p></div>${cautions.length ? `<div class="detail-block"><h4>주의</h4><ul class="caution-list">${cautions.map((item) => `<li>${esc(item)}</li>`).join('')}</ul></div>` : ''}</div>${detail.logHint ? `<p class="log-hint">기록 · ${esc(detail.logHint)}</p>` : ''}</div>`;
+  return `<div class="plan-detail"><p class="plan-summary">${esc(detail.summary)}</p><div class="today-rule"><small>오늘 판정: ${esc(ruleKey)}</small><strong>${esc(rules[ruleKey] || '계획대로')}</strong></div><div class="detail-grid"><div class="detail-block"><h4>목표</h4><p>${esc(detail.target)}</p></div><div class="detail-block"><h4>방법</h4><ol class="steps">${(detail.how || []).map((step) => `<li>${esc(step)}</li>`).join('')}</ol></div><div class="detail-block"><h4>진행 규칙</h4><p>${esc(detail.progression)}</p></div><div class="detail-block"><h4>이유</h4><p>${esc(detail.why)}</p></div>${cautions.length ? `<div class="detail-block"><h4>주의</h4><ul class="caution-list">${cautions.map((item) => `<li>${esc(item)}</li>`).join('')}</ul></div>` : ''}</div>${detail.logHint ? `<p class="log-hint">기록: ${esc(detail.logHint)}</p>` : ''}</div>`;
 }
 
 function renderTodayPlan(plan = {}, band) {
@@ -128,7 +130,7 @@ function renderTodayPlan(plan = {}, band) {
   $('#todayItems').innerHTML = items.map((item, index) => {
     const detail = library[item.detailKey] || library[item.name];
     const sub = detail?.target || (item.rest ? '산책은 평소대로' : '상세 계획 확인');
-    return `<div class="plan-item" data-plan="${index}"><button class="plan-toggle" type="button" aria-expanded="false"><span class="plan-icon">${esc(detail?.emoji || (item.rest ? '○' : '·'))}</span><span><span class="plan-title">${esc(item.name)}</span><span class="plan-sub">${esc(sub)}</span></span><span class="status-icon ${item.done ? 'done' : ''}">${item.done ? '✓ ' : ''}${esc(doneLabel(item))}<i class="chevron">⌄</i></span></button>${planDetail(detail, band)}</div>`;
+    return `<div class="plan-item" data-plan="${index}"><button class="plan-toggle" type="button" aria-expanded="false"><span class="plan-icon">${esc(item.rest ? 'OFF' : (String(item.name).length > 2 ? String(item.name).slice(0, 1) : String(item.name)))}</span><span><span class="plan-title">${esc(item.name)}</span><span class="plan-sub">${esc(sub)}</span></span><span class="status-icon ${item.done ? 'done' : ''}">${item.done ? '✓ ' : ''}${esc(doneLabel(item))}<i class="chevron">v</i></span></button>${planDetail(detail, band)}</div>`;
   }).join('');
   $('#todayItems').querySelectorAll('.plan-toggle').forEach((button) => button.addEventListener('click', () => {
     const item = button.closest('.plan-item');
@@ -142,7 +144,7 @@ function workoutMeta(workout) {
   if (workout.distanceText) parts.push(workout.distanceText);
   else if (Number(workout.distanceM) > 0) parts.push(`${compactNumber(workout.distanceM)}m`);
   if (Number(workout.hr) > 0) parts.push(`심박 ${compactNumber(workout.hr)}`);
-  return parts.filter(Boolean).join(' · ');
+  return parts.filter(Boolean).join(' / ');
 }
 
 function renderWorkouts(workouts) {
@@ -153,7 +155,7 @@ function renderWorkouts(workouts) {
   }
   $('#workoutList').innerHTML = list.map((workout, index) => {
     const hasRpe = isNumberValue(workout.rpe);
-    return `<article class="workout-item" data-workout="${index}"><button class="workout-toggle" type="button" ${hasRpe ? '' : 'aria-expanded="false"'}><span><span class="workout-name">${esc(workout.ko || workout.type)}${hasRpe ? '' : '<em class="needs-rpe">RPE 필요</em>'}</span><span class="workout-meta">${esc(workoutMeta(workout))}</span></span>${hasRpe ? `<span class="rpe-result"><strong>${esc(workout.rpe)}</strong><span>RPE${workout.loggedAt ? ` · ${esc(String(workout.loggedAt).slice(11, 16))}` : ''}</span></span>` : '<span class="chevron">⌄</span>'}</button>${hasRpe ? (workout.note ? `<p class="workout-note">${esc(workout.note)}</p>` : '') : `<form class="rpe-form"><div class="rpe-label"><span>힘든 정도</span><span>1 아주 쉬움 · 10 한계</span></div><div class="rpe-scale">${Array.from({ length: 10 }, (_, i) => `<button type="button" data-rpe="${i + 1}">${i + 1}</button>`).join('')}</div><input class="text-field" name="note" maxlength="120" autocomplete="off" placeholder="한 줄 코멘트 (선택)"/><button class="secondary-btn full" type="submit">RPE·코멘트 저장</button></form>`}</article>`;
+    return `<article class="workout-item" data-workout="${index}"><button class="workout-toggle" type="button" ${hasRpe ? '' : 'aria-expanded="false"'}><span><span class="workout-name">${esc(workout.ko || workout.type)}${hasRpe ? '' : '<em class="needs-rpe">RPE 필요</em>'}</span><span class="workout-meta">${esc(workoutMeta(workout))}</span></span>${hasRpe ? `<span class="rpe-result"><strong>${esc(workout.rpe)}</strong><span>RPE${workout.loggedAt ? ` ${esc(String(workout.loggedAt).slice(11, 16))}` : ''}</span></span>` : '<span class="chevron">v</span>'}</button>${hasRpe ? (workout.note ? `<p class="workout-note">${esc(workout.note)}</p>` : '') : `<form class="rpe-form"><div class="rpe-label"><span>힘든 정도</span><span>1 쉬움 / 10 한계</span></div><div class="rpe-scale">${Array.from({ length: 10 }, (_, i) => `<button type="button" data-rpe="${i + 1}">${i + 1}</button>`).join('')}</div><input class="text-field" name="note" maxlength="120" autocomplete="off" placeholder="한 줄 코멘트 (선택)"/><button class="secondary-btn full" type="submit">RPE·코멘트 저장</button></form>`}</article>`;
   }).join('');
   $('#workoutList').querySelectorAll('.workout-item').forEach((item) => {
     const workout = list[Number(item.dataset.workout)];
@@ -178,11 +180,11 @@ function renderWorkouts(workouts) {
 function renderWellness(wellness = {}) {
   state.wellness = Array.isArray(wellness.today?.values) ? wellness.today.values.slice(0, 4).map(Number) : [0, 0, 0, 0];
   const labels = Array.isArray(wellness.labels) && wellness.labels.length ? wellness.labels : ['수면질', '피로', '스트레스', '근육통'];
-  const hints = ['1 못 잤다 · 5 푹 잤다', '1 없음 · 5 심함', '1 없음 · 5 심함', '1 없음 · 5 심함'];
+  const hints = ['1 못 잤다 / 5 푹 잤다', '1 없음 / 5 심함', '1 없음 / 5 심함', '1 없음 / 5 심함'];
   $('#wellnessStatus').textContent = wellness.today ? `오늘 ${wellness.today.at || ''}에 저장한 값이에요. 다시 저장하면 최신 상태로 반영돼요.` : '네 가지 감각을 10초 안에 남겨요.';
   $('#wellnessRows').innerHTML = labels.slice(0, 4).map((label, index) => {
     const recent = (wellness.recent || []).map((row) => row.values?.[index]).filter(Number.isFinite);
-    return `<div class="well-row" data-well="${index}"><div class="well-head"><div><span class="well-label">${esc(label)}</span><span class="well-hint"> · ${hints[index]}</span></div>${sparkline(recent, 'spark well-spark')}</div><div class="scale" aria-label="${esc(label)} 1점부터 5점">${[1, 2, 3, 4, 5].map((value) => `<button type="button" data-value="${value}" class="${state.wellness[index] === value ? 'on' : ''}" aria-pressed="${state.wellness[index] === value}">${value}</button>`).join('')}</div></div>`;
+    return `<div class="well-row" data-well="${index}"><div class="well-head"><div><span class="well-label">${esc(label)}</span><span class="well-hint">${hints[index]}</span></div>${sparkline(recent, 'spark well-spark')}</div><div class="scale" aria-label="${esc(label)} 1점부터 5점">${[1, 2, 3, 4, 5].map((value) => `<button type="button" data-value="${value}" class="${state.wellness[index] === value ? 'on' : ''}" aria-pressed="${state.wellness[index] === value}">${value}</button>`).join('')}</div></div>`;
   }).join('');
   $('#wellnessRows').addEventListener('click', wellnessClick, { once: true });
   paintWellnessButton();
@@ -203,15 +205,15 @@ function paintWellnessButton() { $('#saveWellness').disabled = state.wellness.so
 function renderWeek(plan = {}) {
   const days = Array.isArray(plan.week) ? plan.week : [];
   $('#weekDone').textContent = `${Number(plan.done) || 0}/${Number(plan.planned) || 0}`;
-  $('#weekMeta').textContent = plan.adherence4w == null ? '이번 주 완료' : `완료 · 4주 ${Math.round(plan.adherence4w * 100)}%`;
+  $('#weekMeta').textContent = plan.adherence4w == null ? '이번 주 완료' : `완료 / 4주 ${Math.round(plan.adherence4w * 100)}%`;
   if (!days.length) { $('#weekGrid').innerHTML = '<p class="empty">이번 주 계획을 아직 정하지 않았어요.</p>'; return; }
   $('#weekGrid').innerHTML = days.slice(0, 7).map((day) => `<div class="week-day ${day.isToday ? 'today' : ''}"><span class="week-label">${esc(day.wd)}</span><span class="week-date">${esc(String(day.date || '').slice(8))}</span>${(day.items || []).map((item) => { const kind = item.rest ? 'rest' : item.done ? 'done' : day.isPast ? 'missed' : 'future'; return `<span class="week-chip ${kind}" title="${esc(item.name)}">${esc(item.name)}</span>`; }).join('')}</div>`).join('');
 }
 
 function renderMetricCard(label, unit, today, series, emptyText) {
-  if (!series?.length && today == null) return `<div class="metric"><span class="metric-label">${esc(label)}</span><strong class="metric-value">–</strong><span class="well-hint">${esc(emptyText)}</span></div>`;
+  if (!series?.length && today == null) return `<div class="metric"><span class="metric-label">${esc(label)}</span><strong class="metric-value">--</strong><span class="well-hint">${esc(emptyText)}</span></div>`;
   const displayValue = isNumberValue(today) ? today : series?.at(-1)?.v;
-  return `<div class="metric"><span class="metric-label">${esc(label)}</span><strong class="metric-value">${isNumberValue(displayValue) ? compactNumber(displayValue) : '–'}<small>${esc(unit)}</small></strong>${sparkline(series)}</div>`;
+  return `<div class="metric"><span class="metric-label">${esc(label)}</span><strong class="metric-value">${isNumberValue(displayValue) ? compactNumber(displayValue) : '--'}<small>${esc(unit)}</small></strong>${sparkline(series)}</div>`;
 }
 
 function barChart(rows, valueOf) {
@@ -225,8 +227,8 @@ function renderTrends(data) {
   $('#metricGrid').innerHTML = renderMetricCard('수면', '분', data.sleep?.lastNight?.totalMin, sleepSeries, '수면 기록 대기') + renderMetricCard(metrics.hrv?.label || 'HRV', metrics.hrv?.unit || 'ms', metrics.hrv?.today, metrics.hrv?.series, 'HRV 기록 대기') + renderMetricCard(metrics.resting_hr?.label || '안정심박', metrics.resting_hr?.unit || '', metrics.resting_hr?.today, metrics.resting_hr?.series, '심박 기록 대기');
   const swimming = Array.isArray(data.trends?.swimming) ? data.trends.swimming : [];
   const running = Array.isArray(data.trends?.running) ? data.trends.running : [];
-  const swim = swimming.length ? `<div class="sport-row"><div class="sport-copy"><strong>수영 거리</strong><span>${compactNumber(swimming.at(-1).distanceM / 1000)}km · ${swimming.at(-1).sessions}회</span></div>${barChart(swimming, (row) => row.distanceM)}</div>` : '<p class="empty">수영 첫 세션이 기록되면 월간 거리가 보여요.</p>';
-  const run = running.length ? `<div class="sport-row"><div class="sport-copy"><strong>러닝 페이스</strong><span>${formatPace(running.at(-1).paceSecPerKm)}/km</span></div>${barChart(running, (row) => Math.max(1, 900 - Number(row.paceSecPerKm || 900)))}</div>` : '<p class="empty">러닝은 다음 주부터 — 첫 세션이 기록되면 여기 추세가 생겨요.</p>';
+  const swim = swimming.length ? `<div class="sport-row"><div class="sport-copy"><strong>수영 거리</strong><span>${compactNumber(swimming.at(-1).distanceM / 1000)}km / ${swimming.at(-1).sessions}회</span></div>${barChart(swimming, (row) => row.distanceM)}</div>` : '<p class="empty">수영 첫 세션이 기록되면 월간 거리가 보여요.</p>';
+  const run = running.length ? `<div class="sport-row"><div class="sport-copy"><strong>러닝 페이스</strong><span>${formatPace(running.at(-1).paceSecPerKm)}/km</span></div>${barChart(running, (row) => Math.max(1, 900 - Number(row.paceSecPerKm || 900)))}</div>` : '<p class="empty">러닝은 다음 주부터. 첫 세션이 기록되면 여기 추세가 생겨요.</p>';
   $('#sportTrends').innerHTML = swim + run;
   const load = Array.isArray(data.trends?.load) ? data.trends.load : [];
   $('#loadTrend').innerHTML = load.length ? barChart(load, (row) => row.srpe) : '<p class="load-empty">RPE를 기록하면 주간 훈련 부하가 쌓여요.</p>';
@@ -246,7 +248,7 @@ function renderJournal(data) {
 function render(data) {
   state.data = data;
   $('#dateLabel').textContent = formatDate(data.today, true);
-  $('#syncMark').innerHTML = `<span></span>${fixtureMode ? '샘플 데이터' : (data.staleness?.lastUploadAt ? `${esc(String(data.staleness.lastUploadAt).slice(11))} 업로드` : '동기화됨')}`;
+  $('#syncMark').textContent = fixtureMode ? '샘플 데이터' : (data.staleness?.lastUploadAt ? `${String(data.staleness.lastUploadAt).slice(11)} 업로드` : '동기화됨');
   $('#syncMark').setAttribute('aria-label', fixtureMode ? '샘플 데이터' : '데이터 동기화 완료');
   $('#staleHint').textContent = data.staleness?.hint || '';
   $('#generatedAt').textContent = data.generatedAt ? `마지막 계산 ${new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(data.generatedAt))}` : '';

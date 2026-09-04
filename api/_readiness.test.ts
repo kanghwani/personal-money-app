@@ -52,7 +52,7 @@ describe('formatFriendly', () => {
       ],
     }
     const s = formatFriendly(r as never)
-    expect(s).toContain('준비도 59 — 무리 없이 계획대로')
+    expect(s).toContain('준비도 59. 무리 없이 계획대로')
     expect(s).toContain('잠 6시간 41분 — 평소보다 1시간 02분 더 잠')
     expect(s.indexOf('잠 6시간')).toBeLessThan(s.indexOf('회복 신호'))   // 걱정거리가 없으면 수면부터
     expect(s).not.toContain('어젯밤 회복 신호')                          // HRV 줄 중복 제거

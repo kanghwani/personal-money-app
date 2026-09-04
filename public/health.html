@@ -6,59 +6,103 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="컨디션" />
-  <meta name="theme-color" content="#f7f7f5" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#0f1512" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#d5d8ce" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#090c09" media="(prefers-color-scheme: dark)" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="manifest" href="/manifest-health.json" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Gothic+A1:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" />
   <link rel="stylesheet" href="/health.css" />
-  <title>오늘의 컨디션</title>
+  <title>컨디션</title>
 </head>
 <body>
   <main class="shell" id="app" aria-busy="true">
     <header class="topbar">
-      <div><p class="eyebrow" id="dateLabel">오늘의 브리핑</p><h1>몸을 읽고, 계획을 고른다</h1></div>
-      <div class="sync-mark" id="syncMark" aria-label="데이터 불러오는 중"><span></span>동기화 중</div>
+      <div>
+        <h1>컨디션</h1>
+        <p class="eyebrow" id="dateLabel">불러오는 중</p>
+      </div>
+      <div class="sync-mark" id="syncMark">동기화 중</div>
     </header>
+
     <div id="alerts" class="banner-stack" aria-live="polite"></div>
+
     <section class="hero-grid" aria-label="오늘 요약">
       <article class="card readiness-card" id="readinessCard">
-        <div class="section-head compact"><div><p class="section-kicker">Readiness</p><h2>오늘 준비도</h2></div><span class="band-badge" id="readyBand">불러오는 중</span></div>
+        <div class="section-head"><h2>오늘 준비도</h2><span class="band-badge" id="readyBand">불러오는 중</span></div>
         <div class="readiness-main">
-          <div class="gauge" id="gauge" aria-label="준비도 점수"><svg viewBox="0 0 180 112" role="img" aria-hidden="true"><path class="gauge-track" d="M22 94 A68 68 0 0 1 158 94" pathLength="100" /><path class="gauge-value" id="gaugeValue" d="M22 94 A68 68 0 0 1 158 94" pathLength="100" /></svg><div class="gauge-copy"><strong id="readyScore">–</strong><span>/ 100</span></div></div>
-          <div class="ready-copy"><p id="readyHeadline">데이터를 읽고 있어요.</p><ul id="readyLines" class="signal-list"></ul></div>
+          <div class="gauge" id="gauge" aria-label="준비도 점수">
+            <div class="gauge-copy"><strong id="readyScore">--</strong><span>/100</span></div>
+            <div class="meter" id="gaugeValue" aria-hidden="true"></div>
+          </div>
+          <div class="ready-copy">
+            <p id="readyHeadline">데이터를 읽고 있어요.</p>
+            <ul id="readyLines" class="signal-list"></ul>
+          </div>
         </div>
-        <details class="component-details" id="componentDetails"><summary><span>준비도 구성 보기</span><span class="summary-count" id="componentCount"></span></summary><div id="components" class="component-list"></div></details>
+        <details class="component-details" id="componentDetails">
+          <summary><span>준비도 구성</span><span class="summary-count" id="componentCount"></span></summary>
+          <div id="components" class="component-list"></div>
+        </details>
       </article>
+
       <article class="card plan-card" id="todayPlan">
-        <div class="section-head compact"><div><p class="section-kicker">Today</p><h2>오늘의 계획</h2></div><span class="day-badge" id="todayDay">오늘</span></div>
+        <div class="section-head"><h2>오늘의 계획</h2><span class="day-badge" id="todayDay">오늘</span></div>
         <div id="todayItems" class="today-items"><p class="empty">계획을 불러오고 있어요.</p></div>
       </article>
     </section>
+
     <section class="card section-card" id="workoutsSection">
-      <div class="section-head action-head"><div><p class="section-kicker">Sessions</p><h2>운동 기록</h2><p class="section-desc">워치 기록에 체감 강도를 더하면 주간 부하가 완성돼요.</p></div><button class="secondary-btn watch-btn" id="watchImport" type="button"><span class="watch-dot"></span>워치에서 가져오기</button></div>
-      <p class="inline-hint" id="staleHint"></p><div id="workoutList" class="workout-list"></div>
+      <div class="section-head action-head">
+        <h2>운동 기록</h2>
+        <button class="secondary-btn watch-btn" id="watchImport" type="button">워치에서 가져오기</button>
+      </div>
+      <p class="section-desc">워치가 잰 세션에 체감 강도를 더하면 주간 부하가 완성돼요.</p>
+      <p class="inline-hint" id="staleHint"></p>
+      <div id="workoutList" class="workout-list"></div>
     </section>
+
     <section class="card section-card" id="wellnessSection">
-      <div class="section-head"><div><p class="section-kicker">Check-in</p><h2>지금 컨디션</h2><p class="section-desc" id="wellnessStatus">네 가지 감각을 10초 안에 남겨요.</p></div></div>
-      <div id="wellnessRows" class="wellness-list"></div><button class="primary-btn" id="saveWellness" type="button" disabled>컨디션 저장</button>
+      <div class="section-head"><h2>지금 컨디션</h2></div>
+      <p class="section-desc" id="wellnessStatus">네 가지 감각을 10초 안에 남겨요.</p>
+      <div id="wellnessRows" class="wellness-list"></div>
+      <button class="primary-btn" id="saveWellness" type="button" disabled>컨디션 저장</button>
     </section>
+
     <section class="card section-card" id="weekSection">
-      <div class="section-head"><div><p class="section-kicker">This week</p><h2>주간 계획</h2></div><div class="week-score"><strong id="weekDone">–</strong><span id="weekMeta">완료</span></div></div>
-      <div class="week-grid" id="weekGrid"></div><div class="legend" aria-label="계획 상태 범례"><span><i class="done"></i>완료</span><span><i class="missed"></i>미이행</span><span><i class="rest"></i>휴식</span><span><i class="future"></i>예정</span></div>
+      <div class="section-head"><h2>이번 주</h2><div class="week-score"><strong id="weekDone">--</strong><span id="weekMeta">완료</span></div></div>
+      <div class="week-grid" id="weekGrid"></div>
+      <div class="legend" aria-label="계획 상태 범례">
+        <span><i class="done"></i>완료</span><span><i class="missed"></i>미이행</span><span><i class="rest"></i>휴식</span><span><i></i>예정</span>
+      </div>
     </section>
+
     <section class="card section-card" id="trendsSection">
-      <div class="section-head"><div><p class="section-kicker">Trends</p><h2>몸의 흐름</h2><p class="section-desc">하루 값보다 방향을 봐요.</p></div></div>
+      <div class="section-head"><h2>몸의 흐름</h2></div>
+      <p class="section-desc">하루 값보다 방향을 봐요.</p>
       <div class="metric-grid" id="metricGrid"></div>
-      <div class="trend-block"><div class="subhead"><h3>종목별 월간</h3><span>최근 6개월</span></div><div class="sport-trends" id="sportTrends"></div></div>
-      <div class="trend-block"><div class="subhead"><h3>주간 부하</h3><span>sRPE</span></div><div id="loadTrend"></div></div>
+      <div class="trend-block">
+        <div class="subhead"><h3>종목별 월간</h3><span>최근 6개월</span></div>
+        <div class="sport-trends" id="sportTrends"></div>
+      </div>
+      <div class="trend-block">
+        <div class="subhead"><h3>주간 부하</h3><span>sRPE</span></div>
+        <div id="loadTrend"></div>
+      </div>
     </section>
+
     <section class="card section-card" id="journalSection">
-      <div class="section-head"><div><p class="section-kicker">Context</p><h2>태그와 메모</h2><p class="section-desc">숫자 밖의 맥락을 한 줄로 남겨요.</p></div></div>
-      <div class="tag-list" id="tagList"></div><label class="field-label" for="memo">오늘 한 줄</label><input class="text-field" id="memo" type="text" maxlength="160" autocomplete="off" placeholder="예: 수영 뒤 오른쪽 어깨가 조금 뻐근함" /><button class="secondary-btn full" id="saveJournal" type="button">태그·메모 저장</button><div class="recent-log" id="recentLog"></div>
+      <div class="section-head"><h2>태그와 메모</h2></div>
+      <p class="section-desc">숫자 밖의 맥락을 한 줄로 남겨요.</p>
+      <div class="tag-list" id="tagList"></div>
+      <label class="field-label" for="memo">오늘 한 줄</label>
+      <input class="text-field" id="memo" type="text" maxlength="160" autocomplete="off" placeholder="예: 수영 뒤 오른쪽 어깨가 조금 뻐근함" />
+      <button class="secondary-btn full" id="saveJournal" type="button">태그와 메모 저장</button>
+      <div class="recent-log" id="recentLog"></div>
     </section>
+
     <p class="footnote" id="generatedAt"></p>
   </main>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>

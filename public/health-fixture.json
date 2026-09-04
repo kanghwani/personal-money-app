@@ -1,266 +1,825 @@
 {
-  "ok": true,
-  "today": "2026-09-04",
-  "generatedAt": "2026-09-04T13:20:00+09:00",
-  "staleness": {
-    "lastUploadAt": "2026-09-04 08:12",
-    "sleepToday": true,
-    "workoutSince": "2026-09-02 09:15",
-    "hint": "오늘 운동이 아직 안 올라왔어요"
-  },
-  "readiness": {
-    "score": 68,
-    "band": "계획대로",
-    "headline": "무리 없이 계획대로 하면 되는 날이에요.",
-    "lines": [
-      { "text": "잠 6시간 41분 — 평소보다 1시간 02분 더 잠", "tone": "good" },
-      { "text": "회복 신호(심박 변이) — 평소 수준", "tone": "neutral" },
-      { "text": "어제 활동량이 평소보다 많았음 — 오늘은 회복 쪽으로", "tone": "warn" }
-    ],
-    "components": [
-      { "key": "hrv7", "label": "HRV 7일 평균", "score": 47, "weight": 0.3, "z": -0.1, "text": "HRV 7일 평균 38ms (평소 39, -2%)", "tone": "neutral" },
-      { "key": "hrv1", "label": "HRV 어젯밤", "score": 71, "weight": 0.1, "z": 0.84, "text": "HRV 45ms", "tone": "good" },
-      { "key": "rhr", "label": "안정심박", "score": 64, "weight": 0.15, "z": 0.56, "text": "안정심박 63 (평소 66, -3)", "tone": "good" },
-      { "key": "sleep", "label": "어젯밤 수면", "score": 100, "weight": 0.2, "z": 1.4, "text": "수면 6h41m (평소 5h39m, +1h02m)", "tone": "good" },
-      { "key": "debt", "label": "수면 부채", "score": 57, "weight": 0.05, "z": 0.28, "text": "7일 평균 수면 5h52m", "tone": "neutral" },
-      { "key": "temp", "label": "손목온도", "score": 84, "weight": 0.1, "z": 1.36, "text": "손목온도 -0.3°", "tone": "good" },
-      { "key": "rr", "label": "호흡수", "score": 84, "weight": 0.05, "z": 1.36, "text": "호흡 13.0/분 (평소 14.0)", "tone": "good" },
-      { "key": "load", "label": "전날 부하", "score": 73, "weight": 0.05, "z": -0.54, "text": "전날 활동 697kcal (28일 평균 499)", "tone": "warn" }
-    ]
-  },
-  "sleep": {
-    "lastNight": {
-      "date": "2026-09-04",
-      "bed": "00:15",
-      "wake": "06:56",
-      "totalMin": 401,
-      "deepMin": 63,
-      "remMin": 96,
-      "coreMin": 242,
-      "awakeMin": 4,
-      "awakenings": 2,
-      "vsBaselineMin": 62,
-      "baselineMin": 339
-    },
-    "recent": [
-      { "date": "2026-08-29", "totalMin": 372, "bed": "01:41", "wake": "08:12", "deepMin": 48 },
-      { "date": "2026-08-30", "totalMin": 369, "bed": "03:06", "wake": "09:15", "deepMin": 58 },
-      { "date": "2026-08-31", "totalMin": 402, "bed": "01:55", "wake": "08:40", "deepMin": 51 },
-      { "date": "2026-09-01", "totalMin": 465, "bed": "01:32", "wake": "09:35", "deepMin": 63 },
-      { "date": "2026-09-02", "totalMin": 353, "bed": "01:02", "wake": "07:05", "deepMin": 55 },
-      { "date": "2026-09-03", "totalMin": 330, "bed": "01:27", "wake": "06:58", "deepMin": 53 },
-      { "date": "2026-09-04", "totalMin": 401, "bed": "00:15", "wake": "06:56", "deepMin": 63 }
-    ],
-    "bedtimeMedian": "01:27",
-    "bedtimeSdMin": 44,
-    "debtMin": -31
-  },
-  "metrics": {
-    "hrv": {
-      "label": "HRV", "unit": "ms", "today": 45, "avg7": 38, "avg30": 39, "betterWhen": "high",
-      "series": [
-        { "date": "2026-08-26", "v": 36 }, { "date": "2026-08-27", "v": 51 }, { "date": "2026-08-28", "v": 37 },
-        { "date": "2026-08-29", "v": 27 }, { "date": "2026-08-30", "v": 45 }, { "date": "2026-08-31", "v": 31 },
-        { "date": "2026-09-01", "v": 40 }, { "date": "2026-09-02", "v": 44 }, { "date": "2026-09-03", "v": 42 },
-        { "date": "2026-09-04", "v": 45 }
-      ]
-    },
-    "resting_hr": {
-      "label": "안정심박", "unit": "", "today": 63, "avg7": 63, "avg30": 66, "betterWhen": "low",
-      "series": [
-        { "date": "2026-08-26", "v": 66 }, { "date": "2026-08-27", "v": 65 }, { "date": "2026-08-28", "v": 60 },
-        { "date": "2026-08-29", "v": 64 }, { "date": "2026-08-30", "v": 64 }, { "date": "2026-08-31", "v": 64 },
-        { "date": "2026-09-01", "v": 63 }, { "date": "2026-09-02", "v": 65 }, { "date": "2026-09-03", "v": 59 },
-        { "date": "2026-09-04", "v": 63 }
-      ]
-    },
-    "active_kcal": {
-      "label": "활동", "unit": "kcal", "today": 264, "avg7": 517, "avg30": 499, "betterWhen": "high",
-      "series": [
-        { "date": "2026-08-28", "v": 437 }, { "date": "2026-08-29", "v": 603 }, { "date": "2026-08-30", "v": 648 },
-        { "date": "2026-08-31", "v": 352 }, { "date": "2026-09-01", "v": 622 }, { "date": "2026-09-02", "v": 697 },
-        { "date": "2026-09-03", "v": 429 }, { "date": "2026-09-04", "v": 264 }
-      ]
-    },
-    "steps": {
-      "label": "걸음", "unit": "", "today": 5764, "avg7": 9882, "avg30": 9433, "betterWhen": "high",
-      "series": [
-        { "date": "2026-08-28", "v": 11228 }, { "date": "2026-08-29", "v": 13240 }, { "date": "2026-08-30", "v": 14189 },
-        { "date": "2026-08-31", "v": 5048 }, { "date": "2026-09-01", "v": 10735 }, { "date": "2026-09-02", "v": 8973 },
-        { "date": "2026-09-03", "v": 7412 }, { "date": "2026-09-04", "v": 5764 }
-      ]
-    },
-    "respiratory_rate": {
-      "label": "호흡", "unit": "/분", "today": 13.0, "avg7": 13.4, "avg30": 14.1, "betterWhen": "low",
-      "series": [
-        { "date": "2026-08-30", "v": 13.8 }, { "date": "2026-09-01", "v": 13.6 }, { "date": "2026-09-02", "v": 13.3 },
-        { "date": "2026-09-03", "v": 13.0 }, { "date": "2026-09-04", "v": 13.0 }
-      ]
-    },
-    "wrist_temp": {
-      "label": "손목온도", "unit": "°", "today": 35.4, "avg7": 35.6, "avg30": 35.8, "betterWhen": "low",
-      "series": [
-        { "date": "2026-09-01", "v": 35.8 }, { "date": "2026-09-02", "v": 35.6 }, { "date": "2026-09-03", "v": 35.4 },
-        { "date": "2026-09-04", "v": 35.4 }
-      ]
-    }
-  },
-  "workouts": [
-    {
-      "id": "2026-09-02 09:15|Swimming", "date": "2026-09-02", "start": "09:15",
-      "type": "Swimming", "ko": "수영", "minutes": 56,
-      "distanceM": 850, "distanceText": "850m", "kcal": 218, "hr": 113,
-      "rpe": null, "note": null, "loggedAt": null
-    },
-    {
-      "id": "2026-08-24 07:05|Swimming", "date": "2026-08-24", "start": "07:05",
-      "type": "Swimming", "ko": "수영", "minutes": 57,
-      "distanceM": 1225, "distanceText": "1225m", "kcal": 299, "hr": 123,
-      "rpe": 6, "note": "자유형 25m 10세트, 마지막 두 세트 팔 무거움", "loggedAt": "2026-08-24 08:30"
-    }
+ "ok": true,
+ "today": "2026-09-04",
+ "generatedAt": "2026-09-04T13:20:00+09:00",
+ "staleness": {
+  "lastUploadAt": "2026-09-04 08:12",
+  "sleepToday": true,
+  "workoutSince": "2026-09-02 09:15",
+  "hint": "오늘 운동이 아직 안 올라왔어요"
+ },
+ "readiness": {
+  "score": 68,
+  "band": "계획대로",
+  "headline": "무리 없이 계획대로 하면 되는 날이에요.",
+  "lines": [
+   {
+    "text": "잠 6시간 41분, 평소보다 1시간 02분 더 잠",
+    "tone": "good"
+   },
+   {
+    "text": "회복 신호(심박 변이) 38ms, 평소 수준",
+    "tone": "neutral"
+   },
+   {
+    "text": "어제 활동 697kcal, 평소보다 많았음",
+    "tone": "warn"
+   }
   ],
-  "wellness": {
-    "today": null,
-    "labels": ["수면질", "피로", "스트레스", "근육통"],
-    "recent": [
-      { "date": "2026-09-03", "values": [2, 1, 3, 2] }
-    ],
-    "baseline": null
+  "components": [
+   {
+    "key": "hrv7",
+    "label": "HRV 7일 평균",
+    "score": 47,
+    "weight": 0.3,
+    "z": -0.1,
+    "text": "HRV 7일 평균 38ms (평소 39, -2%)",
+    "tone": "neutral"
+   },
+   {
+    "key": "hrv1",
+    "label": "HRV 어젯밤",
+    "score": 71,
+    "weight": 0.1,
+    "z": 0.84,
+    "text": "HRV 45ms",
+    "tone": "good"
+   },
+   {
+    "key": "rhr",
+    "label": "안정심박",
+    "score": 64,
+    "weight": 0.15,
+    "z": 0.56,
+    "text": "안정심박 63 (평소 66, -3)",
+    "tone": "good"
+   },
+   {
+    "key": "sleep",
+    "label": "어젯밤 수면",
+    "score": 100,
+    "weight": 0.2,
+    "z": 1.4,
+    "text": "수면 6h41m (평소 5h39m, +1h02m)",
+    "tone": "good"
+   },
+   {
+    "key": "debt",
+    "label": "수면 부채",
+    "score": 57,
+    "weight": 0.05,
+    "z": 0.28,
+    "text": "7일 평균 수면 5h52m",
+    "tone": "neutral"
+   },
+   {
+    "key": "temp",
+    "label": "손목온도",
+    "score": 84,
+    "weight": 0.1,
+    "z": 1.36,
+    "text": "손목온도 -0.3°",
+    "tone": "good"
+   },
+   {
+    "key": "rr",
+    "label": "호흡수",
+    "score": 84,
+    "weight": 0.05,
+    "z": 1.36,
+    "text": "호흡 13.0/분 (평소 14.0)",
+    "tone": "good"
+   },
+   {
+    "key": "load",
+    "label": "전날 부하",
+    "score": 73,
+    "weight": 0.05,
+    "z": -0.54,
+    "text": "전날 활동 697kcal (28일 평균 499)",
+    "tone": "warn"
+   }
+  ]
+ },
+ "sleep": {
+  "lastNight": {
+   "date": "2026-09-04",
+   "bed": "00:15",
+   "wake": "06:56",
+   "totalMin": 401,
+   "deepMin": 63,
+   "remMin": 96,
+   "coreMin": 242,
+   "awakeMin": 4,
+   "awakenings": 2,
+   "vsBaselineMin": 62,
+   "baselineMin": 339
   },
-  "tags": {
-    "today": [],
-    "recent": [{ "date": "2026-09-03", "tags": ["늦은식사"] }]
-  },
-  "notes": [
-    { "date": "2026-09-03", "time": "21:30", "text": "수영 후 어깨 살짝 뻐근" }
+  "recent": [
+   {
+    "date": "2026-08-29",
+    "totalMin": 372,
+    "bed": "01:41",
+    "wake": "08:12",
+    "deepMin": 48
+   },
+   {
+    "date": "2026-08-30",
+    "totalMin": 369,
+    "bed": "03:06",
+    "wake": "09:15",
+    "deepMin": 58
+   },
+   {
+    "date": "2026-08-31",
+    "totalMin": 402,
+    "bed": "01:55",
+    "wake": "08:40",
+    "deepMin": 51
+   },
+   {
+    "date": "2026-09-01",
+    "totalMin": 465,
+    "bed": "01:32",
+    "wake": "09:35",
+    "deepMin": 63
+   },
+   {
+    "date": "2026-09-02",
+    "totalMin": 353,
+    "bed": "01:02",
+    "wake": "07:05",
+    "deepMin": 55
+   },
+   {
+    "date": "2026-09-03",
+    "totalMin": 330,
+    "bed": "01:27",
+    "wake": "06:58",
+    "deepMin": 53
+   },
+   {
+    "date": "2026-09-04",
+    "totalMin": 401,
+    "bed": "00:15",
+    "wake": "06:56",
+    "deepMin": 63
+   }
   ],
-  "pain": [],
-  "pullups": { "recent": [], "monthTotal": 0, "maxSet": 0 },
-  "inbody": [],
-  "plan": {
-    "week": [
-      { "date": "2026-08-31", "wd": "월", "isToday": false, "isPast": true,
-        "items": [ { "name": "수영", "rest": false, "done": false, "doneBy": null, "detailKey": "수영" },
-                   { "name": "턱걸이", "rest": false, "done": false, "doneBy": null, "detailKey": "턱걸이" } ] },
-      { "date": "2026-09-01", "wd": "화", "isToday": false, "isPast": true,
-        "items": [ { "name": "걷뛰", "rest": false, "done": false, "doneBy": null, "detailKey": "걷뛰" },
-                   { "name": "요가", "rest": false, "done": false, "doneBy": null, "detailKey": "요가" } ] },
-      { "date": "2026-09-02", "wd": "수", "isToday": false, "isPast": true,
-        "items": [ { "name": "수영", "rest": false, "done": true, "doneBy": "watch", "detailKey": "수영" } ] },
-      { "date": "2026-09-03", "wd": "목", "isToday": false, "isPast": true,
-        "items": [ { "name": "걷뛰", "rest": false, "done": false, "doneBy": null, "detailKey": "걷뛰" },
-                   { "name": "요가", "rest": false, "done": false, "doneBy": null, "detailKey": "요가" } ] },
-      { "date": "2026-09-04", "wd": "금", "isToday": true, "isPast": false,
-        "items": [ { "name": "수영", "rest": false, "done": false, "doneBy": null, "detailKey": "수영" },
-                   { "name": "턱걸이", "rest": false, "done": false, "doneBy": null, "detailKey": "턱걸이" } ] },
-      { "date": "2026-09-05", "wd": "토", "isToday": false, "isPast": false,
-        "items": [ { "name": "휴식", "rest": true, "done": false, "doneBy": null, "detailKey": "휴식" } ] },
-      { "date": "2026-09-06", "wd": "일", "isToday": false, "isPast": false,
-        "items": [ { "name": "휴식", "rest": true, "done": false, "doneBy": null, "detailKey": "휴식" } ] }
-    ],
-    "done": 1,
-    "planned": 9,
-    "adherence4w": null,
-    "library": {
-      "수영": {
-        "name": "수영", "emoji": "🏊",
-        "summary": "주 3회, 회당 50~60분. 지금 루틴의 중심.",
-        "target": "회당 850~1200m, 평균심박 110~125",
-        "how": ["워밍업 200m 편하게", "메인 25m×8~12세트, 세트 간 30초", "쿨다운 100m"],
-        "progression": "4주 동안 같은 거리를 유지하고, 편해지면 세트를 1~2개씩 늘린다.",
-        "why": "가장 오래 해온 종목이고 관절 부담이 낮아 다른 운동의 토대가 된다. 근력과의 간섭도 적다.",
-        "cautions": ["어깨 통증 3/10 이상이면 그날은 킥판 위주로"],
-        "readinessRule": {
-          "강하게 해도 됨": "세트 1~2개 추가",
-          "계획대로": "계획대로",
-          "가볍게": "거리 20% 줄이고 페이스 낮게",
-          "휴식": "들어가더라도 200m 이내 회복 수영"
-        },
-        "logHint": "끝나고 힘든 정도(1~10)와 한 줄 코멘트"
-      },
-      "걷뛰": {
-        "name": "걷뛰", "emoji": "🏃",
-        "summary": "러닝 시작 단계. 주 2회, 연속일 금지.",
-        "target": "20분, 걷기 2분 + 달리기 1분 반복",
-        "how": ["5분 걷기로 워밍업", "달리기 1분 / 걷기 2분 × 5세트", "5분 걷기로 정리"],
-        "progression": "3~4주 동안 같은 길이를 유지한다. 늘릴 때는 최근 30일 최장 대비 10%를 넘지 않는다.",
-        "why": "수영만 하던 몸은 뼈와 힘줄이 달리기에 덜 적응돼 있다. 짧게 자주가 부상을 막는 유일한 방법이다.",
-        "cautions": ["연속 이틀 금지", "케이던스는 평소보다 5~10%만 빠르게", "통증 3/10 이상이면 그날은 걷기만"],
-        "readinessRule": {
-          "강하게 해도 됨": "계획대로 (초반엔 늘리지 않는다)",
-          "계획대로": "계획대로",
-          "가볍게": "달리기 구간 빼고 걷기 20분",
-          "휴식": "산책으로 대체"
-        },
-        "logHint": "거리·시간은 워치가, 힘든 정도와 무릎 상태는 직접"
-      },
-      "요가": {
-        "name": "요가", "emoji": "🧘",
-        "summary": "회복 세션. 주 2회, 어느 날에 넣어도 된다.",
-        "target": "30~40분, 호흡이 흐트러지지 않는 강도",
-        "how": ["가동성 위주 시퀀스", "고관절·흉추·어깨 중심", "마지막 5분 호흡"],
-        "progression": "강도를 올리기보다 빠지지 않는 걸 목표로 한다.",
-        "why": "고강도 운동 뒤 부교감 반동이 확인된 유일한 항목이다. 수영·러닝 사이의 완충.",
-        "cautions": ["근육통을 없애주지는 않는다. 회복 감각과 가동성이 목적"],
-        "readinessRule": {
-          "강하게 해도 됨": "계획대로",
-          "계획대로": "계획대로",
-          "가볍게": "그대로 진행 (회복에 도움)",
-          "휴식": "10분 호흡·스트레칭만"
-        },
-        "logHint": "워치에서 '요가' 운동을 시작해야 기록에 잡힌다"
-      },
-      "턱걸이": {
-        "name": "턱걸이", "emoji": "💪",
-        "summary": "수영한 날 붙여서. 실패 직전까지 가지 않는다.",
-        "target": "3~5세트, 각 세트는 최대치의 절반 정도",
-        "how": ["데드행 20초", "네거티브 5초 × 3~4회", "밴드 보조 3세트×5회"],
-        "progression": "데드행 → 스캐뮬러 풀 → 인버티드 로우 → 네거티브 → 밴드 → 정자세. 첫 정자세 1회까지 6~12주.",
-        "why": "네거티브가 전이가 가장 좋고, 잦은 소량 세트가 밀도 훈련보다 최대 횟수를 크게 늘린다.",
-        "cautions": ["실패 직전까지 가지 않는다", "수영 뒤 같은 날은 괜찮지만 어깨가 뻐근하면 미룬다"],
-        "readinessRule": {
-          "강하게 해도 됨": "세트 하나 추가",
-          "계획대로": "계획대로",
-          "가볍게": "네거티브만 3회",
-          "휴식": "데드행 20초 두 번"
-        },
-        "logHint": "'밴드 3x5' 또는 '네거티브 4x8초' 형식으로"
-      },
-      "휴식": {
-        "name": "휴식", "emoji": "🌙",
-        "summary": "아무것도 안 하는 게 계획이다.",
-        "target": "산책은 평소대로",
-        "how": ["강아지 산책 1~2시간은 훈련으로 세지 않는다"],
-        "progression": "주 2일 휴식은 러닝을 더하는 동안 유지한다.",
-        "why": "적응은 쉬는 동안 일어난다. 초보 러닝을 얹는 시기에는 특히.",
-        "cautions": [],
-        "readinessRule": {
-          "강하게 해도 됨": "가벼운 요가 정도는 괜찮다",
-          "계획대로": "쉰다",
-          "가볍게": "쉰다",
-          "휴식": "쉰다"
-        },
-        "logHint": "컨디션만 남겨도 충분하다"
-      }
+  "bedtimeMedian": "01:27",
+  "bedtimeSdMin": 44,
+  "debtMin": -31
+ },
+ "metrics": {
+  "hrv": {
+   "label": "HRV",
+   "unit": "ms",
+   "today": 45,
+   "avg7": 38,
+   "avg30": 39,
+   "betterWhen": "high",
+   "series": [
+    {
+     "date": "2026-08-26",
+     "v": 36
+    },
+    {
+     "date": "2026-08-27",
+     "v": 51
+    },
+    {
+     "date": "2026-08-28",
+     "v": 37
+    },
+    {
+     "date": "2026-08-29",
+     "v": 27
+    },
+    {
+     "date": "2026-08-30",
+     "v": 45
+    },
+    {
+     "date": "2026-08-31",
+     "v": 31
+    },
+    {
+     "date": "2026-09-01",
+     "v": 40
+    },
+    {
+     "date": "2026-09-02",
+     "v": 44
+    },
+    {
+     "date": "2026-09-03",
+     "v": 42
+    },
+    {
+     "date": "2026-09-04",
+     "v": 45
     }
+   ]
   },
-  "trends": {
-    "swimming": [
-      { "month": "2026-04", "sessions": 9, "minutes": 452, "distanceM": 9250, "hr": 120 },
-      { "month": "2026-05", "sessions": 11, "minutes": 561, "distanceM": 11400, "hr": 119 },
-      { "month": "2026-06", "sessions": 7, "minutes": 361, "distanceM": 7150, "hr": 121 },
-      { "month": "2026-07", "sessions": 10, "minutes": 512, "distanceM": 10450, "hr": 118 },
-      { "month": "2026-08", "sessions": 8, "minutes": 421, "distanceM": 8600, "hr": 117 },
-      { "month": "2026-09", "sessions": 1, "minutes": 56, "distanceM": 850, "hr": 113 }
-    ],
-    "running": [
-      { "month": "2026-03", "sessions": 2, "minutes": 58, "distanceM": 7800, "paceSecPerKm": 448, "hr": 135 },
-      { "month": "2026-06", "sessions": 4, "minutes": 125, "distanceM": 16300, "paceSecPerKm": 459, "hr": 131 }
-    ],
-    "load": [
-      { "week": "2026-08-24", "srpe": 0, "sessions": 0 },
-      { "week": "2026-08-31", "srpe": 0, "sessions": 0 }
+  "resting_hr": {
+   "label": "안정심박",
+   "unit": "",
+   "today": 63,
+   "avg7": 63,
+   "avg30": 66,
+   "betterWhen": "low",
+   "series": [
+    {
+     "date": "2026-08-26",
+     "v": 66
+    },
+    {
+     "date": "2026-08-27",
+     "v": 65
+    },
+    {
+     "date": "2026-08-28",
+     "v": 60
+    },
+    {
+     "date": "2026-08-29",
+     "v": 64
+    },
+    {
+     "date": "2026-08-30",
+     "v": 64
+    },
+    {
+     "date": "2026-08-31",
+     "v": 64
+    },
+    {
+     "date": "2026-09-01",
+     "v": 63
+    },
+    {
+     "date": "2026-09-02",
+     "v": 65
+    },
+    {
+     "date": "2026-09-03",
+     "v": 59
+    },
+    {
+     "date": "2026-09-04",
+     "v": 63
+    }
+   ]
+  },
+  "active_kcal": {
+   "label": "활동",
+   "unit": "kcal",
+   "today": 264,
+   "avg7": 517,
+   "avg30": 499,
+   "betterWhen": "high",
+   "series": [
+    {
+     "date": "2026-08-28",
+     "v": 437
+    },
+    {
+     "date": "2026-08-29",
+     "v": 603
+    },
+    {
+     "date": "2026-08-30",
+     "v": 648
+    },
+    {
+     "date": "2026-08-31",
+     "v": 352
+    },
+    {
+     "date": "2026-09-01",
+     "v": 622
+    },
+    {
+     "date": "2026-09-02",
+     "v": 697
+    },
+    {
+     "date": "2026-09-03",
+     "v": 429
+    },
+    {
+     "date": "2026-09-04",
+     "v": 264
+    }
+   ]
+  },
+  "steps": {
+   "label": "걸음",
+   "unit": "",
+   "today": 5764,
+   "avg7": 9882,
+   "avg30": 9433,
+   "betterWhen": "high",
+   "series": [
+    {
+     "date": "2026-08-28",
+     "v": 11228
+    },
+    {
+     "date": "2026-08-29",
+     "v": 13240
+    },
+    {
+     "date": "2026-08-30",
+     "v": 14189
+    },
+    {
+     "date": "2026-08-31",
+     "v": 5048
+    },
+    {
+     "date": "2026-09-01",
+     "v": 10735
+    },
+    {
+     "date": "2026-09-02",
+     "v": 8973
+    },
+    {
+     "date": "2026-09-03",
+     "v": 7412
+    },
+    {
+     "date": "2026-09-04",
+     "v": 5764
+    }
+   ]
+  },
+  "respiratory_rate": {
+   "label": "호흡",
+   "unit": "/분",
+   "today": 13.0,
+   "avg7": 13.4,
+   "avg30": 14.1,
+   "betterWhen": "low",
+   "series": [
+    {
+     "date": "2026-08-30",
+     "v": 13.8
+    },
+    {
+     "date": "2026-09-01",
+     "v": 13.6
+    },
+    {
+     "date": "2026-09-02",
+     "v": 13.3
+    },
+    {
+     "date": "2026-09-03",
+     "v": 13.0
+    },
+    {
+     "date": "2026-09-04",
+     "v": 13.0
+    }
+   ]
+  },
+  "wrist_temp": {
+   "label": "손목온도",
+   "unit": "°",
+   "today": 35.4,
+   "avg7": 35.6,
+   "avg30": 35.8,
+   "betterWhen": "low",
+   "series": [
+    {
+     "date": "2026-09-01",
+     "v": 35.8
+    },
+    {
+     "date": "2026-09-02",
+     "v": 35.6
+    },
+    {
+     "date": "2026-09-03",
+     "v": 35.4
+    },
+    {
+     "date": "2026-09-04",
+     "v": 35.4
+    }
+   ]
+  }
+ },
+ "workouts": [
+  {
+   "id": "2026-09-02 09:15|Swimming",
+   "date": "2026-09-02",
+   "start": "09:15",
+   "type": "Swimming",
+   "ko": "수영",
+   "minutes": 56,
+   "distanceM": 850,
+   "distanceText": "850m",
+   "kcal": 218,
+   "hr": 113,
+   "rpe": null,
+   "note": null,
+   "loggedAt": null
+  },
+  {
+   "id": "2026-08-24 07:05|Swimming",
+   "date": "2026-08-24",
+   "start": "07:05",
+   "type": "Swimming",
+   "ko": "수영",
+   "minutes": 57,
+   "distanceM": 1225,
+   "distanceText": "1225m",
+   "kcal": 299,
+   "hr": 123,
+   "rpe": 6,
+   "note": "자유형 25m 10세트, 마지막 두 세트 팔 무거움",
+   "loggedAt": "2026-08-24 08:30"
+  }
+ ],
+ "wellness": {
+  "today": null,
+  "labels": [
+   "수면질",
+   "피로",
+   "스트레스",
+   "근육통"
+  ],
+  "recent": [
+   {
+    "date": "2026-09-03",
+    "values": [
+     2,
+     1,
+     3,
+     2
     ]
-  },
-  "alerts": []
+   }
+  ],
+  "baseline": null
+ },
+ "tags": {
+  "today": [],
+  "recent": [
+   {
+    "date": "2026-09-03",
+    "tags": [
+     "늦은식사"
+    ]
+   }
+  ]
+ },
+ "notes": [
+  {
+   "date": "2026-09-03",
+   "time": "21:30",
+   "text": "수영 후 어깨 살짝 뻐근"
+  }
+ ],
+ "pain": [],
+ "pullups": {
+  "recent": [],
+  "monthTotal": 0,
+  "maxSet": 0
+ },
+ "inbody": [],
+ "plan": {
+  "week": [
+   {
+    "date": "2026-08-31",
+    "wd": "월",
+    "isToday": false,
+    "isPast": true,
+    "items": [
+     {
+      "name": "수영",
+      "rest": false,
+      "done": false,
+      "doneBy": null,
+      "detailKey": "수영"
+     },
+     {
+      "name": "턱걸이",
+      "rest": false,
+      "done": false,
+      "doneBy": null,
+      "detailKey": "턱걸이"
+     }
+    ]
+   },
+   {
+    "date": "2026-09-01",
+    "wd": "화",
+    "isToday": false,
+    "isPast": true,
+    "items": [
+     {
+      "name": "걷뛰",
+      "rest": false,
+      "done": false,
+      "doneBy": null,
+      "detailKey": "걷뛰"
+     },
+     {
+      "name": "요가",
+      "rest": false,
+      "done": false,
+      "doneBy": null,
+      "detailKey": "요가"
+     }
+    ]
+   },
+   {
+    "date": "2026-09-02",
+    "wd": "수",
+    "isToday": false,
+    "isPast": true,
+    "items": [
+     {
+      "name": "수영",
+      "rest": false,
+      "done": true,
+      "doneBy": "watch",
+      "detailKey": "수영"
+     }
+    ]
+   },
+   {
+    "date": "2026-09-03",
+    "wd": "목",
+    "isToday": false,
+    "isPast": true,
+    "items": [
+     {
+      "name": "걷뛰",
+      "rest": false,
+      "done": false,
+      "doneBy": null,
+      "detailKey": "걷뛰"
+     },
+     {
+      "name": "요가",
+      "rest": false,
+      "done": false,
+      "doneBy": null,
+      "detailKey": "요가"
+     }
+    ]
+   },
+   {
+    "date": "2026-09-04",
+    "wd": "금",
+    "isToday": true,
+    "isPast": false,
+    "items": [
+     {
+      "name": "수영",
+      "rest": false,
+      "done": false,
+      "doneBy": null,
+      "detailKey": "수영"
+     },
+     {
+      "name": "턱걸이",
+      "rest": false,
+      "done": false,
+      "doneBy": null,
+      "detailKey": "턱걸이"
+     }
+    ]
+   },
+   {
+    "date": "2026-09-05",
+    "wd": "토",
+    "isToday": false,
+    "isPast": false,
+    "items": [
+     {
+      "name": "휴식",
+      "rest": true,
+      "done": false,
+      "doneBy": null,
+      "detailKey": "휴식"
+     }
+    ]
+   },
+   {
+    "date": "2026-09-06",
+    "wd": "일",
+    "isToday": false,
+    "isPast": false,
+    "items": [
+     {
+      "name": "휴식",
+      "rest": true,
+      "done": false,
+      "doneBy": null,
+      "detailKey": "휴식"
+     }
+    ]
+   }
+  ],
+  "done": 1,
+  "planned": 9,
+  "adherence4w": null,
+  "library": {
+   "수영": {
+    "name": "수영",
+    "emoji": "",
+    "summary": "드림파크 상급1반 강습. 월수금, 회당 50~60분.",
+    "target": "수업 진도를 그대로 따라간다",
+    "how": [
+     "수업에서 시키는 대로",
+     "내가 정할 수 있는 건 그날 얼마나 밀어붙일지뿐"
+    ],
+    "progression": "강습이 알아서 올려준다. 여기서는 세션마다 힘든 정도와 어깨 상태만 남긴다.",
+    "why": "가장 오래 해온 종목이고 관절 부담이 낮아 다른 운동의 토대가 된다. 근력과의 간섭도 적다.",
+    "cautions": [
+     "어깨 통증 3/10 이상이면 접영과 자유형 대신 킥판 위주로 부탁하기"
+    ],
+    "readinessRule": {
+     "강하게 해도 됨": "수업 강도 그대로 따라가기",
+     "계획대로": "수업 강도 그대로 따라가기",
+     "가볍게": "메인 세트에서 힘 빼고, 인터벌은 쉬어가기",
+     "휴식": "수업은 가되 회복 위주로, 몸이 아프면 결석"
+    },
+    "logHint": "끝나고 힘든 정도(1~10)와 그날 배운 것 한 줄"
+   },
+   "걷뛰": {
+    "name": "걷뛰",
+    "emoji": "",
+    "summary": "러닝 시작 단계. 주 2회, 연속일 금지.",
+    "target": "20분, 걷기 2분 + 달리기 1분 반복",
+    "how": [
+     "5분 걷기로 워밍업",
+     "달리기 1분 / 걷기 2분 × 5세트",
+     "5분 걷기로 정리"
+    ],
+    "progression": "3~4주 동안 같은 길이를 유지한다. 늘릴 때는 최근 30일 최장 대비 10%를 넘지 않는다.",
+    "why": "수영만 하던 몸은 뼈와 힘줄이 달리기에 덜 적응돼 있다. 짧게 자주가 부상을 막는 유일한 방법이다.",
+    "cautions": [
+     "연속 이틀 금지",
+     "케이던스는 평소보다 5~10%만 빠르게",
+     "통증 3/10 이상이면 그날은 걷기만"
+    ],
+    "readinessRule": {
+     "강하게 해도 됨": "계획대로 (초반엔 늘리지 않는다)",
+     "계획대로": "계획대로",
+     "가볍게": "달리기 구간 빼고 걷기 20분",
+     "휴식": "산책으로 대체"
+    },
+    "logHint": "거리·시간은 워치가, 힘든 정도와 무릎 상태는 직접"
+   },
+   "요가": {
+    "name": "요가",
+    "emoji": "",
+    "summary": "회복 세션. 주 2회, 어느 날에 넣어도 된다.",
+    "target": "30~40분, 호흡이 흐트러지지 않는 강도",
+    "how": [
+     "가동성 위주 시퀀스",
+     "고관절·흉추·어깨 중심",
+     "마지막 5분 호흡"
+    ],
+    "progression": "강도를 올리기보다 빠지지 않는 걸 목표로 한다.",
+    "why": "고강도 운동 뒤 부교감 반동이 확인된 유일한 항목이다. 수영·러닝 사이의 완충.",
+    "cautions": [
+     "근육통을 없애주지는 않는다. 회복 감각과 가동성이 목적"
+    ],
+    "readinessRule": {
+     "강하게 해도 됨": "계획대로",
+     "계획대로": "계획대로",
+     "가볍게": "그대로 진행 (회복에 도움)",
+     "휴식": "10분 호흡·스트레칭만"
+    },
+    "logHint": "워치에서 '요가' 운동을 시작해야 기록에 잡힌다"
+   },
+   "턱걸이": {
+    "name": "턱걸이",
+    "emoji": "",
+    "summary": "지금 0개에서 시작. 수영한 날 붙여서 짧게.",
+    "target": "매달리기 20초 3세트, 네거티브 5초 3~4회",
+    "how": [
+     "데드행: 바에 매달려 20초 버티기, 3세트",
+     "스캐뮬러 풀: 팔은 편 채 어깨만 아래로 당겼다 풀기 8회",
+     "네거티브: 발판이나 점프로 턱을 바 위에 올린 뒤 5초에 걸쳐 천천히 내려오기 3~4회"
+    ],
+    "progression": "1단계 데드행 30초가 편해지면 네거티브를 8초로. 2단계 네거티브 8초 5회가 되면 밴드 보조로 정자세 3~5회. 첫 정자세 1개까지 보통 6~12주.",
+    "why": "실패 직전까지 가지 않는 잦은 소량 세트가 밀도 훈련보다 최대 횟수를 크게 늘린다. 0개 구간에서는 네거티브가 전이가 가장 좋다.",
+    "cautions": [
+     "절대 실패 지점까지 가지 않는다. 항상 한두 개 남기고 끝낸다",
+     "수영 뒤 같은 날은 괜찮지만 어깨가 뻐근하면 데드행만"
+    ],
+    "readinessRule": {
+     "강하게 해도 됨": "세트 하나 추가",
+     "계획대로": "계획대로",
+     "가볍게": "네거티브만 3회",
+     "휴식": "데드행 20초 두 번으로 감각만 유지"
+    },
+    "logHint": "\"턱걸이 네거티브 3x5초\" 또는 \"턱걸이 데드행 3x20초\" 형식으로"
+   },
+   "휴식": {
+    "name": "휴식",
+    "emoji": "",
+    "summary": "아무것도 안 하는 게 계획이다.",
+    "target": "산책은 평소대로",
+    "how": [
+     "강아지 산책 1~2시간은 훈련으로 세지 않는다"
+    ],
+    "progression": "주 2일 휴식은 러닝을 더하는 동안 유지한다.",
+    "why": "적응은 쉬는 동안 일어난다. 초보 러닝을 얹는 시기에는 특히.",
+    "cautions": [],
+    "readinessRule": {
+     "강하게 해도 됨": "가벼운 요가 정도는 괜찮다",
+     "계획대로": "쉰다",
+     "가볍게": "쉰다",
+     "휴식": "쉰다"
+    },
+    "logHint": "컨디션만 남겨도 충분하다"
+   }
+  }
+ },
+ "trends": {
+  "swimming": [
+   {
+    "month": "2026-04",
+    "sessions": 9,
+    "minutes": 452,
+    "distanceM": 9250,
+    "hr": 120
+   },
+   {
+    "month": "2026-05",
+    "sessions": 11,
+    "minutes": 561,
+    "distanceM": 11400,
+    "hr": 119
+   },
+   {
+    "month": "2026-06",
+    "sessions": 7,
+    "minutes": 361,
+    "distanceM": 7150,
+    "hr": 121
+   },
+   {
+    "month": "2026-07",
+    "sessions": 10,
+    "minutes": 512,
+    "distanceM": 10450,
+    "hr": 118
+   },
+   {
+    "month": "2026-08",
+    "sessions": 8,
+    "minutes": 421,
+    "distanceM": 8600,
+    "hr": 117
+   },
+   {
+    "month": "2026-09",
+    "sessions": 1,
+    "minutes": 56,
+    "distanceM": 850,
+    "hr": 113
+   }
+  ],
+  "running": [
+   {
+    "month": "2026-03",
+    "sessions": 2,
+    "minutes": 58,
+    "distanceM": 7800,
+    "paceSecPerKm": 448,
+    "hr": 135
+   },
+   {
+    "month": "2026-06",
+    "sessions": 4,
+    "minutes": 125,
+    "distanceM": 16300,
+    "paceSecPerKm": 459,
+    "hr": 131
+   }
+  ],
+  "load": [
+   {
+    "week": "2026-08-24",
+    "srpe": 0,
+    "sessions": 0
+   },
+   {
+    "week": "2026-08-31",
+    "srpe": 0,
+    "sessions": 0
+   }
+  ]
+ },
+ "alerts": []
 }
