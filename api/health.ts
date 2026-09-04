@@ -46,7 +46,7 @@ type Workout = ReturnType<typeof workoutFromRow>
 
 function sleepPayload(tabs: Tabs, today: string) {
   const all = groupNights(tabs.sleep ?? []).filter((n) => n.key <= today)
-  const last = all.at(-1)
+  const last = all[all.length - 1]
   const totals = (n: (typeof all)[number]) => n.core + n.rem + n.deep
   const baseRows = all.filter((n) => n.key < today && n.key >= shift(today, -60))
   const baseline = mean(baseRows.map(totals))
@@ -70,7 +70,7 @@ function metricsPayload(tabs: Tabs, today: string) {
     const points = [...dailySeries(tabs[key]).entries()].filter(([d]) => d >= shift(today, -29) && d <= today).sort().map(([date, v]) => ({ date, v }))
     if (!points.length) continue
     const vals = (n: number) => points.filter((p) => p.date >= shift(today, -(n - 1))).map((p) => p.v)
-    const v7 = vals(7), v30 = vals(30), latest = points.at(-1)!
+    const v7 = vals(7), v30 = vals(30), latest = points[points.length - 1]!
     const digits = key === 'wrist_temp' || key === 'respiratory_rate' ? 1 : 0
     out[key] = { ...meta, today: latest.date === today ? latest.v : null, avg7: v7.length ? rounded(mean(v7), digits) : null, avg30: rounded(mean(v30), digits), series: points }
   }
@@ -167,7 +167,9 @@ export function buildHealthResponse(tabs: Tabs, today: string, now = Date.now())
   const manual = tabs.manual ?? [], workoutRows = tabs.workout ?? []
   const workouts = attachLogs(workoutRows.filter((w) => day(w) >= shift(today, -13) && day(w) <= today).map(workoutFromRow).sort((a, b) => `${b.date} ${b.start}`.localeCompare(`${a.date} ${a.start}`)), manual)
   const ready = readiness(tabs, today), sleep = sleepPayload(tabs, today), manualParts = manualPayload(manual, today)
-  const allRows = Object.values(tabs).flat(), lastUpload = allRows.map((r) => r.start).filter(Boolean).sort().at(-1), lastWorkout = workoutRows.map((r) => r.start).filter(Boolean).sort().at(-1)
+  const allRows = Object.values(tabs).flat()
+  const newest = (xs: string[]) => { const s = xs.filter(Boolean).sort(); return s.length ? s[s.length - 1] : undefined }
+  const lastUpload = newest(allRows.map((r) => r.start)), lastWorkout = newest(workoutRows.map((r) => r.start))
   const sleepToday = sleep.lastNight?.date === today, workedToday = workoutRows.some((r) => day(r) === today)
   return {
     ok: true as const, today, generatedAt: generatedAt(now),
