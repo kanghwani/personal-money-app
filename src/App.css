@@ -1577,3 +1577,83 @@
   border-radius: 0;
   color: var(--muted);
 }
+
+/* 13. 고정비·자산 마무리 ------------------------------------------ */
+
+/* ON 토글이 목록마다 빨간 덩어리로 찍혀 있었다. 열 개가 동시에 소리치면
+   아무것도 강조되지 않는다. 켜짐은 잉크로 또렷하게, 꺼짐은 흐리게 - 대비로 말한다. */
+.fixed-toggle {
+  border-radius: 0;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+}
+
+.fixed-toggle.on {
+  background: transparent;
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+/* 확정 동작(추가·저장)에만 도장을 찍는다. 화면에 하나뿐이라 눈이 바로 간다. */
+.fixed-add,
+.asset-form button {
+  border-radius: 0;
+  background: transparent;
+  border: 1.5px solid var(--stamp);
+  color: var(--stamp);
+  font-weight: 700;
+}
+
+.fixed-add:active,
+.asset-form button:active,
+.asset-form button:hover {
+  background: var(--stamp);
+  color: var(--on-accent);
+}
+
+/* 큰 합계는 금액이다. 다른 금액과 같은 등폭·같은 정렬 규칙을 따른다. */
+.fixed-head h2 {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+}
+
+.fixed-total strong,
+.fixed-total.saved strong {
+  font-family: var(--mono);
+}
+
+.fixed-total.saved strong {
+  color: var(--ink);
+}
+
+.fixed-del {
+  border-radius: 0;
+  color: var(--muted);
+}
+
+.fixed-del:hover,
+.fixed-del:active {
+  color: var(--stamp);
+  border-color: var(--stamp);
+}
+
+/* 자산 입력칸도 각지게. 폼만 둥글면 딴 화면처럼 보인다. */
+.asset-form input,
+.fixed-form input {
+  border-radius: 0;
+  font-weight: 500;
+}
+
+.asset-form input {
+  font-family: var(--mono);
+}
+
+.cat-toggle {
+  border-radius: 0;
+}
