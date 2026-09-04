@@ -57,6 +57,11 @@ cd gas && clasp push -f && clasp deploy --deploymentId AKfycby2so1RyMqyuEaKEfOtS
 **GAS 호출은 창 크기와 무관하게 10초 넘게 걸린다.** 시작 오버헤드가 병목이라 9년치를 통째로 받는 편이
 75일치를 받는 것과 비용이 같다. `api/health.ts` 는 전체를 받아 5분간 캐시하고, 저장 시 캐시를 버린다.
 
+## 작업 로그
+
+`docs/devlog/` 에 날짜별로 남긴다. 무엇을 만들었는지보다 **왜 그렇게 정했는지와 어디서 헛디뎠는지**를 적는다.
+git log 가 이미 무엇을 바꿨는지 알려주므로, 여기에는 코드에서 읽을 수 없는 것만 남긴다.
+
 ## 인증
 
 - 가계부·건강 화면: `/api/login?k=<APP_SECRET>` 로 한 번 접속하면 1년짜리 쿠키가 심긴다
