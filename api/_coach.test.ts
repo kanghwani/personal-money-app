@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { weekFacts, nextChange, evaluate, promotions, weekReview, formatWeek, tagImpact, mondayOf, adviceToExtra, adviceFromRow } from './_coach'
+import { weekFacts, nextChange, evaluate, promotions, weekReview, formatWeek, tagImpact, mondayOf, adviceToExtra, adviceFromRow, adviceHistory, formatHistory } from './_coach'
 import { parseLog } from './_log'
 import type { HealthRow, Tabs } from './_health'
 
@@ -135,5 +135,28 @@ describe('weekReview / tagImpact', () => {
     tabs.hrv.push(row('2026-08-25 00:00', '40'))
     const t = tagImpact(tabs, TODAY)
     expect(t.find((x) => x.tag === '술')!.verdict).toContain('아직 판단하기 이름')
+  })
+})
+
+describe('과거 주 다시 보기 · 코치 기록', () => {
+  it('week 를 주면 그 주를 계산한다', () => {
+    const tabs = base()
+    tabs.workout.push(row('2026-08-12 09:00', 'Swimming', '55|210|900|115'))
+    const r = weekReview(tabs, TODAY, '2026-08-13')     // 08-10(월) 주
+    expect(r.week).toBe('2026-08-10 ~ 2026-08-16')
+    expect(r.facts.sessions).toBe(1)
+  })
+  it('제안 기록에 지킴/놓침 판정이 붙는다', () => {
+    const tabs = base()
+    // 08-24 주에 "취침 30분 당기기" 제안 → 다음 주(08-31)에 실제로 당겼는지 본다
+    tabs.manual.push(row('2026-08-24 09:00', '코치', '주간|bedtime|bedtime|-30|취침 30분 당기기'))
+    tabs.sleep.push(night('2026-08-25', 360, 2), night('2026-09-01', 360, 1))   // 02:00 → 01:00
+    const h = adviceHistory(tabs, '2026-09-14')
+    expect(h[0]).toMatchObject({ text: '취침 30분 당기기', horizon: '주간' })
+    expect(h[0].result.met).toBe(true)
+    expect(formatHistory(h)).toContain('지킴')
+  })
+  it('기록이 없으면 안내만 한다', () => {
+    expect(formatHistory(adviceHistory(base(), TODAY))).toContain('아직 저장된 제안이 없어요')
   })
 })

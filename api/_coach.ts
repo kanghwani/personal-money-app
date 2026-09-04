@@ -159,15 +159,16 @@ export function nextChange(tabs: Tabs, last: WeekFacts, today: string): Advice {
 }
 
 // ── 주간 리뷰 ──────────────────────────────────────────────
-export function weekReview(tabs: Tabs, today: string) {
+export function weekReview(tabs: Tabs, today: string, weekOf?: string) {
+  // weekOf 가 있으면 그 날짜가 속한 주를 리뷰한다(과거 주 다시 보기). 없으면 막 끝난 주.
   const thisMonday = mondayOf(today)
-  const lastMonday = shift(thisMonday, -7)
+  const lastMonday = weekOf ? mondayOf(weekOf) : shift(thisMonday, -7)
   const last = weekFacts(tabs, lastMonday)          // 막 끝난 주
   const before = weekFacts(tabs, shift(lastMonday, -7))
   const advice = nextChange(tabs, last, today)
 
   // 지난주에 저장된 제안 되짚기
-  const prevRow = (tabs.manual ?? []).filter((m) => m.value === '코치' && day(m) >= shift(lastMonday, -7) && day(m) < thisMonday).pop()
+  const prevRow = (tabs.manual ?? []).filter((m) => m.value === '코치' && day(m) >= shift(lastMonday, -7) && day(m) < shift(lastMonday, 7)).pop()
   const review = prevRow ? evaluate(adviceFromRow(prevRow), last, before) : null
 
   // 회복 지표: 지난주 평균이 30일 평균에서 벗어난 것만
@@ -262,4 +263,27 @@ export function formatMonth(r: ReturnType<typeof monthReview>): string {
   lines.push('\n[진급 판정]')
   lines.push(r.promotions.length ? r.promotions.map((p) => `  ${p.area}: ${p.from} → ${p.to}\n    ${p.why}`).join('\n') : '  아직 다음 단계 조건을 넘긴 항목이 없어요.')
   return lines.join('\n')
+}
+
+/** 지금까지의 제안과 각각을 지켰는지. 코치의 기억을 눈으로 보는 화면. */
+export function adviceHistory(tabs: Tabs, today: string, limit = 8) {
+  const rows = (tabs.manual ?? []).filter((m) => m.value === '코치').sort((a, b) => (a.start < b.start ? -1 : 1)).slice(-limit)
+  return rows.map((r) => {
+    const a = adviceFromRow(r)
+    const givenMonday = mondayOf(a.date)
+    // 제안이 나온 주의 다음 주가 "지켰는지 재는 주"다
+    const target = weekFacts(tabs, shift(givenMonday, 7))
+    const base = weekFacts(tabs, givenMonday)
+    const done = shift(givenMonday, 13) < today          // 그 주가 끝났는가
+    return { date: a.date, horizon: a.horizon, text: a.text, key: a.key,
+      result: done ? evaluate(a, target, base) : { text: '아직 진행 중인 주예요', met: null as boolean | null } }
+  }).reverse()
+}
+
+export function formatHistory(rows: ReturnType<typeof adviceHistory>): string {
+  if (!rows.length) return '[코치 기록] 아직 저장된 제안이 없어요. 주간 리뷰를 한 번 돌리면 여기부터 쌓여요.'
+  const mark = (m: boolean | null) => m === true ? '지킴' : m === false ? '놓침' : '판단보류'
+  const kept = rows.filter((r) => r.result.met === true).length, judged = rows.filter((r) => r.result.met !== null).length
+  return [`[코치 기록] 최근 ${rows.length}개 제안${judged ? `, 그중 ${kept}/${judged} 지킴` : ''}`,
+    ...rows.map((r) => `  ${r.date} [${mark(r.result.met)}] ${r.text}\n    ${r.result.text.replace(/^지난주 제안: .*? → /, '')}`)].join('\n')
 }

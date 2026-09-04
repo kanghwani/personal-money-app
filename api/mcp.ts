@@ -3,7 +3,7 @@ import { summarizeSleep, summarizeDaily, summarizeWorkouts, summarizeTrend, type
 import { parseLog, logStamp, summarizeManual } from './_log.js'
 import { readiness, formatReadiness } from './_readiness.js'
 import { dailyLoad, fitnessPayload, insights } from './_analysis.js'
-import { weekReview, formatWeek, monthReview, formatMonth, adviceToExtra, mondayOf } from './_coach.js'
+import { weekReview, formatWeek, monthReview, formatMonth, adviceHistory, formatHistory, adviceToExtra, mondayOf } from './_coach.js'
 import { gasGet, gasPost } from './_gas.js'
 
 /**
@@ -70,8 +70,10 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: {} } },
   { name: 'health_log', description: '건강·훈련 한 줄 기록(시트 manual 탭). 형식: "컨디션 4 3 2 3"(수면질 피로 스트레스 근육통 1~5, 아침), "sRPE 수영 55 6 [메모]"(종목 분 RPE1~10, 훈련 직후), "턱걸이 밴드 3x5" / "턱걸이 네거티브 4x8초" / "턱걸이 5 5 4", "태그 술 늦은식사 카페인 출장 아픔", "통증 무릎 3"(0~10), "인바디 72.3 33.1 18.5"(체중 골격근량 체지방률), "계획 월 수영 턱걸이"/"계획 토 휴식"(요일별 훈련 계획, 주간 리포트의 계획 대비 실행에 사용), 그 외는 메모. 앞에 "어제 "를 붙이면 어제로 기록. 사용자가 컨디션·훈련·통증·술 같은 걸 한 줄로 말하면 이 툴로 저장한다.',
     inputSchema: { type: 'object', properties: { text: { type: 'string', description: '예: 컨디션 4 3 2 3' } }, required: ['text'] } },
-  { name: 'coach_week', description: '주간 코치 리뷰. 지난주 계획 이행·세션·수면·자가평가·통증, 회복 지표가 30일 평균에서 벗어난 것, 지난주 제안을 지켰는지, 그리고 **다음 주에 바꿀 것 하나**를 낸다. 변경 후보는 서버가 규칙으로 고르므로 다른 제안을 지어내지 말고 그대로 전하라. 호출하면 그 제안이 기록으로 저장돼 다음 주에 이행 여부를 평가한다. 주간 회고 예약 작업에서 쓴다.',
+  { name: 'coach_week', description: '주간 코치 리뷰. week 에 날짜(YYYY-MM-DD)를 주면 그 날짜가 속한 과거 주를 다시 계산해 보여준다(지난 리뷰는 저장하지 않고 원본에서 다시 만든다). 지난주 계획 이행·세션·수면·자가평가·통증, 회복 지표가 30일 평균에서 벗어난 것, 지난주 제안을 지켰는지, 그리고 **다음 주에 바꿀 것 하나**를 낸다. 변경 후보는 서버가 규칙으로 고르므로 다른 제안을 지어내지 말고 그대로 전하라. 호출하면 그 제안이 기록으로 저장돼 다음 주에 이행 여부를 평가한다. 주간 회고 예약 작업에서 쓴다.',
     inputSchema: { type: 'object', properties: {} } },
+  { name: 'coach_history', description: '지금까지 코치가 낸 제안과 각각을 지켰는지. "예전에 뭐라고 했었지", "내가 제안을 잘 지키고 있나" 같은 질문에. 리뷰 본문은 저장하지 않지만 원본 데이터에서 언제든 다시 계산되므로, 특정 주를 다시 보려면 coach_week 에 week 를 넘긴다.',
+    inputSchema: { type: 'object', properties: { limit: { type: 'number', description: '최근 몇 개 (기본 8)' } } } },
   { name: 'coach_month', description: '월간 코치 리뷰. 최근 30일 세션·종목 분포·수면, VO2max와 안정심박의 1년 대비 변화, 태그가 다음 날에 남긴 흔적(표본이 적으면 판단하지 않음), 그리고 훈련 단계 진급 판정. "계획 자체를 바꿔야 하나"에 답한다.',
     inputSchema: { type: 'object', properties: {} } },
   { name: 'health_insight', description: '9년치 기록에서 찾은 관계와 훈련 부하·체력 장기 추세. 표본 30 이상·효과크기 0.3 이상만 통과시킨 발견만 나온다. "내 몸에서 발견된 패턴 있어?", "훈련 부하 어때?", "체력 늘고 있어?" 같은 질문에. 결과 문장을 인과처럼 바꿔 쓰지 말 것.',
@@ -211,15 +213,21 @@ async function runTool(name: string, args: Record<string, unknown>): Promise<str
   if (name === 'coach_week') {
     const t = (await gasGet<{ tabs?: Tabs }>('healthAll', '&days=3400')).tabs ?? {}
     const todayKey = today()
-    const r = weekReview(t, todayKey)
+    const weekOf = typeof args.week === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(args.week) ? args.week : undefined
+    const r = weekReview(t, todayKey, weekOf)
     // 이번 주 제안이 아직 없으면 저장한다(다음 주에 이행 여부를 잰다). 같은 주에 두 번 부르면 덮어쓰지 않는다.
     const thisMonday = mondayOf(todayKey)
-    const already = (t.manual ?? []).some((m) => m.value === '코치' && m.start.slice(0, 10) >= thisMonday)
+    const already = !!weekOf || (t.manual ?? []).some((m) => m.value === '코치' && m.start.slice(0, 10) >= thisMonday)
     if (!already) {
       const stamp = `${todayKey} 09:00:00`
       await gasPost({ action: 'health', type: 'manual', rows: [stamp, stamp, '코치', adviceToExtra('주간', r.advice)].join('|') })
     }
     return formatWeek(r) + (already ? '' : '\n\n(이 제안을 기록했어요. 다음 주 리뷰에서 지켰는지 확인해요.)')
+  }
+
+  if (name === 'coach_history') {
+    const t = (await gasGet<{ tabs?: Tabs }>('healthAll', '&days=3400')).tabs ?? {}
+    return formatHistory(adviceHistory(t, today(), Math.min(Math.max(Number(args.limit) || 8, 1), 30)))
   }
 
   if (name === 'coach_month') {
