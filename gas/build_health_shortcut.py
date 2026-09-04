@@ -101,13 +101,15 @@ BLOCKS = [
 # 하루 1회 가드: iCloud Drive/Shortcuts/health_run/<오늘>.txt 가 있으면 즉시 종료(앱 열 때 트리거로 여러 번 돌아도 한 번만).
 # 조건문에 변수 비교를 넣으면 앱이 값을 못 읽어서, 파일 이름을 날짜로 하고 "값이 있음"만 검사한다.
 today_txt, last_file, guard = U(), U(), U()
-# 가드 파일명에 단축어 입력을 끼워 넣는다: 입력이 없으면 health_run/<오늘>.txt(자동화 = 하루 1회),
+# 가드 키 = 오늘 날짜 + 단축어 입력. 입력이 없으면 health_run/<오늘>.txt(자동화 = 하루 1회),
 # 앱의 "워치에서 가져오기"(shortcuts://...&text=force)면 health_run/<오늘>force.txt 라 항상 새로 돈다.
-guard_path = lambda: token_string(['health_run/', {'OutputUUID': today_txt, 'OutputName': 'Text', 'Type': 'ActionOutput'},
-                                   {'Type': 'ExtensionInput'}, '.txt'])
+# 두 토큰을 첫 텍스트 액션에 함께 넣는다 — 경로에 섞어 넣으면 화면에서 보이지 않아 확인이 어렵다.
+guard_path = lambda: token_string(['health_run/', {'OutputUUID': today_txt, 'OutputName': 'Text', 'Type': 'ActionOutput'}, '.txt'])
 guard_actions = [
-    act('gettext', UUID=today_txt, WFTextActionText=token_string([{'Type': 'CurrentDate', 'Aggrandizements': [
-        {'Type': 'WFDateFormatVariableAggrandizement', 'WFDateFormatStyle': 'Custom', 'WFDateFormat': 'yyyy-MM-dd', 'WFISO8601IncludeTime': False}]}])),
+    act('gettext', UUID=today_txt, WFTextActionText=token_string([
+        {'Type': 'CurrentDate', 'Aggrandizements': [
+            {'Type': 'WFDateFormatVariableAggrandizement', 'WFDateFormatStyle': 'Custom', 'WFDateFormat': 'yyyy-MM-dd', 'WFISO8601IncludeTime': False}]},
+        {'Type': 'ExtensionInput'}])),
     act('documentpicker.open', UUID=last_file, WFGetFilePath=guard_path(), WFShowFilePicker=False, WFFileErrorIfNotFound=False),
     act('conditional', GroupingIdentifier=guard, WFControlFlowMode=0, WFCondition=100,   # 100 = 값이 있음
         WFInput={'Type': 'Variable', 'Variable': out_ref(last_file, 'File')}),
@@ -118,7 +120,7 @@ guard_actions = [
 actions = [
     comment('건강 업로드: 애플워치 데이터를 가계부 GAS 건강 시트로 보낸다(탭: sleep, resting_hr, hrv, active_kcal, vo2max, workout). 같은 행은 서버가 버리므로 여러 번 실행해도 됨.'),
     comment('생성: personal-money-app/gas/build_health_shortcut.py (직접 고치지 말고 스크립트를 수정해서 다시 서명)'),
-    comment('하루 1회 가드: 마지막 실행 날짜 파일이 오늘이면 종료'),
+    comment('하루 1회 가드: 오늘 날짜 + 단축어 입력으로 파일 이름을 만들고, 그 파일이 있으면 종료. 앱에서 force 를 넘기면 이름이 달라져 항상 다시 돈다.'),
 ] + guard_actions
 noti = []
 for label, health_type, tab, days, group_by, props in BLOCKS:
