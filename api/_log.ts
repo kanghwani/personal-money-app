@@ -85,28 +85,9 @@ export function summarizeManual(rows: HealthRow[] = [], since: string, workouts:
   const recent = rows.filter((r) => day(r) >= since)
   const older = rows.filter((r) => day(r) < since)
 
-  // 계획 대비 실행: 요일별 최신 계획 × since~today 날짜에 워치 워크아웃/턱걸이/sRPE 기록이 있는지
-  const plan = new Map<string, string[]>()
-  rows.filter((r) => r.value === '계획').forEach((r) => { const [d, items] = (r.extra || '').split('|'); plan.set(d, items.split(',').filter(Boolean)) })
-  if (plan.size) {
-    const end = today || (recent.length ? day(recent[recent.length - 1]) : since)
-    const lines: string[] = []; let planned = 0, done = 0
-    for (let d = since; d <= end; d = shift(d, 1)) {
-      const wd = DAYS[new Date(d + 'T00:00:00Z').getUTCDay()]; const items = plan.get(wd); if (!items) continue
-      const marks = items.map((it) => {
-        if (it === '휴식') return '휴식'
-        planned++
-        const type = SPORT[it]
-        const hit = (type && workouts.some((w) => day(w) === d && w.value.toLowerCase() === type.toLowerCase()))
-          || (it === '턱걸이' && rows.some((r) => day(r) === d && r.value === '턱걸이'))
-          || rows.some((r) => day(r) === d && r.value === 'sRPE' && (r.extra || '').split('|')[0] === it)
-        if (hit) done++
-        return `${it}${hit ? '✓' : '✗'}`
-      })
-      lines.push(`${d.slice(5)}(${wd}) ${marks.join(' ')}`)
-    }
-    if (lines.length) out.push(`[계획 대비 실행 ${done}/${planned}]\n${lines.join('\n')}`)
-  }
+  // 계획 대비 실행
+  const week = planWeek(rows, workouts, since, today || (recent.length ? day(recent[recent.length - 1]) : since))
+  if (week.days.length) out.push(`[계획 대비 실행 ${week.done}/${week.planned}]\n` + week.days.map((d) => `${d.date.slice(5)}(${d.wd}) ${d.items.map((i) => i.name + (i.rest ? '' : i.done ? '✓' : '✗')).join(' ')}`).join('\n'))
 
   // 컨디션: 최근 일별 + 개인 평균 대비 1 SD 밖만 표시
   const well = (rs: HealthRow[]) => { const m = new Map<string, number[]>(); rs.filter((r) => r.value === '컨디션').forEach((r) => m.set(day(r), (r.extra || '').split('|').map(Number))); return m }
@@ -146,3 +127,26 @@ export function summarizeManual(rows: HealthRow[] = [], since: string, workouts:
   return out.length ? out.join('\n\n') : '[수동 기록] 없음 — "컨디션 4 3 2 3", "sRPE 수영 55 6", "턱걸이 밴드 3x5", "태그 술", "통증 무릎 3" 형식으로 기록'
 }
 const shift = (d: string, days: number) => new Date(Date.parse(d + 'T00:00:00Z') + days * 86400_000).toISOString().slice(0, 10)
+
+export type PlanDay = { date: string; wd: string; items: { name: string; done: boolean; rest: boolean }[] }
+/** 요일별 최신 계획 × from~to 날짜에 워치 워크아웃/턱걸이/sRPE 기록이 있는지 (구조화, 웹 화면·텍스트 공용) */
+export function planWeek(rows: HealthRow[], workouts: HealthRow[], from: string, to: string): { days: PlanDay[]; planned: number; done: number } {
+  const plan = new Map<string, string[]>()
+  rows.filter((r) => r.value === '계획').forEach((r) => { const [d, items] = (r.extra || '').split('|'); plan.set(d, items.split(',').filter(Boolean)) })
+  const days: PlanDay[] = []; let planned = 0, done = 0
+  if (!plan.size) return { days, planned, done }
+  for (let d = from; d <= to; d = shift(d, 1)) {
+    const wd = DAYS[new Date(d + 'T00:00:00Z').getUTCDay()]; const items = plan.get(wd); if (!items) continue
+    days.push({ date: d, wd, items: items.map((name) => {
+      if (name === '휴식') return { name, done: false, rest: true }
+      planned++
+      const type = SPORT[name]
+      const hit = !!(type && workouts.some((w) => day(w) === d && w.value.toLowerCase() === type.toLowerCase()))
+        || (name === '턱걸이' && rows.some((r) => day(r) === d && r.value === '턱걸이'))
+        || rows.some((r) => day(r) === d && r.value === 'sRPE' && (r.extra || '').split('|')[0] === name)
+      if (hit) done++
+      return { name, done: hit, rest: false }
+    }) })
+  }
+  return { days, planned, done }
+}

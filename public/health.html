@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="컨디션" />
+<meta name="theme-color" content="#f7f7f5" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0f1512" media="(prefers-color-scheme: dark)" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<link rel="manifest" href="/manifest-health.json" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<title>컨디션</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Outfit:wght@400;500;600;700&display=swap" />
+<style>
+:root{--bg:#f7f7f5;--card:#ffffff;--ink:#14201a;--muted:#6b756f;--line:#e3e6e2;--accent:#1f6f4a;--accent-soft:rgba(31,111,74,.1);--on-accent:#fff;--warn:#b0712a;--warn-soft:rgba(176,113,42,.12);--bad:#a44848}
+@media (prefers-color-scheme: dark){:root{--bg:#0f1512;--card:#182019;--ink:#eef2ef;--muted:#98a39c;--line:#26302a;--accent:#4fb083;--accent-soft:rgba(79,176,131,.16);--on-accent:#0f1512;--warn:#d9a05a;--warn-soft:rgba(217,160,90,.16);--bad:#d77c7c}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'Outfit','Noto Sans KR',-apple-system,system-ui,sans-serif;font-size:16px;line-height:1.5;word-break:keep-all}
+main{max-width:34rem;margin:0 auto;padding:max(1rem,env(safe-area-inset-top)) 1rem calc(2rem + env(safe-area-inset-bottom))}
+header{display:flex;align-items:baseline;justify-content:space-between;margin:.25rem 0 1rem}
+header h1{font-size:1.2rem;font-weight:600;margin:0}
+header .date{font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1rem 1.1rem;margin-bottom:.9rem}
+.card h2{font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 .6rem;font-weight:600}
+.score{display:flex;align-items:baseline;gap:.6rem}
+.score .n{font-size:3rem;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.score .band{font-size:1rem;font-weight:500}
+.ready p{margin:.25rem 0;font-size:.95rem}
+.ready .lines{margin-top:.6rem;padding-top:.6rem;border-top:1px dashed var(--line);color:var(--muted);font-size:.9rem}
+.ready .warn{color:var(--warn);font-weight:500}
+.row{display:grid;grid-template-columns:5.2rem 1fr;align-items:center;gap:.5rem;margin:.45rem 0}
+.row label{font-size:.92rem}
+.row small{display:block;color:var(--muted);font-size:.72rem;font-weight:400}
+.scale{display:grid;grid-template-columns:repeat(5,1fr);gap:.35rem}
+.scale button,.rpe button,.tags button{font:inherit;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:10px;padding:.55rem 0;font-size:.95rem;font-variant-numeric:tabular-nums;cursor:pointer}
+.scale button.on,.rpe button.on,.tags button.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.rpe{display:grid;grid-template-columns:repeat(10,1fr);gap:.25rem;margin:.4rem 0}
+.rpe button{padding:.45rem 0;font-size:.85rem;border-radius:8px}
+.tags{display:flex;flex-wrap:wrap;gap:.35rem;margin:.4rem 0}
+.tags button{padding:.35rem .7rem;font-size:.85rem;border-radius:999px}
+textarea,input[type=text]{width:100%;font:inherit;font-size:.95rem;border:1px solid var(--line);border-radius:10px;padding:.55rem .7rem;background:transparent;color:var(--ink);resize:vertical;min-height:2.6rem}
+.btn{font:inherit;font-weight:600;border:0;border-radius:10px;padding:.65rem 1rem;background:var(--accent);color:var(--on-accent);cursor:pointer;width:100%;margin-top:.6rem}
+.btn:disabled{opacity:.5}
+.btn.ghost{background:var(--accent-soft);color:var(--accent)}
+.wk{display:flex;align-items:center;justify-content:space-between;padding:.55rem 0;border-top:1px solid var(--line)}
+.wk:first-of-type{border-top:0}
+.wk .meta{font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.wk .done{font-size:.8rem;color:var(--accent);margin-top:.15rem}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:.3rem}
+.week .d{text-align:center;font-size:.72rem;color:var(--muted)}
+.week .d b{display:block;font-size:.85rem;color:var(--ink);font-weight:600}
+.week .pill{display:block;margin:.2rem auto 0;font-size:.68rem;padding:.15rem .3rem;border-radius:6px;background:var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.week .pill.ok{background:var(--accent-soft);color:var(--accent)}
+.week .pill.rest{opacity:.6}
+.week .pill.miss{background:var(--warn-soft);color:var(--warn)}
+.toast{position:fixed;left:50%;bottom:calc(1.2rem + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:.6rem 1rem;border-radius:999px;font-size:.9rem;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
+.toast.show{opacity:1}
+.muted{color:var(--muted);font-size:.88rem}
+.hidden{display:none!important}
+details summary{cursor:pointer;color:var(--muted);font-size:.85rem}
+</style>
+</head>
+<body>
+<main>
+<header><h1>컨디션</h1><div class="date" id="date"></div></header>
+
+<section class="card ready" id="ready">
+  <h2>오늘 준비도</h2>
+  <div class="score"><span class="n" id="score">–</span><span class="band" id="band">불러오는 중…</span></div>
+  <div class="lines" id="lines"></div>
+</section>
+
+<section class="card" id="wellness">
+  <h2>지금 컨디션</h2>
+  <div class="row"><label>수면질<small>1 못 잤다 · 5 푹 잤다</small></label><div class="scale" data-k="0"></div></div>
+  <div class="row"><label>피로<small>1 없음 · 5 심함</small></label><div class="scale" data-k="1"></div></div>
+  <div class="row"><label>스트레스<small>1 없음 · 5 심함</small></label><div class="scale" data-k="2"></div></div>
+  <div class="row"><label>근육통<small>1 없음 · 5 심함</small></label><div class="scale" data-k="3"></div></div>
+  <button class="btn" id="saveWell" disabled>컨디션 저장</button>
+  <p class="muted" id="wellNote"></p>
+</section>
+
+<section class="card" id="workouts">
+  <h2>운동</h2>
+  <div id="wlist"><p class="muted">워치에 기록된 어제·오늘 운동이 여기 떠요.</p></div>
+  <details><summary>워치에 없는 운동 직접 기록</summary>
+    <div style="margin-top:.5rem"><input type="text" id="manualSport" placeholder="종목 (예: 요가, 턱걸이, 러닝)" /></div>
+    <div style="margin-top:.4rem"><input type="text" id="manualMin" placeholder="시간(분) — 턱걸이는 '밴드 3x5' 처럼" /></div>
+    <div class="rpe" id="manualRpe"></div>
+    <textarea id="manualNote" placeholder="코멘트 (선택)"></textarea>
+    <button class="btn ghost" id="saveManual">기록</button>
+  </details>
+</section>
+
+<section class="card" id="today">
+  <h2>오늘 메모·태그</h2>
+  <div class="tags" id="tags"></div>
+  <textarea id="memo" placeholder="한 줄 메모 (예: 수영 후 어깨 뻐근, 밤에 카페인)"></textarea>
+  <button class="btn ghost" id="saveMemo">메모 저장</button>
+  <div id="todayLog" class="muted" style="margin-top:.6rem"></div>
+</section>
+
+<section class="card" id="weekcard">
+  <h2>이번 주 계획 대비 <span id="weekScore"></span></h2>
+  <div class="week" id="week"></div>
+</section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (s) => document.querySelector(s)
+const KO_DAY = ['일','월','화','수','목','금','토']
+const TAGS = ['술','늦은식사','카페인','출장','아픔','야근','낮잠']
+const state = { well: [0,0,0,0], data: null }
+const toast = (m) => { const t = $('#toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200) }
+
+async function api(method, body) {
+  const r = await fetch('/api/health', { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined, credentials: 'same-origin' })
+  if (r.status === 401) { document.body.innerHTML = '<main><div class="card"><h2>인증 필요</h2><p>가계부 인증 링크로 한 번 접속한 뒤 다시 열어 주세요.</p></div></main>'; throw new Error('unauthorized') }
+  return r.json()
+}
+async function log(text) { const r = await api('POST', { text }); if (!r.ok) throw new Error(r.error); toast(r.added ? '기록됨: ' + r.echo : '이미 있음'); return r }
+
+function render(d) {
+  state.data = d
+  $('#date').textContent = d.today
+  const R = d.readiness
+  if (isNaN(R.score) || R.score == null) { $('#score').textContent = '–'; $('#band').textContent = R.band; $('#lines').textContent = (R.reasons||[]).join(' ') }
+  else {
+    $('#score').textContent = R.score; $('#band').textContent = R.band
+    const [head, ...rest] = R.text.split('\n')
+    $('#lines').innerHTML = `<p>${head.replace(/^준비도 \d+ — /, '')}</p>` + rest.map((l) => `<p class="${l.startsWith('⚠') ? 'warn' : ''}">${l}</p>`).join('')
+    if (!d.hasSleep) $('#lines').innerHTML += '<p class="warn">어젯밤 수면이 아직 안 올라왔어요 — 건강 업로드 단축어를 먼저 실행해 주세요.</p>'
+  }
+  // 오늘 컨디션 기존값
+  const w = d.manual.filter((m) => m.date === d.today && m.kind === '컨디션').pop()
+  if (w) { state.well = w.extra.split('|').map(Number); $('#wellNote').textContent = `오늘 ${w.time}에 저장한 값. 다시 저장하면 덮어써요.` }
+  paintScales()
+  // 운동
+  const sr = d.manual.filter((m) => m.kind === 'sRPE')
+  $('#wlist').innerHTML = d.workouts.length ? '' : '<p class="muted">어제·오늘 워치 운동 기록이 없어요.</p>'
+  d.workouts.forEach((wk, i) => {
+    const logged = sr.find((m) => m.date === wk.date && m.extra.split('|')[0] === wk.ko)
+    const el = document.createElement('div'); el.className = 'wk'; el.style.display = 'block'
+    const dist = wk.dist ? (wk.type === 'Swimming' ? `${Math.round(parseFloat(wk.dist))}m` : `${parseFloat(wk.dist).toFixed(1)}km`) : ''
+    el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:baseline"><b>${wk.ko}</b><span class="meta">${wk.date === d.today ? '오늘' : '어제'} ${wk.start} · ${wk.minutes}분${dist ? ' · ' + dist : ''}${wk.hr ? ' · 심박 ' + wk.hr : ''}</span></div>`
+    if (logged) { const [, , rpe, memo] = logged.extra.split('|'); el.innerHTML += `<div class="done">RPE ${rpe} 기록됨${memo ? ' · ' + memo : ''}</div>` }
+    else {
+      const rpe = document.createElement('div'); rpe.className = 'rpe'; rpe.dataset.i = i
+      for (let n = 1; n <= 10; n++) { const b = document.createElement('button'); b.textContent = n; b.onclick = () => { rpe.querySelectorAll('button').forEach((x) => x.classList.remove('on')); b.classList.add('on'); rpe.dataset.v = n }; rpe.appendChild(b) }
+      const ta = document.createElement('textarea'); ta.placeholder = '어땠어요? (예: 자유형 25m 8세트, 마지막에 팔 무거움)'
+      const btn = document.createElement('button'); btn.className = 'btn ghost'; btn.textContent = 'RPE·코멘트 저장'
+      btn.onclick = async () => { if (!rpe.dataset.v) return toast('힘든 정도(1~10)를 골라 주세요'); btn.disabled = true
+        try { await log(`${wk.date === d.today ? '' : '어제 '}sRPE ${wk.ko} ${wk.minutes} ${rpe.dataset.v} ${ta.value.trim()}`.trim()); await load() } catch (e) { toast(e.message); btn.disabled = false } }
+      el.append(document.createElement('div')); el.lastChild.innerHTML = '<div class="muted" style="margin-top:.4rem">힘든 정도 1 아주 쉬움 · 10 한계</div>'; el.append(rpe, ta, btn)
+    }
+    $('#wlist').appendChild(el)
+  })
+  // 오늘 로그
+  const todays = d.manual.filter((m) => m.date === d.today && m.kind !== '계획')
+  $('#todayLog').innerHTML = todays.length ? todays.map((m) => `${m.time} ${m.kind} · ${m.extra.split('|').filter(Boolean).join(' / ')}`).join('<br>') : '오늘 기록 없음'
+  // 이번 주
+  $('#weekScore').textContent = d.week.planned ? `${d.week.done}/${d.week.planned}` : ''
+  const byDate = Object.fromEntries(d.week.days.map((x) => [x.date, x]))
+  const mon = new Date(d.week.days[0]?.date || d.today); const cells = []
+  for (let i = 0; i < 7; i++) { const dt = new Date(mon.getTime() + i * 86400000).toISOString().slice(0, 10); const x = byDate[dt]
+    cells.push(`<div class="d"><b>${KO_DAY[(mon.getDay() + i) % 7]}</b>${dt.slice(8)}${x ? x.items.map((it) => `<span class="pill ${it.rest ? 'rest' : it.done ? 'ok' : dt <= d.today ? 'miss' : ''}">${it.name}</span>`).join('') : ''}</div>`) }
+  $('#week').innerHTML = cells.join('')
+}
+function paintScales() {
+  document.querySelectorAll('.scale').forEach((sc) => { const k = +sc.dataset.k; sc.innerHTML = ''
+    for (let n = 1; n <= 5; n++) { const b = document.createElement('button'); b.textContent = n; if (state.well[k] === n) b.classList.add('on'); b.onclick = () => { state.well[k] = n; paintScales() }; sc.appendChild(b) } })
+  $('#saveWell').disabled = state.well.some((v) => !v)
+}
+$('#saveWell').onclick = async () => { $('#saveWell').disabled = true; try { await log('컨디션 ' + state.well.join(' ')); await load() } catch (e) { toast(e.message); $('#saveWell').disabled = false } }
+// 태그·메모
+TAGS.forEach((t) => { const b = document.createElement('button'); b.textContent = t; b.onclick = () => b.classList.toggle('on'); $('#tags').appendChild(b) })
+$('#saveMemo').onclick = async () => {
+  const on = [...document.querySelectorAll('#tags button.on')].map((b) => b.textContent); const memo = $('#memo').value.trim()
+  if (!on.length && !memo) return toast('태그를 고르거나 메모를 적어 주세요')
+  try { if (on.length) await log('태그 ' + on.join(' ')); if (memo) await log(/^(통증|인바디|턱걸이|sRPE|계획)\s/i.test(memo) ? memo : '메모 ' + memo)
+    $('#memo').value = ''; document.querySelectorAll('#tags button.on').forEach((b) => b.classList.remove('on')); await load() } catch (e) { toast(e.message) }
+}
+// 수동 운동
+const mr = $('#manualRpe'); for (let n = 1; n <= 10; n++) { const b = document.createElement('button'); b.textContent = n; b.onclick = () => { mr.querySelectorAll('button').forEach((x) => x.classList.remove('on')); b.classList.add('on'); mr.dataset.v = n }; mr.appendChild(b) }
+$('#saveManual').onclick = async () => {
+  const sport = $('#manualSport').value.trim(), min = $('#manualMin').value.trim(), note = $('#manualNote').value.trim()
+  if (!sport) return toast('종목을 적어 주세요')
+  try {
+    if (sport === '턱걸이') await log(`턱걸이 ${min}`)
+    else { if (!min || !mr.dataset.v) return toast('시간(분)과 힘든 정도를 넣어 주세요'); await log(`sRPE ${sport} ${min} ${mr.dataset.v} ${note}`.trim()) }
+    $('#manualSport').value = $('#manualMin').value = $('#manualNote').value = ''; await load()
+  } catch (e) { toast(e.message) }
+}
+async function load() { try { const d = await api('GET'); if (!d.ok) return toast(d.error); render(d) } catch (e) { if (e.message !== 'unauthorized') toast(e.message) } }
+load()
+</script>
+</body>
+</html>
