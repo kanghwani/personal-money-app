@@ -713,9 +713,12 @@ const CHEERS = [
   '기록하는 사람이 모은다', '오늘의 한 잔 = 내일의 여유',
 ]
 
+// 무지개 대신 잉크 계조. 인쇄된 원그래프처럼 농도로만 나눈다.
+// 1번(가장 큰 항목)만 도장 빨강이라, 색이 곧 "제일 많이 쓴 곳"을 가리킨다.
+// 실제 값은 index.css 에 있어서 라이트·다크가 같이 따라온다.
 const RING_COLORS = [
-  '#2f8f5b', '#e0a24a', '#4a7fb5', '#c2604a', '#8b6bb1',
-  '#4fa8a0', '#a8863f', '#6b8f3f', '#b5628c', '#5f7d8f',
+  'var(--ring-1)', 'var(--ring-2)', 'var(--ring-3)', 'var(--ring-4)', 'var(--ring-5)',
+  'var(--ring-6)', 'var(--ring-7)', 'var(--ring-8)', 'var(--ring-3)', 'var(--ring-5)',
 ]
 
 function CategoryRing({ total, subtitle, data }: { total: string; subtitle: string | null; data: NameValue[] }) {

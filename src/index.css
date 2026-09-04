@@ -50,6 +50,16 @@
   --amber-fill: #b98a3c;
   --amber-soft: rgba(25, 23, 20, 0.055);
 
+  /* 원그래프·막대 계조. 색상이 아니라 농도로 구분한다. */
+  --ring-1: #b2382c;
+  --ring-2: #191714;
+  --ring-3: #4a4740;
+  --ring-4: #6f6a5e;
+  --ring-5: #8f8a7c;
+  --ring-6: #a9a496;
+  --ring-7: #c0bbac;
+  --ring-8: #d3cec0;
+
   --soft-shadow: none;
 
   --r-sm: 0px;
@@ -97,6 +107,15 @@
     --amber: #cfa45e;
     --amber-fill: #cfa45e;
     --amber-soft: rgba(230, 225, 213, 0.06);
+
+    --ring-1: #e06456;
+    --ring-2: #e6e1d5;
+    --ring-3: #b8b3a5;
+    --ring-4: #928d80;
+    --ring-5: #746f64;
+    --ring-6: #5c584f;
+    --ring-7: #48453e;
+    --ring-8: #383630;
 
     --soft-shadow: none;
   }

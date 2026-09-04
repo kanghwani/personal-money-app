@@ -1463,3 +1463,30 @@
 .send-button {
   box-shadow: none;
 }
+
+/* 11. 도표 ------------------------------------------------------- */
+/* 색 스와치는 범례다. 원이 아니라 네모여야 인쇄된 표의 키로 읽힌다. */
+.cat-ic,
+.cat-ic-lg {
+  border-radius: 0;
+}
+
+/* 큰 금액 뒤에 깔려 있던 방사형 글로우. 종이에는 빛이 없다. */
+.balance-band::after {
+  display: none;
+}
+
+.balance-band .eyebrow {
+  color: var(--muted);
+}
+
+/* 고정비/변동비 막대도 같은 계조로. 파랑·주황 두 색이 서로 싸우고 있었다. */
+.bar-track > :first-child,
+.fixed-track > :first-child {
+  background: var(--ring-3);
+}
+
+.bar-track > :nth-child(2),
+.fixed-track > :nth-child(2) {
+  background: var(--ring-6);
+}
