@@ -1,7 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, benefitBalances, unusedBenefits, paymentPlaybook, previousMonthKey, isSaving, isLoanRepay, isNonSpend, isCardPayment, parseBankDeposits,
-} from './dashboardLogic'
+import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, benefitBalances, unusedBenefits, paymentPlaybook, previousMonthKey, isSaving, isLoanRepay, isNonSpend, isCardPayment, parseBankDeposits } from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
   ({ date, type: 'expense', amount, category, subCategory, payment, fixedType: 'variable' })
@@ -736,5 +734,29 @@ describe('parseBankDeposits', () => {
 
   it('날짜를 ISO로 맞춘다', () => {
     expect(rows[0].date).toBe('2026-08-31')
+  })
+})
+
+describe('지난달 실적 스냅샷', () => {
+  // 끝난 달의 실적은 확정값이다. 원장을 못 읽었다고 0으로 보고 '잠김'이라 단정하면,
+  // 실제로는 실적을 채운 카드의 혜택을 안 쓰게 된다. 실제로 그렇게 보였다.
+  const spec = CARD_SPECS.filter((s) => s.card === 'NH카드')
+  const thisMonth = [{ date: '2026-09-02', type: 'expense', amount: 5000, memo: '스타벅스', payment: 'NH카드', split: 0 }]
+
+  it('원장에 전월이 없으면 저장된 실적으로 혜택을 연다', () => {
+    const known = new Map([['NH카드', 832186]])
+    const out = benefitBalances(thisMonth as never, '2026-09', spec, known)
+    expect(out.every((b) => !b.locked)).toBe(true)
+  })
+
+  it('저장된 실적이 없으면 그대로 잠긴다', () => {
+    const out = benefitBalances(thisMonth as never, '2026-09', spec)
+    expect(out.every((b) => b.locked)).toBe(true)
+  })
+
+  it('원장에 전월이 있으면 저장값이 아니라 원장이 이긴다', () => {
+    const rows = [...thisMonth, { date: '2026-08-10', type: 'expense', amount: 10000, memo: '점심', payment: 'NH카드', split: 0 }]
+    const out = benefitBalances(rows as never, '2026-09', spec, new Map([['NH카드', 832186]]))
+    expect(out.every((b) => b.locked)).toBe(true)   // 원장 기준 1만원 → 30만 미달
   })
 })

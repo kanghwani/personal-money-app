@@ -8,6 +8,21 @@ import { verify } from './_auth.js'
  *
  * 환경변수: SYNC_URL, SYNC_TOKEN (둘 다 서버 전용 — VITE_ 접두어 금지)
  */
+/** GAS 흔들림 흡수. 마지막 응답을 그대로 돌려준다(성공하면 즉시 반환). */
+async function retry(call: () => Promise<Response>, tries = 3): Promise<Response> {
+  let last: Response | undefined
+  for (let i = 0; i < tries; i++) {
+    try {
+      last = await call()
+      if (last.ok) return last
+    } catch (err) {
+      if (i === tries - 1) throw err
+    }
+    if (i < tries - 1) await new Promise((s) => setTimeout(s, 800 * (i + 1)))
+  }
+  return last!
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const gas = process.env.SYNC_URL
   const token = process.env.SYNC_TOKEN
@@ -28,19 +43,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         p.set(k, Array.isArray(v) ? v[0] : String(v ?? ''))
       }
       p.set('token', token)                            // 서버 토큰만 사용
-      const r = await fetch(`${gas}?${p.toString()}`, { redirect: 'follow' })
+      // GAS는 가끔 302/404/HTML을 뱉는다(_gas.ts 와 같은 이유). 여기서 재시도하지 않으면
+      // 그 한 번이 앱에서 "원장 없음"으로 보이고, 카드 혜택이 전부 잠김/확인 실패가 된다.
+      const r = await retry(() => fetch(`${gas}?${p.toString()}`, { redirect: 'follow' }))
       return res.status(r.ok ? 200 : 502).send(await r.text())
     }
 
     if (req.method === 'POST') {
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body ?? {})
       delete (body as Record<string, unknown>).token
-      const r = await fetch(gas, {
+      const r = await retry(() => fetch(gas, {
         method: 'POST',
         redirect: 'follow',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ ...body, token }),
-      })
+      }))
       return res.status(r.ok ? 200 : 502).send(await r.text())
     }
 

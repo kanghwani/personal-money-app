@@ -677,9 +677,14 @@ export function benefitBalances(
   transactions: (SplitTxLike & { payment?: string })[],
   yearMonth: string,
   specs: CardSpec[] = CARD_SPECS.filter((s) => s.owned),
+  // 지난달 실적은 달이 끝난 순간 확정된다. 원장을 못 읽었을 때 0으로 보고 '잠김'이라 단정하는 대신
+  // 마지막으로 계산해둔 값을 쓴다. 원장에 그 달 거래가 있으면 언제나 원장이 이긴다.
+  knownPrevPerf?: Map<string, number>,
 ): UnusedBenefit[] {
   const prevMonth = previousMonthKey(yearMonth)
-  const prevPerf = new Map(cardPerformance(transactions, prevMonth).map((c) => [c.name, c.qualified]))
+  const live = new Map(cardPerformance(transactions, prevMonth).map((c) => [c.name, c.qualified]))
+  const prevPerf = new Map(knownPrevPerf ?? [])
+  for (const [k, v] of live) prevPerf.set(k, v)
   const thisPerf = new Map(cardPerformance(transactions, yearMonth).map((c) => [c.name, c.qualified]))
   const rows = transactions.filter((t) => t.type === 'expense' && t.date.slice(0, 7) === yearMonth)
 

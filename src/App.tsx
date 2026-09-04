@@ -932,8 +932,16 @@ function CardBenefitOverview({ rows, monthKey, onOpenInsights, ledgerStatus }: {
 }) {
   const [selectedCard, setSelectedCard] = useState('')
   const basisMonth = previousMonthKey(monthKey)
-  const balances = useMemo(() => benefitBalances(rows as never, monthKey), [rows, monthKey])
   const basisPerf = useMemo(() => cardPerformance(rows as never, basisMonth), [rows, basisMonth])
+  // 끝난 달의 실적은 다시 바뀌지 않는다. 한 번 계산되면 저장해두고, 원장을 못 읽는 날엔 그 값을 쓴다.
+  const knownPerf = useMemo(() => {
+    if (basisPerf.length) {
+      cacheCardPerf(basisMonth, basisPerf)
+      return new Map(basisPerf.map((c) => [c.name, c.qualified]))
+    }
+    return readCardPerf(basisMonth)
+  }, [basisPerf, basisMonth])
+  const balances = useMemo(() => benefitBalances(rows as never, monthKey, undefined, knownPerf), [rows, monthKey, knownPerf])
   const missed = useMemo(() => missedBenefits(rows as never, monthKey), [rows, monthKey])
   const cardGroups = CARD_SPECS.filter((spec) => spec.owned && spec.benefits.length)
     .map((spec) => ({ spec, items: balances.filter((item) => item.card === spec.card) }))
@@ -945,8 +953,8 @@ function CardBenefitOverview({ rows, monthKey, onOpenInsights, ledgerStatus }: {
   const currentLocked = current?.items.some((item) => item.locked) ?? false
   // 'error' 까지 '확인 중'으로 보여주면 영영 확인 중이다. 못 읽은 건 못 읽었다고 해야 한다.
   const currentChecking = !current?.spec.familyPooled && ledgerStatus === 'loading'
-  const currentFailed = !current?.spec.familyPooled && ledgerStatus === 'error'
-  const currentBasisAmount = basisPerf.find((item) => item.name === currentCard)?.qualified ?? 0
+  const currentFailed = !current?.spec.familyPooled && ledgerStatus === 'error' && !knownPerf.size
+  const currentBasisAmount = basisPerf.find((item) => item.name === currentCard)?.qualified ?? knownPerf.get(currentCard) ?? 0
   const missedTotal = missed.reduce((sum, item) => sum + item.discount, 0)
   const pct = (rate: number) => `${Math.round(rate * 100)}%`
 
@@ -2139,6 +2147,28 @@ type Summary = {
   investmentShare: number
   budget: number
   budgetUsageRate: number
+}
+
+const CARD_PERF_CACHE_KEY = 'shiba-card-perf:v1'
+
+/** 끝난 달의 카드 실적 스냅샷. 달이 지나면 바뀌지 않으므로 월별로 그대로 눌러둔다. */
+function readCardPerf(month: string): Map<string, number> {
+  try {
+    const all = JSON.parse(window.localStorage.getItem(CARD_PERF_CACHE_KEY) || '{}') as Record<string, Record<string, number>>
+    return new Map(Object.entries(all[month] ?? {}))
+  } catch {
+    return new Map()
+  }
+}
+
+function cacheCardPerf(month: string, perf: { name: string; qualified: number }[]) {
+  try {
+    const all = JSON.parse(window.localStorage.getItem(CARD_PERF_CACHE_KEY) || '{}') as Record<string, Record<string, number>>
+    all[month] = Object.fromEntries(perf.map((c) => [c.name, c.qualified]))
+    // 최근 6개월만 남긴다. 그보다 오래된 실적은 아무 화면도 쓰지 않는다.
+    const kept = Object.keys(all).sort().slice(-6)
+    window.localStorage.setItem(CARD_PERF_CACHE_KEY, JSON.stringify(Object.fromEntries(kept.map((k) => [k, all[k]]))))
+  } catch { /* 용량 초과 등은 무시 */ }
 }
 
 const LEDGER_CACHE_KEY = 'shiba-ledger:v1'
