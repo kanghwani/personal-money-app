@@ -22,3 +22,19 @@ export function dedupById<T extends { id: string }>(history: T[], store: T[]): T
   for (const item of store) map.set(item.id, item)
   return [...map.values()]
 }
+
+/**
+ * 원격 스냅샷을 받아들일 때, 아직 원장에 못 올린 로컬 거래를 함께 살린다.
+ *
+ * store.transactions 는 두 가지를 겸한다: 사용자 데이터이자 "원장 append 대기열"이다.
+ * 그런데 pickNewer 는 store 전체를 통째로 바꾸므로, 다른 기기가 더 최신이면
+ * 이 기기에서 방금 입력해 아직 못 보낸 거래가 그대로 사라졌다.
+ * 대기열은 원장에 들어가는 순간 지워지므로, id 기준으로 남겨두는 것이 항상 안전하다.
+ */
+export function keepPending<T extends { id: string }>(
+  localTx: T[], remoteTx: T[], ledgerIds: Set<string>,
+): T[] {
+  const known = new Set(remoteTx.map((t) => t.id))
+  const pending = localTx.filter((t) => !known.has(t.id) && !ledgerIds.has(t.id))
+  return pending.length ? [...pending, ...remoteTx] : remoteTx
+}

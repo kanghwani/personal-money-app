@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pickNewer, dedupById, type Snapshot } from './merge'
+import { pickNewer, dedupById, keepPending, type Snapshot } from './merge'
 
 const snap = (updatedAt: string, n: number): Snapshot<{ n: number }> => ({
   store: { n },
@@ -62,5 +62,23 @@ describe('dedupById', () => {
   it('history+store 병합(중복 없음)', () => {
     const res = dedupById([t('a', 1)], [t('b', 2)])
     expect(res.map((x) => x.id).sort()).toEqual(['a', 'b'])
+  })
+})
+
+describe('keepPending', () => {
+  // 다른 기기가 더 최신이면 store 가 통째로 교체된다. 그때 방금 입력해서
+  // 아직 원장에 못 올린 거래가 조용히 사라졌다. (2,700원 한 건을 그렇게 잃었다)
+  const tx = (id: string) => ({ id, amount: 2700 })
+
+  it('원격에도 원장에도 없는 로컬 거래를 살린다', () => {
+    expect(keepPending([tx('new')], [tx('old')], new Set())).toEqual([tx('new'), tx('old')])
+  })
+
+  it('원장에 이미 들어간 거래는 다시 넣지 않는다', () => {
+    expect(keepPending([tx('done')], [], new Set(['done']))).toEqual([])
+  })
+
+  it('원격에 같은 id가 있으면 원격을 쓴다', () => {
+    expect(keepPending([tx('a')], [tx('a')], new Set())).toEqual([tx('a')])
   })
 })

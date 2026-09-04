@@ -36,7 +36,7 @@ import {
   CreditCard,
   Store,
 } from 'lucide-react'
-import { pickNewer, dedupById } from './sync/merge'
+import { pickNewer, dedupById, keepPending } from './sync/merge'
 import { getSyncConfig, loadFromServer, saveToServer, loadLedger, assignCategory, loadFixedDefs, saveFixedDef, deleteFixedDef, deleteLedger, updateLedger, appendLedger } from './sync/syncClient'
 import {
   deriveQuickChips,
@@ -2264,7 +2264,12 @@ function usePersistentStore() {
           applyingRemote.current = true
           updatedAtRef.current = winner.updatedAt
           window.localStorage.setItem(UPDATED_AT_KEY, winner.updatedAt)
-          setStore(winner.store)
+          // 원격이 이겨도 아직 원장에 못 올린 로컬 입력은 버리지 않는다.
+          const ledgerIds = new Set(readLedgerCache().map((tx) => tx.id))
+          setStore({
+            ...winner.store,
+            transactions: keepPending(storeRef.current.transactions ?? [], winner.store.transactions ?? [], ledgerIds),
+          })
           setSyncStatus('idle')
         } else if (remote === null) {
           // 서버가 비어 있으면 현재 로컬 데이터를 업로드(기존 입력 보존)
