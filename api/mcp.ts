@@ -42,7 +42,7 @@ async function findOne(id8: string): Promise<Tx> {
 }
 
 // ── 도구 정의 ───────────────────────────────────────────────
-const TOOLS = [
+export const TOOLS = [
   { name: 'ledger_check', description: '가계부 이상 항목 점검(미분류·중복·금액0·미래날짜·결제수단 누락) + 이번 달 요약.',
     inputSchema: { type: 'object', properties: {} } },
   { name: 'ledger_month', description: '월 지출 요약. 카테고리별·결제수단별 내역 포함.',
@@ -71,7 +71,7 @@ const TOOLS = [
   { name: 'health_log', description: '건강·훈련 한 줄 기록(시트 manual 탭). 형식: "컨디션 4 3 2 3"(수면질 피로 스트레스 근육통 1~5, 아침), "sRPE 수영 55 6 [메모]"(종목 분 RPE1~10, 훈련 직후), "턱걸이 밴드 3x5" / "턱걸이 네거티브 4x8초" / "턱걸이 5 5 4", "태그 술 늦은식사 카페인 출장 아픔", "통증 무릎 3"(0~10), "인바디 72.3 33.1 18.5"(체중 골격근량 체지방률), "계획 월 수영 턱걸이"/"계획 토 휴식"(요일별 훈련 계획, 주간 리포트의 계획 대비 실행에 사용), 그 외는 메모. 앞에 "어제 "를 붙이면 어제로 기록. 사용자가 컨디션·훈련·통증·술 같은 걸 한 줄로 말하면 이 툴로 저장한다.',
     inputSchema: { type: 'object', properties: { text: { type: 'string', description: '예: 컨디션 4 3 2 3' } }, required: ['text'] } },
   { name: 'coach_week', description: '주간 코치 리뷰. week 에 날짜(YYYY-MM-DD)를 주면 그 날짜가 속한 과거 주를 다시 계산해 보여준다(지난 리뷰는 저장하지 않고 원본에서 다시 만든다). 지난주 계획 이행·세션·수면·자가평가·통증, 회복 지표가 30일 평균에서 벗어난 것, 지난주 제안을 지켰는지, 그리고 **다음 주에 바꿀 것 하나**를 낸다. 변경 후보는 서버가 규칙으로 고르므로 다른 제안을 지어내지 말고 그대로 전하라. 호출하면 그 제안이 기록으로 저장돼 다음 주에 이행 여부를 평가한다. 주간 회고 예약 작업에서 쓴다.',
-    inputSchema: { type: 'object', properties: {} } },
+    inputSchema: { type: 'object', properties: { week: { type: 'string', description: '과거 주를 볼 때 그 주의 아무 날짜 (YYYY-MM-DD)' } } } },
   { name: 'coach_history', description: '지금까지 코치가 낸 제안과 각각을 지켰는지. "예전에 뭐라고 했었지", "내가 제안을 잘 지키고 있나" 같은 질문에. 리뷰 본문은 저장하지 않지만 원본 데이터에서 언제든 다시 계산되므로, 특정 주를 다시 보려면 coach_week 에 week 를 넘긴다.',
     inputSchema: { type: 'object', properties: { limit: { type: 'number', description: '최근 몇 개 (기본 8)' } } } },
   { name: 'coach_month', description: '월간 코치 리뷰. 세션·종목 분포·수면, VO2max와 안정심박의 1년 대비 변화, 태그가 다음 날에 남긴 흔적(표본이 적으면 판단하지 않음), 진급 판정, 지난달 결정 되짚기, 그리고 **이번 달 결정 하나**. "계획 자체를 바꿔야 하나"에 답한다. 호출하면 그 결정이 기록으로 저장돼 다음 달에 되짚는다. month 에 날짜를 주면 그 달을 다시 계산한다(과거 달은 저장하지 않음). 서버가 고른 결정을 바꾸지 말 것.',
