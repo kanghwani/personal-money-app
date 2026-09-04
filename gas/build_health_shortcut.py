@@ -11,6 +11,9 @@ import plistlib, sys, uuid, pathlib
 env = dict(l.split('=', 1) for l in pathlib.Path(__file__).with_name('..').joinpath('.env').resolve().read_text().splitlines() if '=' in l)
 GAS_URL, TOKEN = env['VITE_SYNC_URL'].strip(), env['VITE_SYNC_TOKEN'].strip()
 OBJ = '￼'
+# 업로드 단축어 이름은 영문이어야 한다. 앱의 "워치에서 가져오기" 가 shortcuts:// 로 부르는데
+# URL 경로에서 한글 이름은 매칭이 깨진다(단축어 안에서 한글 이름으로 부르는 것은 정상).
+UPLOAD_NAME = 'healthsync'
 U = lambda: str(uuid.uuid4()).upper()
 
 def token_string(parts):
@@ -118,7 +121,7 @@ guard_actions = [
 ]
 
 actions = [
-    comment('건강 업로드: 애플워치 데이터를 가계부 GAS 건강 시트로 보낸다(탭: sleep, resting_hr, hrv, active_kcal, vo2max, workout). 같은 행은 서버가 버리므로 여러 번 실행해도 됨.'),
+    comment(f'{UPLOAD_NAME}: 애플워치 데이터를 가계부 GAS 건강 시트로 보낸다(탭: sleep, resting_hr, hrv, active_kcal, vo2max, workout). 같은 행은 서버가 버리므로 여러 번 실행해도 됨.'),
     comment('생성: personal-money-app/gas/build_health_shortcut.py (직접 고치지 말고 스크립트를 수정해서 다시 서명)'),
     comment('하루 1회 가드: 오늘 날짜 + 단축어 입력으로 파일 이름을 만들고, 그 파일이 있으면 종료. 앱에서 force 를 넘기면 이름이 달라져 항상 다시 돈다.'),
 ] + guard_actions
@@ -136,13 +139,13 @@ TODAY_URL = f"{GAS_URL.split('/macros/')[0] and 'https://personal-money-app-seve
 today_get = U()
 actions.append(act('downloadurl', UUID=today_get, WFHTTPMethod='GET', WFURL=TODAY_URL))
 actions.append(act('notification', WFNotificationActionSound=False, WFNotificationActionTitle='오늘 준비도',
-    WFNotificationActionBody=token_string([{'OutputUUID': today_get, 'OutputName': 'Contents of URL', 'Type': 'ActionOutput'}, '\n컨디션 기록 → 액션 버튼(컨디션 단축어)\n— 업로드 '] + noti[:-1])))
+    WFNotificationActionBody=token_string([{'OutputUUID': today_get, 'OutputName': 'Contents of URL', 'Type': 'ActionOutput'}, '\n컨디션 기록 → 액션 버튼(컨디션 단축어)\n- 업로드 '] + noti[:-1])))
 
 LOG_URL = f"https://personal-money-app-seven.vercel.app/api/log?t={TOKEN}&text="
 ck_today, ask, cond_if, cond_txt, cond_enc, cond_get = U(), U(), U(), U(), U(), U()
 checkin = [
     comment('아침 체크인: 업로드(오늘 안 됐으면) → 준비도 보여주며 컨디션 4개 입력 → 저장. 액션 버튼/위젯에 걸어 손으로 실행.'),
-    act('runworkflow', WFWorkflowName='건강 업로드', WFShowWorkflow=False),
+    act('runworkflow', WFWorkflowName=UPLOAD_NAME, WFShowWorkflow=False),
     act('downloadurl', UUID=ck_today, WFHTTPMethod='GET', WFURL=TODAY_URL),
     act('ask', UUID=ask, WFInputType='Text', WFAllowsMultilineText=False,
         WFAskActionPrompt=token_string([{'OutputUUID': ck_today, 'OutputName': 'Contents of URL', 'Type': 'ActionOutput'},
@@ -156,15 +159,6 @@ checkin = [
     act('conditional', GroupingIdentifier=cond_if, WFControlFlowMode=2, UUID=U()),
 ]
 
-# 앱이 부르는 진입점. shortcuts:// URL 은 한글 이름 매칭이 깨지는 경우가 있어서
-# 영문 이름의 얇은 중계를 두고, 받은 입력을 그대로 '건강 업로드' 로 넘긴다.
-relay = [
-    comment('앱의 "워치에서 가져오기" 가 부르는 중계. 받은 입력(force)을 건강 업로드로 넘긴다. 직접 실행할 일은 없다.'),
-    act('runworkflow', WFWorkflowName='건강 업로드', WFShowWorkflow=False,
-        WFInput={'Value': {'Type': 'ExtensionInput'}, 'WFSerializationType': 'WFTextTokenAttachment'}),
-]
-
-
 def document(name, acts, glyph, color):
     return {
         'WFWorkflowName': name, 'WFWorkflowActions': acts,
@@ -177,7 +171,6 @@ def document(name, acts, glyph, color):
     }
 
 out_dir = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else '.')
-for name, acts, glyph, color in [('건강 업로드', actions, 61440, 4282601983), ('컨디션', checkin, 61440, 463140863),
-                                 ('healthsync', relay, 61440, 4271458815)]:
+for name, acts, glyph, color in [(UPLOAD_NAME, actions, 61440, 4282601983), ('컨디션', checkin, 61440, 463140863)]:
     (out_dir / f'{name}.xml').write_bytes(plistlib.dumps(document(name, acts, glyph, color), fmt=plistlib.FMT_XML))
     print(out_dir / f'{name}.xml', len(acts), 'actions')

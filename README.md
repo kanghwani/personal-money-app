@@ -62,6 +62,11 @@ cd gas && clasp push -f && clasp deploy --deploymentId AKfycby2so1RyMqyuEaKEfOtS
 `docs/devlog/` 에 날짜별로 남긴다. 무엇을 만들었는지보다 **왜 그렇게 정했는지와 어디서 헛디뎠는지**를 적는다.
 git log 가 이미 무엇을 바꿨는지 알려주므로, 여기에는 코드에서 읽을 수 없는 것만 남긴다.
 
+**앱이 URL 스킴으로 부르는 단축어는 이름을 영문으로 둔다.**
+`shortcuts://run-shortcut?name=` 에 한글 이름을 넘기면 매칭이 깨진다(단축어 안에서 한글 이름으로 부르는 것은 정상).
+업로드 단축어 이름은 `healthsync` 다. 바꾸면 `public/health.js` 의 `SHORTCUT_NAME`,
+`gas/build_health_shortcut.py` 의 `UPLOAD_NAME`, 컨디션 단축어의 Run Shortcut 참조를 함께 고쳐야 한다.
+
 ## 인증
 
 - 가계부·건강 화면: `/api/login?k=<APP_SECRET>` 로 한 번 접속하면 1년짜리 쿠키가 심긴다
