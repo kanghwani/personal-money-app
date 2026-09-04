@@ -518,7 +518,8 @@ button, input { font: inherit; color: inherit; }
 }
 .stage-summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* 폰 폭에서 4칸은 "1시간 47분 26%" 를 담지 못해 옆 칸과 겹쳤다. 기본 2칸, 넓을 때만 4칸. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 5px;
   margin-top: 12px;
 }
@@ -529,11 +530,19 @@ button, input { font: inherit; color: inherit; }
 .stage-stat.deep i { background: var(--ink); }
 .stage-stat.rem i { background: repeating-linear-gradient(135deg, var(--ink) 0 1px, transparent 1px 4px); }
 .stage-stat.awake i { background: var(--card); }
+.stage-stat em {
+  display: block;
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
 .stage-stat strong {
   display: block;
   margin-top: 3px;
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -696,6 +705,7 @@ button, input { font: inherit; color: inherit; }
 
 /* ── 반응형 ────────────────────────────────────────────── */
 @media (min-width: 620px) {
+  .stage-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .shell { padding-left: 20px; padding-right: 20px; }
   .hero-grid { grid-template-columns: 1fr 1fr; align-items: start; }
   .readiness-main { grid-template-columns: 120px 1fr; }
@@ -704,7 +714,6 @@ button, input { font: inherit; color: inherit; }
   .readiness-main { grid-template-columns: 1fr; }
   .metric-grid { grid-template-columns: 1fr; }
   .gauge-copy strong { font-size: 34px; }
-  .stage-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

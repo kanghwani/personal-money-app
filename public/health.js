@@ -288,7 +288,7 @@ function renderSleepStages(sleep = {}) {
   const stats = stages.map(([stage, label]) => {
     const minutes = segments.filter((segment) => segment.stage === stage).reduce((sum, segment) => sum + Number(segment.min), 0);
     const percent = segmentTotal ? Math.round(minutes / segmentTotal * 100) : 0;
-    return `<div class="stage-stat ${stage}"><span><i aria-hidden="true"></i>${label}</span><strong>${formatMinutes(minutes)} ${percent}%</strong></div>`;
+    return `<div class="stage-stat ${stage}"><span><i aria-hidden="true"></i>${label}</span><strong>${formatMinutes(minutes)}</strong><em>${percent}%</em></div>`;
   }).join('');
   const bed = lastNight.bed || segments[0].start || '';
   const wake = lastNight.wake || segments.at(-1).end || '';

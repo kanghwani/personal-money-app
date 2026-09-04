@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
-    "test": "vitest run"
+    "test": "vitest run",
+    "verify:deploy": "node scripts/verify-deploy.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",
