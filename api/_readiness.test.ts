@@ -40,16 +40,21 @@ describe('readiness', () => {
 })
 
 describe('formatFriendly', () => {
-  it('숫자 대신 말로, 잠은 항상 포함', () => {
-    const r = { score: 59, band: '계획대로', reasons: ['수면 5h30m (평소 5h42m, -12m)'], comps: [
-      { key: 'sleep', label: '어젯밤 수면', w: .2, z: -0.3, sub: 48, bad: false, text: '수면 5h30m (평소 5h42m, -12m)' },
-      { key: 'hrv7', label: 'HRV 7일 평균', w: .3, z: -0.1, sub: 47, bad: false, text: 'HRV 7일 평균 38ms (평소 39, -2%)' },
-      { key: 'load', label: '전날 부하', w: .05, z: -0.7, sub: 73, bad: false, text: '전날 활동 697kcal (28일 평균 499)' },
-    ] }
+  it('구성 요소의 쉬운 말을 쓰고 잠을 먼저 보여준다', () => {
+    const c = (key: string, label: string, z: number, sub: number, text: string, friendly: string) =>
+      ({ key, label, w: 0.2, z, sub, text, friendly, bad: false })
+    const r = {
+      score: 59, band: '계획대로', reasons: [], caps: [] as string[], illness: false,
+      comps: [
+        c('hrv7', 'HRV 7일 평균', -0.1, 47, 'HRV 7일 평균 38ms', '회복 신호(심박 변이) 38ms — 평소 수준'),
+        c('hrv1', 'HRV 어젯밤', -0.2, 45, 'HRV 37ms', '어젯밤 회복 신호 37ms — 평소 수준'),
+        c('sleep', '어젯밤 수면', 1.4, 100, '수면 6h41m', '잠 6시간 41분 — 평소보다 1시간 02분 더 잠'),
+      ],
+    }
     const s = formatFriendly(r as never)
     expect(s).toContain('준비도 59 — 무리 없이 계획대로')
-    expect(s).toContain('잠 5시간 30분 — 평소보다 12분 부족')
-    expect(s).toContain('회복 신호(심박 변이) — 평소 수준')
-    expect(s).toContain('어제 활동량이 평소보다 많았음')
+    expect(s).toContain('잠 6시간 41분 — 평소보다 1시간 02분 더 잠')
+    expect(s.indexOf('잠 6시간')).toBeLessThan(s.indexOf('회복 신호'))   // 걱정거리가 없으면 수면부터
+    expect(s).not.toContain('어젯밤 회복 신호')                          // HRV 줄 중복 제거
   })
 })
