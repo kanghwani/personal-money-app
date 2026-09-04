@@ -54,6 +54,11 @@
       </article>
     </section>
 
+    <section class="card section-card" id="sleepStagesSection">
+      <div class="section-head"><h2>어젯밤 수면 단계</h2><span class="sleep-total" id="sleepTotal">--</span></div>
+      <div id="sleepStages" class="sleep-stages"><p class="empty">수면 단계를 불러오고 있어요.</p></div>
+    </section>
+
     <section class="card section-card" id="workoutsSection">
       <div class="section-head action-head">
         <h2>운동 기록</h2>
@@ -79,6 +84,16 @@
       </div>
     </section>
 
+    <section class="card section-card" id="trainingLoadSection">
+      <div class="section-head"><h2>훈련 부하</h2><span class="load-status" id="loadStatus">불러오는 중</span></div>
+      <p class="section-desc" id="loadText">최근 운동 기록을 비교하고 있어요.</p>
+      <div id="trainingLoad" class="training-load"></div>
+      <details class="method-details">
+        <summary>계산 근거</summary>
+        <p>세션 시간과 평균심박으로 계산한 상대 부하. 절대값이 아니라 내 이력과 비교하는 값.</p>
+      </details>
+    </section>
+
     <section class="card section-card" id="trendsSection">
       <div class="section-head"><h2>몸의 흐름</h2></div>
       <p class="section-desc">하루 값보다 방향을 봐요.</p>
@@ -91,6 +106,18 @@
         <div class="subhead"><h3>주간 부하</h3><span>sRPE</span></div>
         <div id="loadTrend"></div>
       </div>
+    </section>
+
+    <section class="card section-card" id="fitnessSection">
+      <div class="section-head"><h2>체력</h2></div>
+      <p class="section-desc">하루 점수보다 긴 방향을 봐요.</p>
+      <div id="fitnessBody" class="fitness-body"></div>
+    </section>
+
+    <section class="card section-card" id="insightsSection">
+      <div class="section-head"><h2>발견</h2><span class="insight-count" id="insightCount"></span></div>
+      <p class="section-desc">내 기록에서 표본과 효과크기 기준을 넘긴 관계만 보여요.</p>
+      <div id="insightList" class="insight-list"></div>
     </section>
 
     <section class="card section-card" id="journalSection">

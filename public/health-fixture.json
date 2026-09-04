@@ -168,7 +168,88 @@
   ],
   "bedtimeMedian": "01:27",
   "bedtimeSdMin": 44,
-  "debtMin": -31
+  "debtMin": -31,
+  "stagesFrom": "2025-09-19",
+  "segments": [
+   {
+    "start": "00:15",
+    "end": "00:30",
+    "stage": "core",
+    "min": 15
+   },
+   {
+    "start": "00:30",
+    "end": "00:53",
+    "stage": "deep",
+    "min": 23
+   },
+   {
+    "start": "00:53",
+    "end": "01:09",
+    "stage": "core",
+    "min": 16
+   },
+   {
+    "start": "01:09",
+    "end": "01:52",
+    "stage": "rem",
+    "min": 43
+   },
+   {
+    "start": "01:52",
+    "end": "02:41",
+    "stage": "core",
+    "min": 49
+   },
+   {
+    "start": "02:41",
+    "end": "03:04",
+    "stage": "deep",
+    "min": 23
+   },
+   {
+    "start": "03:04",
+    "end": "03:08",
+    "stage": "awake",
+    "min": 4
+   },
+   {
+    "start": "03:08",
+    "end": "04:02",
+    "stage": "core",
+    "min": 54
+   },
+   {
+    "start": "04:02",
+    "end": "04:35",
+    "stage": "rem",
+    "min": 33
+   },
+   {
+    "start": "04:35",
+    "end": "05:21",
+    "stage": "core",
+    "min": 46
+   },
+   {
+    "start": "05:21",
+    "end": "05:38",
+    "stage": "deep",
+    "min": 17
+   },
+   {
+    "start": "05:38",
+    "end": "06:20",
+    "stage": "core",
+    "min": 42
+   },
+   {
+    "start": "06:20",
+    "end": "06:56",
+    "stage": "rem",
+    "min": 36
+   }
+  ]
  },
  "metrics": {
   "hrv": {
@@ -821,5 +902,153 @@
    }
   ]
  },
- "alerts": []
+ "alerts": [],
+ "fitness": {
+  "vo2max": {
+   "current": 42.1,
+   "best": 45.9,
+   "bestMonth": "2025-08",
+   "change12mo": -1.8,
+   "series": [
+    {
+     "month": "2025-10",
+     "v": 45.1
+    },
+    {
+     "month": "2025-12",
+     "v": 44.2
+    },
+    {
+     "month": "2026-02",
+     "v": 43.6
+    },
+    {
+     "month": "2026-04",
+     "v": 43.9
+    },
+    {
+     "month": "2026-06",
+     "v": 43.1
+    },
+    {
+     "month": "2026-08",
+     "v": 42.1
+    }
+   ]
+  },
+  "restingHr": {
+   "current": 63,
+   "change12mo": 1.2,
+   "series": [
+    {
+     "month": "2025-10",
+     "v": 62.1
+    },
+    {
+     "month": "2025-12",
+     "v": 61.4
+    },
+    {
+     "month": "2026-02",
+     "v": 63.0
+    },
+    {
+     "month": "2026-04",
+     "v": 63.8
+    },
+    {
+     "month": "2026-06",
+     "v": 64.2
+    },
+    {
+     "month": "2026-08",
+     "v": 64.6
+    }
+   ]
+  },
+  "load": {
+   "weeks": [
+    {
+     "week": "2026-06-22",
+     "load": 98,
+     "sessions": 3
+    },
+    {
+     "week": "2026-06-29",
+     "load": 64,
+     "sessions": 2
+    },
+    {
+     "week": "2026-07-06",
+     "load": 112,
+     "sessions": 3
+    },
+    {
+     "week": "2026-07-13",
+     "load": 77,
+     "sessions": 2
+    },
+    {
+     "week": "2026-07-20",
+     "load": 41,
+     "sessions": 1
+    },
+    {
+     "week": "2026-07-27",
+     "load": 95,
+     "sessions": 3
+    },
+    {
+     "week": "2026-08-03",
+     "load": 83,
+     "sessions": 3
+    },
+    {
+     "week": "2026-08-10",
+     "load": 39,
+     "sessions": 1
+    },
+    {
+     "week": "2026-08-17",
+     "load": 0,
+     "sessions": 0
+    },
+    {
+     "week": "2026-08-24",
+     "load": 45,
+     "sessions": 1
+    },
+    {
+     "week": "2026-08-31",
+     "load": 31,
+     "sessions": 1
+    }
+   ],
+   "acute": 31,
+   "chronic": 29,
+   "ratio": 1.09,
+   "status": "유지",
+   "text": "지난 4주와 비슷한 부하예요."
+  }
+ },
+ "insights": [
+  {
+   "id": "workout_recovery",
+   "title": "운동한 다음 날 회복 지표가 더 좋아요",
+   "detail": "운동한 다음 날 HRV 평균 40.9ms, 안 한 날 36.8ms. 안정심박은 2.6 낮았어요.",
+   "evidence": "2017년 이후 1,911일 기준. 264일 대 1,647일 비교, 효과크기 0.37(중간). 관련성이며 인과는 아니에요.",
+   "strength": "중간",
+   "tone": "good",
+   "n": 1911
+  },
+  {
+   "id": "weekday_sleep",
+   "title": "금요일과 일요일 밤에 가장 적게 자요",
+   "detail": "화요일 평균 7.4시간, 금요일 6.2시간. 주중에도 1시간 넘게 차이가 나요.",
+   "evidence": "단계 기록이 있는 233일 기준. 요일별 표본 24~40일.",
+   "strength": "뚜렷함",
+   "tone": "warn",
+   "n": 233
+  }
+ ]
 }

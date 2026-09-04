@@ -29,6 +29,14 @@ function compactNumber(value) {
   return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 }).format(Number(value) || 0);
 }
 
+function formatMinutes(value) {
+  const minutes = Math.max(0, Math.round(Number(value) || 0));
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (!hours) return `${rest}분`;
+  return rest ? `${hours}시간 ${rest}분` : `${hours}시간`;
+}
+
 function formatPace(seconds) {
   if (!Number.isFinite(Number(seconds))) return '--';
   const value = Number(seconds);
@@ -221,6 +229,105 @@ function barChart(rows, valueOf) {
   return `<div class="bar-chart">${rows.map((row, index) => `<span class="bar-col ${index === rows.length - 1 ? 'current' : ''}"><i style="height:${Math.max(3, values[index] / max * 100)}%" title="${compactNumber(values[index])}"></i><small>${esc(String(row.month || row.week || '').slice(5).replace('-', '/'))}</small></span>`).join('')}</div>`;
 }
 
+function renderSleepStages(sleep = {}) {
+  const lastNight = sleep.lastNight || {};
+  const segments = (Array.isArray(sleep.segments) ? sleep.segments : []).filter((segment) => ['core', 'deep', 'rem', 'awake'].includes(segment.stage) && Number(segment.min) > 0);
+  const totalMin = isNumberValue(lastNight.totalMin) ? Number(lastNight.totalMin) : segments.reduce((sum, segment) => sum + Number(segment.min), 0);
+  $('#sleepTotal').textContent = totalMin > 0 ? formatMinutes(totalMin) : '기록 없음';
+  if (!segments.length) {
+    $('#sleepStages').innerHTML = `<div class="sleep-fallback"><strong>${totalMin > 0 ? esc(formatMinutes(totalMin)) : '--'}</strong><span>이 날은 단계 기록이 없어요${sleep.stagesFrom ? `<br>단계 기록은 ${esc(formatDate(sleep.stagesFrom))}부터 있어요.` : ''}</span></div>`;
+    return;
+  }
+  const segmentTotal = segments.reduce((sum, segment) => sum + Number(segment.min), 0);
+  let elapsed = 0;
+  const rects = segments.map((segment) => {
+    const x = elapsed / segmentTotal * 1000;
+    const width = Number(segment.min) / segmentTotal * 1000;
+    elapsed += Number(segment.min);
+    const fill = segment.stage === 'rem' ? 'url(#sleep-rem)' : segment.stage === 'deep' ? 'var(--ink)' : segment.stage === 'core' ? 'var(--shade)' : 'var(--card)';
+    return `<rect x="${x.toFixed(2)}" y="1" width="${Math.max(width, 1).toFixed(2)}" height="50" fill="${fill}" stroke="var(--line)" stroke-width="2" vector-effect="non-scaling-stroke"><title>${esc(segment.start)} ${esc(segment.stage)} ${compactNumber(segment.min)}분</title></rect>`;
+  }).join('');
+  const stages = [
+    ['deep', '깊은 수면'],
+    ['rem', '렘 수면'],
+    ['core', '코어 수면'],
+    ['awake', '깨어 있음']
+  ];
+  const stats = stages.map(([stage, label]) => {
+    const minutes = segments.filter((segment) => segment.stage === stage).reduce((sum, segment) => sum + Number(segment.min), 0);
+    const percent = segmentTotal ? Math.round(minutes / segmentTotal * 100) : 0;
+    return `<div class="stage-stat ${stage}"><span><i aria-hidden="true"></i>${label}</span><strong>${formatMinutes(minutes)} ${percent}%</strong></div>`;
+  }).join('');
+  const bed = lastNight.bed || segments[0].start || '';
+  const wake = lastNight.wake || segments.at(-1).end || '';
+  $('#sleepStages').innerHTML = `<svg class="sleep-chart" viewBox="0 0 1000 52" preserveAspectRatio="none" role="img" aria-label="${esc(bed)}부터 ${esc(wake)}까지 수면 단계"><defs><pattern id="sleep-rem" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="12" height="12" fill="var(--card)"></rect><line x1="0" y1="0" x2="0" y2="12" stroke="var(--ink)" stroke-width="4"></line></pattern></defs>${rects}</svg><div class="sleep-axis"><span>${esc(bed)} 취침</span><span>${esc(wake)} 기상</span></div><div class="stage-summary">${stats}</div>`;
+}
+
+function loadTone(status) {
+  if (status === '과부하') return 'bad';
+  if (status === '회복중') return 'warn';
+  if (status === '증가' || status === '유지') return 'good';
+  return '';
+}
+
+function renderTrainingLoad(load = {}) {
+  const weeks = Array.isArray(load.weeks) ? load.weeks.filter((row) => isNumberValue(row.load)) : [];
+  const status = load.status || '데이터부족';
+  const tone = loadTone(status);
+  $('#loadStatus').className = `load-status ${tone}`.trim();
+  $('#loadStatus').textContent = status;
+  $('#loadText').textContent = load.text || (weeks.length ? '내 최근 기록과 부하를 비교해요.' : '운동 기록이 쌓이면 최근 부하를 비교해요.');
+  if (!weeks.length) {
+    $('#trainingLoad').innerHTML = '<p class="empty">주간 부하 데이터가 아직 없어요. 세션이 쌓이면 12주 흐름과 급성/만성 비율이 보여요.</p>';
+    return;
+  }
+  const values = weeks.map((row) => Number(row.load));
+  const max = Math.max(...values, 1);
+  const bars = weeks.slice(-12).map((row, index, rows) => {
+    const showLabel = index === 0 || index === rows.length - 1 || index % 3 === 0;
+    const label = String(row.week || '').slice(5).replace('-', '/');
+    return `<span class="bar-col ${index === rows.length - 1 ? 'current' : ''}"><i style="height:${Math.max(3, Number(row.load) / max * 100)}%" title="${compactNumber(row.load)} / ${compactNumber(row.sessions)}회"></i><small>${showLabel ? esc(label) : ''}</small></span>`;
+  }).join('');
+  const ratio = isNumberValue(load.ratio) ? Number(load.ratio) : null;
+  const marker = ratio == null ? '' : `<i class="ratio-marker ${tone}" style="left:${Math.max(0, Math.min(100, ratio / 2 * 100))}%"></i>`;
+  $('#trainingLoad').innerHTML = `<div class="subhead"><h3>최근 12주</h3><span>상대 부하</span></div><div class="bar-chart load-chart">${bars}</div><div class="ratio-head"><span>급성/만성 비율</span><strong>${ratio == null ? '--' : compactNumber(ratio)}</strong></div><p class="ratio-values">급성 ${isNumberValue(load.acute) ? compactNumber(load.acute) : '--'} / 만성 ${isNumberValue(load.chronic) ? compactNumber(load.chronic) : '--'}</p><div class="ratio-gauge" aria-label="급성 만성 비율 ${ratio == null ? '데이터 없음' : compactNumber(ratio)}"><i class="ratio-safe"></i>${marker}</div><div class="ratio-scale"><span>0</span><span style="left:40%">0.8</span><span style="left:65%">1.3</span><span>2.0</span></div>`;
+}
+
+function signedChange(value) {
+  if (!isNumberValue(value)) return '--';
+  const number = Number(value);
+  return `${number > 0 ? '+' : ''}${compactNumber(number)}`;
+}
+
+function fitnessPanel(config) {
+  const series = Array.isArray(config.data?.series) ? config.data.series.filter((point) => isNumberValue(point.v)) : [];
+  const current = isNumberValue(config.data?.current) ? compactNumber(config.data.current) : '--';
+  const change = isNumberValue(config.data?.change12mo) ? Number(config.data.change12mo) : null;
+  const good = change != null && (config.betterWhen === 'high' ? change >= 0 : change <= 0);
+  const monthFirst = series[0]?.month ? String(series[0].month).replace('-', '.') : '';
+  const monthLast = series.at(-1)?.month ? String(series.at(-1).month).replace('-', '.') : '';
+  const best = isNumberValue(config.data?.best) ? `<p class="fitness-meta">최고 ${compactNumber(config.data.best)} / ${esc(String(config.data.bestMonth || '').replace('-', '.'))}</p>` : '';
+  const chart = series.length ? `${sparkline(series, 'spark fitness-spark')}<div class="fitness-months"><span>${esc(monthFirst)}</span><span>${esc(monthLast)}</span></div>` : '<p class="empty">월별 추세가 쌓이면 긴 방향을 보여요.</p>';
+  return `<article class="fitness-panel"><div class="fitness-top"><div><strong class="fitness-name">${config.label}</strong><span class="fitness-direction">${config.direction}</span></div><strong class="fitness-current">${current}${config.unit ? `<small>${esc(config.unit)}</small>` : ''}</strong></div><span class="fitness-change ${change == null ? '' : good ? 'good' : 'warn'}">12개월 변화 ${signedChange(change)}</span>${best}${chart}</article>`;
+}
+
+function renderFitness(fitness = {}) {
+  $('#fitnessBody').innerHTML = fitnessPanel({ label: 'VO2max', direction: '높을수록 좋음', unit: '', betterWhen: 'high', data: fitness.vo2max || {} }) + fitnessPanel({ label: '안정심박', direction: '낮을수록 좋음', unit: '회/분', betterWhen: 'low', data: fitness.restingHr || {} });
+}
+
+function renderInsights(insights) {
+  const list = Array.isArray(insights) ? insights : [];
+  $('#insightCount').textContent = list.length ? `${list.length}개` : '';
+  if (!list.length) {
+    $('#insightList').innerHTML = '<p class="empty">아직 뚜렷한 패턴이 없어요. 기록이 쌓이면 여기에 생겨요.</p>';
+    return;
+  }
+  $('#insightList').innerHTML = list.map((insight) => {
+    const tone = ['good', 'warn', 'bad'].includes(insight.tone) ? insight.tone : '';
+    return `<article class="insight ${tone}"><div class="insight-title-row"><h3 class="insight-title">${esc(insight.title)}</h3><span class="strength-label">${esc(insight.strength || '약함')}</span></div><p class="insight-detail">${esc(insight.detail)}</p><details class="insight-evidence"><summary>근거 보기</summary><p>${esc(insight.evidence)}</p></details></article>`;
+  }).join('');
+}
+
 function renderTrends(data) {
   const metrics = data.metrics || {};
   const sleepSeries = (data.sleep?.recent || []).map((row) => ({ date: row.date, v: row.totalMin }));
@@ -252,7 +359,7 @@ function render(data) {
   $('#syncMark').setAttribute('aria-label', fixtureMode ? '샘플 데이터' : '데이터 동기화 완료');
   $('#staleHint').textContent = data.staleness?.hint || '';
   $('#generatedAt').textContent = data.generatedAt ? `마지막 계산 ${new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(data.generatedAt))}` : '';
-  renderAlerts(data); renderReadiness(data.readiness); renderTodayPlan(data.plan, data.readiness?.band); renderWorkouts(data.workouts); renderWellness(data.wellness); renderWeek(data.plan); renderTrends(data); renderJournal(data);
+  renderAlerts(data); renderReadiness(data.readiness); renderTodayPlan(data.plan, data.readiness?.band); renderSleepStages(data.sleep); renderWorkouts(data.workouts); renderWellness(data.wellness); renderWeek(data.plan); renderTrainingLoad(data.fitness?.load); renderTrends(data); renderFitness(data.fitness); renderInsights(data.insights); renderJournal(data);
   $('#app').setAttribute('aria-busy', 'false');
 }
 
