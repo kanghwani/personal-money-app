@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { verify } from './_auth.js'
 import { gasGet, gasPost } from './_gas.js'
 import { dailyLoad, fitnessPayload, insights, nightSegments, stagesFrom } from './_analysis.js'
-import { weekReview, adviceHistory, adviceFromRow, mondayOf as coachMonday } from './_coach.js'
+import { weekReview, monthReview, adviceHistory, adviceFromRow, mondayOf as coachMonday } from './_coach.js'
 import { dailySeries, groupNights, type HealthRow, type Tabs } from './_health.js'
 import { logStamp, parseLog, SPORT } from './_log.js'
 import { PLAN_LIBRARY, detailKey } from './_plan.js'
@@ -192,6 +192,10 @@ function coachPayload(tabs: Tabs, today: string) {
       kept: judged.filter((h) => h.result.met === true).length, judged: judged.length,
       recent: hist.map((h) => ({ date: h.date, text: h.text, met: h.result.met })),
     },
+    month: (() => {
+      const m = monthReview(tabs, today)
+      return { sessions: m.sessions, vo2Change: m.vo2Change, rhrChange: m.rhrChange, promotions: m.promotions.length, decision: m.decision.text }
+    })(),
   }
 }
 

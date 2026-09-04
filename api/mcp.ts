@@ -3,7 +3,7 @@ import { summarizeSleep, summarizeDaily, summarizeWorkouts, summarizeTrend, type
 import { parseLog, logStamp, summarizeManual } from './_log.js'
 import { readiness, formatReadiness } from './_readiness.js'
 import { dailyLoad, fitnessPayload, insights } from './_analysis.js'
-import { weekReview, formatWeek, monthReview, formatMonth, adviceHistory, formatHistory, adviceToExtra, mondayOf } from './_coach.js'
+import { weekReview, formatWeek, monthReview, formatMonth, adviceHistory, formatHistory, adviceToExtra, mondayOf, monthOf } from './_coach.js'
 import { gasGet, gasPost } from './_gas.js'
 
 /**
@@ -74,8 +74,8 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: {} } },
   { name: 'coach_history', description: '지금까지 코치가 낸 제안과 각각을 지켰는지. "예전에 뭐라고 했었지", "내가 제안을 잘 지키고 있나" 같은 질문에. 리뷰 본문은 저장하지 않지만 원본 데이터에서 언제든 다시 계산되므로, 특정 주를 다시 보려면 coach_week 에 week 를 넘긴다.',
     inputSchema: { type: 'object', properties: { limit: { type: 'number', description: '최근 몇 개 (기본 8)' } } } },
-  { name: 'coach_month', description: '월간 코치 리뷰. 최근 30일 세션·종목 분포·수면, VO2max와 안정심박의 1년 대비 변화, 태그가 다음 날에 남긴 흔적(표본이 적으면 판단하지 않음), 그리고 훈련 단계 진급 판정. "계획 자체를 바꿔야 하나"에 답한다.',
-    inputSchema: { type: 'object', properties: {} } },
+  { name: 'coach_month', description: '월간 코치 리뷰. 세션·종목 분포·수면, VO2max와 안정심박의 1년 대비 변화, 태그가 다음 날에 남긴 흔적(표본이 적으면 판단하지 않음), 진급 판정, 지난달 결정 되짚기, 그리고 **이번 달 결정 하나**. "계획 자체를 바꿔야 하나"에 답한다. 호출하면 그 결정이 기록으로 저장돼 다음 달에 되짚는다. month 에 날짜를 주면 그 달을 다시 계산한다(과거 달은 저장하지 않음). 서버가 고른 결정을 바꾸지 말 것.',
+    inputSchema: { type: 'object', properties: { month: { type: 'string', description: '과거 달을 볼 때 그 달의 아무 날짜 (YYYY-MM-DD)' } } } },
   { name: 'health_insight', description: '9년치 기록에서 찾은 관계와 훈련 부하·체력 장기 추세. 표본 30 이상·효과크기 0.3 이상만 통과시킨 발견만 나온다. "내 몸에서 발견된 패턴 있어?", "훈련 부하 어때?", "체력 늘고 있어?" 같은 질문에. 결과 문장을 인과처럼 바꿔 쓰지 말 것.',
     inputSchema: { type: 'object', properties: {} } },
   { name: 'health_trend', description: '한 지표의 월별 추세(장기). metric: sleep(총수면 h), resting_hr, hrv, vo2max, steps, active_kcal, exercise_min, respiratory_rate, wrist_temp, spo2, workout(전 종목), running/수영/swimming/yoga(종목별 횟수·시간·거리·러닝 페이스·평균심박), pullups/턱걸이(총 개수·최대 세트). "체력 늘고 있어?", "러닝 페이스 빨라졌어?", "턱걸이 늘었어?" 같은 질문에.',
@@ -232,7 +232,17 @@ async function runTool(name: string, args: Record<string, unknown>): Promise<str
 
   if (name === 'coach_month') {
     const t = (await gasGet<{ tabs?: Tabs }>('healthAll', '&days=3400')).tabs ?? {}
-    return formatMonth(monthReview(t, today()))
+    const todayKey = today()
+    const anchor = typeof args.month === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(args.month) ? args.month : undefined
+    const r = monthReview(t, todayKey, anchor)
+    // 이번 달 결정이 아직 없으면 저장한다. 과거 달을 다시 볼 때는 저장하지 않는다.
+    const thisMonth = monthOf(todayKey)
+    const already = !!anchor || (t.manual ?? []).some((m) => m.value === '코치' && (m.extra || '').startsWith('월간|') && m.start.slice(0, 10) >= thisMonth)
+    if (!already) {
+      const stamp = `${todayKey} 09:00:00`
+      await gasPost({ action: 'health', type: 'manual', rows: [stamp, stamp, '코치', adviceToExtra('월간', r.decision)].join('|') })
+    }
+    return formatMonth(r) + (already ? '' : '\n\n(이 결정을 기록했어요. 다음 달 리뷰에서 되짚어요.)')
   }
 
   if (name === 'health_insight') {

@@ -228,25 +228,43 @@ export function tagImpact(tabs: Tabs, today: string) {
   }).sort((a, b) => b.days - a.days)
 }
 
-export function monthReview(tabs: Tabs, today: string) {
-  const from = shift(today, -30)
-  const workouts = (tabs.workout ?? []).filter((w) => day(w) >= from)
+/** 그 달의 1일 */
+export const monthOf = (d: string) => d.slice(0, 7) + '-01'
+const monthEnd = (m: string) => shift(shift(m, 32).slice(0, 7) + '-01', -1)
+
+export function monthReview(tabs: Tabs, today: string, monthAnchor?: string) {
+  // monthAnchor 가 있으면 그 달 전체를, 없으면 최근 30일을 본다
+  const month = monthAnchor ? monthOf(monthAnchor) : null
+  const from = month ?? shift(today, -30)
+  const to = month ? (monthEnd(month) < today ? monthEnd(month) : today) : today
+  const workouts = (tabs.workout ?? []).filter((w) => day(w) >= from && day(w) <= to)
   const bySport = new Map<string, number>()
   for (const w of workouts) bySport.set(w.value, (bySport.get(w.value) ?? 0) + 1)
-  const nights = nightRows(tabs.sleep).filter((n) => n.key >= from)
+  const nights = nightRows(tabs.sleep).filter((n) => n.key >= from && n.key <= to)
   const vo2 = dailySeries(tabs.vo2max)
   const vNow = [...vo2].filter(([d]) => d >= shift(today, -90)).map(([, v]) => v)
   const vThen = [...vo2].filter(([d]) => d >= shift(today, -455) && d <= shift(today, -365)).map(([, v]) => v)
   const rhr = dailySeries(tabs.resting_hr)
-  const rNow = [...rhr].filter(([d]) => d >= from).map(([, v]) => v)
+  const rNow = [...rhr].filter(([d]) => d >= from && d <= to).map(([, v]) => v)
   const rThen = [...rhr].filter(([d]) => d >= shift(today, -395) && d <= shift(today, -365)).map(([, v]) => v)
+  // 지난달에 남긴 결정을 되짚는다
+  const prevFrom = shift(from, -32).slice(0, 7) + '-01'
+  const prevRow = (tabs.manual ?? []).filter((m) => m.value === '코치' && (m.extra || '').startsWith('월간|') && day(m) >= prevFrom && day(m) < from).pop()
+  const promo = promotions(tabs, to)
+  const decision: Advice = promo.length
+    ? { key: 'promote', text: `${promo[0].area}: ${promo[0].from}에서 ${promo[0].to}로 올리기`,
+        metric: promo[0].area === '턱걸이' ? 'pullups' : 'none', target: promo[0].area === '턱걸이' ? 5 : 0, why: promo[0].why }
+    : { key: 'hold', text: '다음 달도 지금 단계 유지', metric: 'sessions', target: 0,
+        why: '진급 조건을 넘긴 항목이 없어요. 같은 단계를 더 채우는 게 다음 단계로 가는 길이에요.' }
   return {
-    from, to: today,
+    from, to,
+    prevDecision: prevRow ? adviceFromRow(prevRow) : null,
+    decision,
     sessions: workouts.length, bySport: [...bySport.entries()].sort((a, b) => b[1] - a[1]),
     sleepMean: nights.length ? Math.round(mean(nights.map((n) => n.totalMin))) : null, nights: nights.length,
     vo2: vNow.length ? round(mean(vNow), 1) : null, vo2Change: vNow.length && vThen.length ? round(mean(vNow) - mean(vThen), 1) : null,
     rhr: rNow.length ? round(mean(rNow), 1) : null, rhrChange: rNow.length && rThen.length ? round(mean(rNow) - mean(rThen), 1) : null,
-    tags: tagImpact(tabs, today), promotions: promotions(tabs, today),
+    tags: tagImpact(tabs, to), promotions: promo,
   }
 }
 
@@ -262,6 +280,8 @@ export function formatMonth(r: ReturnType<typeof monthReview>): string {
     : '  기록된 태그가 없어요.')
   lines.push('\n[진급 판정]')
   lines.push(r.promotions.length ? r.promotions.map((p) => `  ${p.area}: ${p.from} → ${p.to}\n    ${p.why}`).join('\n') : '  아직 다음 단계 조건을 넘긴 항목이 없어요.')
+  if (r.prevDecision) lines.push(`\n지난달 결정: ${r.prevDecision.text}`)
+  lines.push(`\n[이번 달 결정] ${r.decision.text}\n  ${r.decision.why}`)
   return lines.join('\n')
 }
 

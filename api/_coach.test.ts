@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { weekFacts, nextChange, evaluate, promotions, weekReview, formatWeek, tagImpact, mondayOf, adviceToExtra, adviceFromRow, adviceHistory, formatHistory } from './_coach'
+import { weekFacts, nextChange, evaluate, promotions, weekReview, formatWeek, tagImpact, mondayOf, adviceToExtra, adviceFromRow, adviceHistory, formatHistory, monthReview, formatMonth } from './_coach'
 import { parseLog } from './_log'
 import type { HealthRow, Tabs } from './_health'
 
@@ -158,5 +158,26 @@ describe('과거 주 다시 보기 · 코치 기록', () => {
   })
   it('기록이 없으면 안내만 한다', () => {
     expect(formatHistory(adviceHistory(base(), TODAY))).toContain('아직 저장된 제안이 없어요')
+  })
+})
+
+describe('월간 결정', () => {
+  it('진급 조건을 넘기면 결정이 진급, 아니면 유지', () => {
+    const tabs = base()
+    for (const d of ['2026-08-20', '2026-08-25', '2026-08-30']) tabs.manual.push(row(`${d} 12:00`, '턱걸이', '데드행|3|30초'))
+    const r = monthReview(tabs, TODAY)
+    expect(r.decision.key).toBe('promote')
+    expect(r.decision.text).toContain('네거티브')
+    expect(monthReview(base(), TODAY).decision.key).toBe('hold')
+  })
+  it('month 를 주면 그 달만 계산하고 지난달 결정을 되짚는다', () => {
+    const tabs = base()
+    tabs.workout.push(row('2026-07-10 09:00', 'Swimming', '55|210|900|115'), row('2026-08-10 09:00', 'Swimming', '55|210|900|115'))
+    tabs.manual.push(row('2026-07-02 09:00', '코치', '월간|hold|sessions|0|다음 달도 지금 단계 유지'))
+    const r = monthReview(tabs, TODAY, '2026-08-15')
+    expect(r.from).toBe('2026-08-01')
+    expect(r.sessions).toBe(1)
+    expect(r.prevDecision?.text).toBe('다음 달도 지금 단계 유지')
+    expect(formatMonth(r)).toContain('[이번 달 결정]')
   })
 })

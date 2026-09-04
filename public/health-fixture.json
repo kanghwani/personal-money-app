@@ -1110,6 +1110,13 @@
      "met": false
     }
    ]
+  },
+  "month": {
+   "sessions": 11,
+   "vo2Change": -2.6,
+   "rhrChange": 1.6,
+   "promotions": 1,
+   "decision": "턱걸이: 데드행에서 네거티브 8초로 올리기"
   }
  }
 }

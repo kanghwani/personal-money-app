@@ -396,7 +396,12 @@ function renderCoach(coach) {
   const history = h.judged
     ? `<div class="coach-history"><span>지금까지 제안 ${h.kept}/${h.judged} 지킴</span><div class="pips">${pips}</div></div>`
     : '<p class="coach-history-empty">제안을 지켰는지는 다음 주에 확인해요.</p>';
-  $('#coachBody').innerHTML = `<div class="coach-stats">${stats}</div>${notes.length ? `<ul class="coach-notes">${notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}${review}${advice}${history}`;
+  const m = coach.month;
+  const arrow = (v, lowerBetter) => v == null ? '' : ` ${v >= 0 ? '+' : ''}${v}${lowerBetter ? (v > 0 ? ' 나빠짐' : v < 0 ? ' 좋아짐' : '') : (v > 0 ? ' 좋아짐' : v < 0 ? ' 나빠짐' : '')}`;
+  const month = m
+    ? `<div class="coach-month"><span class="coach-month-line">이번 달 세션 ${m.sessions}회 · VO2max${arrow(m.vo2Change, false) || ' 변화 없음'} · 안정심박${arrow(m.rhrChange, true) || ' 변화 없음'}</span><span class="coach-month-line">${m.promotions ? `진급 대기 ${m.promotions}건` : '진급 대기 없음'} · ${esc(m.decision)}</span></div>`
+    : '';
+  $('#coachBody').innerHTML = `<div class="coach-stats">${stats}</div>${notes.length ? `<ul class="coach-notes">${notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}${review}${advice}${history}${month}`;
 }
 
 function renderJournal(data) {
