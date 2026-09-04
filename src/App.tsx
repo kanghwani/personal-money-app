@@ -934,13 +934,16 @@ function CardBenefitOverview({ rows, monthKey, onOpenInsights, ledgerStatus }: {
   const basisMonth = previousMonthKey(monthKey)
   const basisPerf = useMemo(() => cardPerformance(rows as never, basisMonth), [rows, basisMonth])
   // 끝난 달의 실적은 다시 바뀌지 않는다. 한 번 계산되면 저장해두고, 원장을 못 읽는 날엔 그 값을 쓴다.
+  // 원장이 다 들어온 뒤에만 저장한다. 로딩 중에는 할부·최근 입력분만 잡혀서
+  // 실적이 실제보다 낮게 나오는데, 그걸 눌러버리면 틀린 값이 계속 남는다.
   const knownPerf = useMemo(() => {
-    if (basisPerf.length) {
+    if (ledgerStatus === 'ready' && basisPerf.length) {
       cacheCardPerf(basisMonth, basisPerf)
       return new Map(basisPerf.map((c) => [c.name, c.qualified]))
     }
-    return readCardPerf(basisMonth)
-  }, [basisPerf, basisMonth])
+    const saved = readCardPerf(basisMonth)
+    return saved.size ? saved : new Map(basisPerf.map((c) => [c.name, c.qualified]))
+  }, [basisPerf, basisMonth, ledgerStatus])
   const balances = useMemo(() => benefitBalances(rows as never, monthKey, undefined, knownPerf), [rows, monthKey, knownPerf])
   const missed = useMemo(() => missedBenefits(rows as never, monthKey), [rows, monthKey])
   const cardGroups = CARD_SPECS.filter((spec) => spec.owned && spec.benefits.length)
