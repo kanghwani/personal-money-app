@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { buildHealthResponse } from './health'
+import { buildHealthResponse } from './health.js'
 import type { HealthRow, Tabs } from './_health'
 
 const fixture = JSON.parse(readFileSync(new URL('../public/health-fixture.json', import.meta.url), 'utf8')) as unknown
