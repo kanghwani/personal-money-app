@@ -2,7 +2,9 @@
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const TAGS = ['술', '늦은식사', '카페인', '출장', '아픔', '야근', '낮잠'];
-const SHORTCUT_NAME = '건강 업로드';
+// shortcuts:// URL 은 한글 이름 매칭이 깨지는 경우가 있어 영문 이름의 중계 단축어를 부른다.
+// (단축어 안에서 한글 이름으로 호출하는 것은 정상 동작하므로 중계가 '건강 업로드' 를 실행한다.)
+const SHORTCUT_NAME = 'healthsync';
 /**
  * x-callback-url 로 부르면 성공·실패가 이 페이지로 되돌아온다.
  * 그냥 shortcuts:// 로 부르면 단축어를 못 찾아도 화면에서는 알 길이 없어 원인 찾기가 어렵다.
@@ -458,7 +460,7 @@ async function load() {
     left = false;
     setTimeout(() => {
       if (left) return;
-      toast(`단축어가 열리지 않았어요. 단축어 앱에서 '${SHORTCUT_NAME}' 을 직접 실행해 주세요.`);
+      toast(`단축어가 열리지 않았어요. 단축어 앱에서 '건강 업로드' 를 직접 실행해 주세요.`);
     }, 1800);
   });
 })();

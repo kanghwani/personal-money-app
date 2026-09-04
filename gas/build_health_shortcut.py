@@ -156,6 +156,15 @@ checkin = [
     act('conditional', GroupingIdentifier=cond_if, WFControlFlowMode=2, UUID=U()),
 ]
 
+# 앱이 부르는 진입점. shortcuts:// URL 은 한글 이름 매칭이 깨지는 경우가 있어서
+# 영문 이름의 얇은 중계를 두고, 받은 입력을 그대로 '건강 업로드' 로 넘긴다.
+relay = [
+    comment('앱의 "워치에서 가져오기" 가 부르는 중계. 받은 입력(force)을 건강 업로드로 넘긴다. 직접 실행할 일은 없다.'),
+    act('runworkflow', WFWorkflowName='건강 업로드', WFShowWorkflow=False,
+        WFInput={'Value': {'Type': 'ExtensionInput'}, 'WFSerializationType': 'WFTextTokenAttachment'}),
+]
+
+
 def document(name, acts, glyph, color):
     return {
         'WFWorkflowName': name, 'WFWorkflowActions': acts,
@@ -168,6 +177,7 @@ def document(name, acts, glyph, color):
     }
 
 out_dir = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else '.')
-for name, acts, glyph, color in [('건강 업로드', actions, 61440, 4282601983), ('컨디션', checkin, 61440, 463140863)]:
+for name, acts, glyph, color in [('건강 업로드', actions, 61440, 4282601983), ('컨디션', checkin, 61440, 463140863),
+                                 ('healthsync', relay, 61440, 4271458815)]:
     (out_dir / f'{name}.xml').write_bytes(plistlib.dumps(document(name, acts, glyph, color), fmt=plistlib.FMT_XML))
     print(out_dir / f'{name}.xml', len(acts), 'actions')
