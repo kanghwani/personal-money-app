@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { summarizeSleep, summarizeDaily, summarizeWorkouts, summarizeTrend, type HealthRow, type Tabs } from './_health.js'
 import { parseLog, logStamp, summarizeManual } from './_log.js'
 import { readiness, formatReadiness } from './_readiness.js'
+import { dailyLoad, fitnessPayload, insights } from './_analysis.js'
 import { gasGet, gasPost } from './_gas.js'
 
 /**
@@ -68,6 +69,8 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: {} } },
   { name: 'health_log', description: '건강·훈련 한 줄 기록(시트 manual 탭). 형식: "컨디션 4 3 2 3"(수면질 피로 스트레스 근육통 1~5, 아침), "sRPE 수영 55 6 [메모]"(종목 분 RPE1~10, 훈련 직후), "턱걸이 밴드 3x5" / "턱걸이 네거티브 4x8초" / "턱걸이 5 5 4", "태그 술 늦은식사 카페인 출장 아픔", "통증 무릎 3"(0~10), "인바디 72.3 33.1 18.5"(체중 골격근량 체지방률), "계획 월 수영 턱걸이"/"계획 토 휴식"(요일별 훈련 계획, 주간 리포트의 계획 대비 실행에 사용), 그 외는 메모. 앞에 "어제 "를 붙이면 어제로 기록. 사용자가 컨디션·훈련·통증·술 같은 걸 한 줄로 말하면 이 툴로 저장한다.',
     inputSchema: { type: 'object', properties: { text: { type: 'string', description: '예: 컨디션 4 3 2 3' } }, required: ['text'] } },
+  { name: 'health_insight', description: '9년치 기록에서 찾은 관계와 훈련 부하·체력 장기 추세. 표본 30 이상·효과크기 0.3 이상만 통과시킨 발견만 나온다. "내 몸에서 발견된 패턴 있어?", "훈련 부하 어때?", "체력 늘고 있어?" 같은 질문에. 결과 문장을 인과처럼 바꿔 쓰지 말 것.',
+    inputSchema: { type: 'object', properties: {} } },
   { name: 'health_trend', description: '한 지표의 월별 추세(장기). metric: sleep(총수면 h), resting_hr, hrv, vo2max, steps, active_kcal, exercise_min, respiratory_rate, wrist_temp, spo2, workout(전 종목), running/수영/swimming/yoga(종목별 횟수·시간·거리·러닝 페이스·평균심박), pullups/턱걸이(총 개수·최대 세트). "체력 늘고 있어?", "러닝 페이스 빨라졌어?", "턱걸이 늘었어?" 같은 질문에.',
     inputSchema: { type: 'object', properties: { metric: { type: 'string' }, months: { type: 'number', description: '최근 몇 달 (기본 12)' } }, required: ['metric'] } },
 ]
@@ -198,6 +201,23 @@ async function runTool(name: string, args: Record<string, unknown>): Promise<str
     const e = parseLog(text)
     const r = await gasPost({ action: 'health', type: 'manual', rows: [stamp, stamp, e.kind, e.extra].join('|') }) as { added?: number; skipped?: number }
     return `${r.added ? '기록됨' : '이미 있음'}: ${stamp.slice(5, 16)} ${e.kind} — ${e.echo}`
+  }
+
+  if (name === 'health_insight') {
+    const t = (await gasGet<{ tabs?: Tabs }>('healthAll', '&days=3400')).tabs ?? {}
+    const todayKey = today()
+    const rhr = [...(t.resting_hr ?? [])].slice(-90).map((r) => parseFloat(r.value)).filter((v) => v > 0)
+    const daily = dailyLoad(t.workout, rhr.length ? Math.round(rhr.reduce((a, b) => a + b, 0) / rhr.length) : 60)
+    const f = fitnessPayload(t, todayKey, daily)
+    const found = insights(t, todayKey, daily)
+    const load = `[훈련 부하] ${f.load.status} · 급성 ${f.load.acute} / 만성 ${f.load.chronic}` +
+      (f.load.ratio != null ? ` (비율 ${f.load.ratio})` : '') + `\n${f.load.text}\n최근 12주: ${f.load.weeks.map((w) => w.load).join(' ')}`
+    const fit = `[체력] VO2max ${f.vo2max.current ?? '-'} (최고 ${f.vo2max.best ?? '-'} ${f.vo2max.bestMonth ?? ''}, 12개월 ${f.vo2max.change12mo ?? '-'})` +
+      ` · 안정심박 ${f.restingHr.current ?? '-'} (12개월 ${f.restingHr.change12mo ?? '-'})`
+    const ins = found.length
+      ? found.map((i) => `- [${i.strength}] ${i.title}\n  ${i.detail}\n  근거: ${i.evidence}`).join('\n')
+      : '- 아직 문턱(표본 30, 효과크기 0.3)을 넘긴 관계가 없어요.'
+    return [load, '', fit, '', '[발견]', ins].join('\n')
   }
 
   if (name === 'health_trend') {
