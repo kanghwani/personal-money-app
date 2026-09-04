@@ -2,7 +2,18 @@
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const TAGS = ['술', '늦은식사', '카페인', '출장', '아픔', '야근', '낮잠'];
-const SHORTCUT_URL = 'shortcuts://run-shortcut?name=%EA%B1%B4%EA%B0%95%20%EC%97%85%EB%A1%9C%EB%93%9C&input=text&text=force';
+const SHORTCUT_NAME = '건강 업로드';
+/**
+ * x-callback-url 로 부르면 성공·실패가 이 페이지로 되돌아온다.
+ * 그냥 shortcuts:// 로 부르면 단축어를 못 찾아도 화면에서는 알 길이 없어 원인 찾기가 어렵다.
+ */
+function shortcutUrl() {
+  const here = location.origin + location.pathname;
+  const back = (state) => encodeURIComponent(`${here}?shortcut=${state}`);
+  return 'shortcuts://x-callback-url/run-shortcut'
+    + `?name=${encodeURIComponent(SHORTCUT_NAME)}&input=text&text=force`
+    + `&x-success=${back('ok')}&x-cancel=${back('cancel')}&x-error=${back('error')}`;
+}
 const fixtureMode = new URLSearchParams(location.search).get('fixture') === '1';
 const state = { data: null, wellness: [0, 0, 0, 0], tags: new Set(), toastTimer: 0 };
 const isNumberValue = (value) => value !== null && value !== '' && Number.isFinite(Number(value));
@@ -431,7 +442,17 @@ async function load() {
   catch (error) { if (error.message !== 'unauthorized') toast(error.message); }
 }
 
-$('#watchImport').addEventListener('click', () => { location.href = SHORTCUT_URL; });
+$('#watchImport').addEventListener('click', () => { location.href = shortcutUrl(); });
+
+/** 단축어에서 돌아왔을 때 결과를 알려준다. 주소는 바로 정리해 새로고침해도 다시 뜨지 않게 한다. */
+(function handleShortcutReturn() {
+  const state = new URLSearchParams(location.search).get('shortcut');
+  if (!state) return;
+  history.replaceState(null, '', location.pathname + (fixtureMode ? '?fixture=1' : ''));
+  if (state === 'ok') { toast('워치 데이터를 가져왔어요.'); setTimeout(load, 800); }
+  else if (state === 'cancel') toast('가져오기를 취소했어요.');
+  else toast(`'${SHORTCUT_NAME}' 단축어를 찾지 못했어요. 단축어 앱에서 이름이 정확히 같은지 확인해 주세요.`);
+})();
 $('#saveWellness').addEventListener('click', async (event) => {
   event.currentTarget.disabled = true;
   try { await post({ text: `컨디션 ${state.wellness.join(' ')}` }, '컨디션을 저장했어요.'); }
