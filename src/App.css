@@ -1657,3 +1657,41 @@
 .cat-toggle {
   border-radius: 0;
 }
+
+/* 14. 자산 마무리 ------------------------------------------------- */
+
+/* 자산 항목도 장부의 행이다. 하나씩 카드로 띄우면 목록이 아니라 카탈로그가 된다. */
+.mini-row {
+  border: 0;
+  border-bottom: 1px dotted var(--line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 12px 4px;
+}
+
+.mini-row:last-child {
+  border-bottom: 0;
+}
+
+.mini-icon {
+  border-radius: 0;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  width: 32px;
+  height: 32px;
+}
+
+/* 섹션 아이콘까지 빨강이면 화면에 붉은 점이 대여섯 개 찍힌다.
+   도장은 확정 동작에만. 제목은 잉크로 충분하다. */
+.section-header > div > svg,
+.fixed-head .eyebrow,
+.card-import-head svg {
+  color: var(--muted);
+}
+
+.section-header h2 {
+  font-size: 15px;
+  font-weight: 700;
+}
