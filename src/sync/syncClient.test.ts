@@ -86,11 +86,20 @@ describe('loadLedger', () => {
     expect(result).toEqual(txns)
   })
 
-  it('ok가 아니면 빈 배열', async () => {
+  // []를 돌려주면 호출부가 "거래 없음"으로 받아 캐시를 덮어쓴다.
+  // 전월 실적이 0이 되어 카드 혜택이 전부 '잠김'으로 보였던 원인.
+  it('ok가 아니면 throw (빈 배열이 아니라)', async () => {
     ;(fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       json: async () => ({ ok: false }),
     })
-    expect(await loadLedger(cfg)).toEqual([])
+    await expect(loadLedger(cfg)).rejects.toThrow()
+  })
+
+  it('transactions가 배열이 아니어도 throw', async () => {
+    ;(fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      json: async () => ({ ok: true }),
+    })
+    await expect(loadLedger(cfg)).rejects.toThrow()
   })
 })
 

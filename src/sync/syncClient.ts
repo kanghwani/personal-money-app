@@ -72,8 +72,10 @@ export async function saveToServer<T>(
 /**
  * 시트 원장(과거 거래 전체)을 읽어온다.
  * - cfg 없으면(비활성) [] 반환
- * - ok가 아니거나 transactions 배열이 없으면 []
- * - 네트워크/파싱 오류는 throw (호출부가 catch해서 [] 처리)
+ * - 응답이 정상이 아니면 **throw**. 절대 []를 돌려주지 않는다.
+ *   []를 돌려주면 호출부가 "거래가 없다"와 "못 읽었다"를 구분하지 못한다.
+ *   GAS가 한 번 흔들렸을 때 원장이 통째로 빈 배열이 되고 캐시까지 덮어써서,
+ *   전월 실적이 0이 되고 카드 혜택이 전부 '잠김'으로 보였다.
  */
 export async function loadLedger<T>(
   cfg: SyncConfig | null = getSyncConfig(),
@@ -82,7 +84,7 @@ export async function loadLedger<T>(
   const url = `${cfg.url}?action=ledger&token=${encodeURIComponent(cfg.token)}${profileQuery(cfg)}`
   const res = await fetch(url, { method: 'GET', redirect: 'follow' })
   const data = await res.json()
-  if (!data || !data.ok || !Array.isArray(data.transactions)) return []
+  if (!data || !data.ok || !Array.isArray(data.transactions)) throw new Error('ledger: 응답이 올바르지 않습니다')
   return data.transactions as T[]
 }
 
@@ -109,7 +111,9 @@ export async function loadFixedDefs(cfg: SyncConfig | null = getSyncConfig()): P
   if (!cfg) return []
   const res = await fetch(`${cfg.url}?action=fixedList&token=${encodeURIComponent(cfg.token)}${profileQuery(cfg)}`, { redirect: 'follow' })
   const data = await res.json()
-  return data && data.ok && Array.isArray(data.defs) ? data.defs : []
+  // 원장과 같은 이유로 실패는 throw. 빈 배열로 돌려주면 할부가 실적에서 통째로 빠진다.
+  if (!data || !data.ok || !Array.isArray(data.defs)) throw new Error('fixedList: 응답이 올바르지 않습니다')
+  return data.defs
 }
 
 export async function saveFixedDef(def: FixedDef, cfg: SyncConfig | null = getSyncConfig()): Promise<boolean> {

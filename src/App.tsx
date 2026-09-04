@@ -2166,6 +2166,8 @@ function useLedgerHistory(): [Transaction[], () => void, LedgerLoadStatus] {
     loadLedger<Transaction>()
       .then((rows) => {
         if (cancelled) return
+        // 서버가 빈 원장을 줬는데 캐시에 거래가 있으면 캐시를 믿는다. 지우는 쪽이 훨씬 위험하다.
+        if (!rows.length && readLedgerCache().length) { setStatus('error'); return }
         setHistory(rows)
         setStatus('ready')
         try { window.localStorage.setItem(LEDGER_CACHE_KEY, JSON.stringify(rows)) } catch { /* 용량 초과 등은 무시 */ }
