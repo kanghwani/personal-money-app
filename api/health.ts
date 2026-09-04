@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { verify } from './_auth.js'
 import { gasGet, gasPost } from './_gas.js'
+import { dailyLoad, fitnessPayload, insights, nightSegments, stagesFrom } from './_analysis.js'
 import { dailySeries, groupNights, type HealthRow, type Tabs } from './_health.js'
 import { logStamp, parseLog, SPORT } from './_log.js'
 import { PLAN_LIBRARY, detailKey } from './_plan.js'
@@ -166,7 +167,13 @@ function alertsPayload(tabs: Tabs, ready: ReturnType<typeof readiness>, today: s
 export function buildHealthResponse(tabs: Tabs, today: string, now = Date.now()) {
   const manual = tabs.manual ?? [], workoutRows = tabs.workout ?? []
   const workouts = attachLogs(workoutRows.filter((w) => day(w) >= shift(today, -13) && day(w) <= today).map(workoutFromRow).sort((a, b) => `${b.date} ${b.start}`.localeCompare(`${a.date} ${a.start}`)), manual)
-  const ready = readiness(tabs, today), sleep = sleepPayload(tabs, today), manualParts = manualPayload(manual, today)
+  const ready = readiness(tabs, today), manualParts = manualPayload(manual, today)
+  const sleepBase = sleepPayload(tabs, today)
+  const sleep = { ...sleepBase, segments: sleepBase.lastNight ? nightSegments(tabs.sleep, sleepBase.lastNight.date) : [], stagesFrom: stagesFrom(tabs.sleep) }
+  // 부하는 개인 안정심박을 기준으로 계산한다(최근 90일 평균)
+  const rhrRecent = [...dailySeries(tabs.resting_hr)].filter(([d]) => d >= shift(today, -90)).map(([, v]) => v)
+  const restHr = rhrRecent.length ? Math.round(rhrRecent.reduce((a, b) => a + b, 0) / rhrRecent.length) : 60
+  const daily = dailyLoad(workoutRows, restHr)
   const allRows = Object.values(tabs).flat()
   const newest = (xs: string[]) => { const s = xs.filter(Boolean).sort(); return s.length ? s[s.length - 1] : undefined }
   const lastUpload = newest(allRows.map((r) => r.start)), lastWorkout = newest(workoutRows.map((r) => r.start))
@@ -176,12 +183,26 @@ export function buildHealthResponse(tabs: Tabs, today: string, now = Date.now())
     staleness: { lastUploadAt: lastUpload?.slice(0, 16) ?? null, sleepToday, workoutSince: lastWorkout?.slice(0, 16) ?? null, hint: !sleepToday ? '어젯밤 수면이 아직 안 올라왔어요' : !workedToday ? '오늘 운동이 아직 안 올라왔어요' : null },
     readiness: structuredReadiness(ready), sleep, metrics: metricsPayload(tabs, today), workouts, ...manualParts,
     plan: planPayload(manual, workoutRows, today), trends: trendsPayload(workoutRows, manual, today), alerts: alertsPayload(tabs, ready, today),
+    fitness: fitnessPayload(tabs, today, daily), insights: insights(tabs, today, daily),
   }
 }
 
 async function saveManual(stamp: string, entry: ReturnType<typeof parseLog>) {
   const result = await gasPost({ action: 'health', type: 'manual', rows: [stamp, stamp, entry.kind, entry.extra].join('|') }) as { added?: number | boolean }
+  tabsCache = null   // 방금 저장한 값을 다음 조회에서 바로 보이게
   return !!result.added
+}
+
+/**
+ * GAS 호출은 창 크기와 무관하게 10초 넘게 걸린다(시작 오버헤드가 병목).
+ * 그래서 9년치를 한 번에 받고, 따뜻한 인스턴스에서는 5분간 재사용한다. 저장 뒤에는 버린다.
+ */
+let tabsCache: { at: number; tabs: Tabs } | null = null
+async function loadTabs(): Promise<Tabs> {
+  if (tabsCache && Date.now() - tabsCache.at < 5 * 60_000) return tabsCache.tabs
+  const tabs = (await gasGet<{ tabs?: Tabs }>('healthAll', '&days=3400')).tabs ?? {}
+  tabsCache = { at: Date.now(), tabs }
+  return tabs
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -198,7 +219,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (body.action === 'workout_log') {
         const id = String(body.id || ''), rpe = Number(body.rpe), note = String(body.note || '').trim()
         if (!id || !Number.isInteger(rpe) || rpe < 1 || rpe > 10) throw new Error('운동과 RPE 1~10을 확인해 주세요')
-        const tabs = (await gasGet<{ tabs?: Tabs }>('healthAll', '&days=75')).tabs ?? {}, row = (tabs.workout ?? []).find((w) => `${w.start.slice(0, 16)}|${w.value}` === id)
+        const tabs = await loadTabs(), row = (tabs.workout ?? []).find((w) => `${w.start.slice(0, 16)}|${w.value}` === id)
         if (!row) throw new Error('해당 운동 세션을 찾지 못했어요. 워치에서 다시 가져와 주세요')
         const w = workoutFromRow(row), entry = parseLog(`sRPE ${w.ko} ${w.minutes} ${rpe}${note ? ` ${note}` : ''}`); await saveManual(row.start, entry)
         return res.status(200).json({ ok: true, echo: entry.echo })
@@ -208,7 +229,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ ok: true, added, kind: entry.kind, echo: entry.echo })
     }
     if (req.method !== 'GET') throw new Error('GET 또는 POST 요청만 지원해요')
-    const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10), tabs = (await gasGet<{ tabs?: Tabs }>('healthAll', '&days=75')).tabs ?? {}
+    const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10), tabs = await loadTabs()
     return res.status(200).json(buildHealthResponse(tabs, today))
   } catch (err) {
     return res.status(200).json({ ok: false, error: err instanceof Error ? err.message : String(err) })

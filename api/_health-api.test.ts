@@ -8,7 +8,7 @@ const date = (i: number) => new Date(Date.UTC(2026, 6, 6) + i * 86400_000).toISO
 const row = (start: string, value: string, extra = '', end = start): HealthRow => ({ start, end, value, extra })
 
 function fakeTabs(): Tabs {
-  const tabs: Tabs = { hrv: [], resting_hr: [], active_kcal: [], steps: [], respiratory_rate: [], wrist_temp: [], sleep: [], workout: [], manual: [] }
+  const tabs: Tabs = { hrv: [], resting_hr: [], active_kcal: [], steps: [], respiratory_rate: [], wrist_temp: [], sleep: [], workout: [], manual: [], vo2max: [] }
   for (let i = 0; i < 61; i++) {
     const d = date(i), variation = i % 5
     tabs.hrv.push(row(`${d} 00:00`, String(38 + variation)))
@@ -18,6 +18,12 @@ function fakeTabs(): Tabs {
     tabs.respiratory_rate.push(row(`${d} 00:00`, String(13 + variation / 10)))
     tabs.wrist_temp.push(row(`${d} 00:00`, String(35.4 + variation / 10)))
     tabs.sleep.push(row(`${d} 01:00`, '코어 수면', '', `${d} 07:${String(variation).padStart(2, '0')}`))
+    if (i % 6 === 0) tabs.vo2max.push(row(`${d} 12:00`, String(42 + variation / 10)))
+  }
+  // 부하 주간 막대와 체력 추세가 비도록 두지 않게 12주치 세션을 채운다
+  for (let w = 0; w < 12; w++) {
+    const d = new Date(Date.UTC(2026, 5, 15) + w * 7 * 86400_000).toISOString().slice(0, 10)
+    tabs.workout.push(row(`${d} 09:00`, 'Swimming', '55|210|900|115'))
   }
   tabs.workout.push(row('2026-08-20 07:00', 'Running', '18|130|2.0|132'), row('2026-09-02 09:15', 'Swimming', '56|218|850|113'), row('2026-09-03 07:00', 'Running', '20|150|2.5|135'))
   tabs.manual.push(
@@ -34,11 +40,15 @@ function fakeTabs(): Tabs {
   return tabs
 }
 
+// 발견(insights)은 표본·효과크기 문턱을 넘겨야만 생기므로 합성 데이터로는 비어 있는 게 정상이다.
+// 형태 검증은 _analysis.test.ts 가 맡는다.
+const MAY_BE_EMPTY = new Set(['root.insights'])
+
 function expectSameKeys(actual: unknown, expected: unknown, path = 'root'): void {
   if (expected === null || typeof expected !== 'object') return
   if (Array.isArray(expected)) {
     expect(Array.isArray(actual), path).toBe(true)
-    if (expected.length) {
+    if (expected.length && !MAY_BE_EMPTY.has(path)) {
       expect((actual as unknown[]).length, `${path} needs a sample item`).toBeGreaterThan(0)
       expectSameKeys((actual as unknown[])[0], expected[0], `${path}[0]`)
     }
