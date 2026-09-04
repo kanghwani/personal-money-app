@@ -13,7 +13,8 @@
 ## 명령
 
 ```bash
-npm test                 # vitest (네트워크 안 탐)
+npm test                 # vitest (네트워크 안 탐). 툴 스키마가 잠금 파일과 다르면 여기서 막힌다
+npm run tools:lock       # 툴 스키마 잠금 갱신. 기존 툴 인자가 바뀌었으면 커넥터 재추가 안내가 나온다
 npm run deploy:prod      # 배포 + 실서버 스키마 확인 + 커넥터 재추가 필요 여부 알림
 npm run verify:deploy    # 실서버가 서빙하는 MCP 툴 스키마를 소스와 대조
 ```
@@ -30,7 +31,15 @@ cd gas && clasp push -f && clasp deploy --deploymentId AKfycby2so1RyMqyuEaKEfOtS
 클로드 앱은 툴 스키마를 캐시한다. 새 툴이 늘어난 것은 목록 새로고침으로 잡히지만,
 이미 있던 툴의 `inputSchema` 변경은 잡히지 않는다. 소스도 맞고 실서버도 맞는데
 앱만 옛 스키마로 호출하는 상태가 되고, 원인 찾기가 제일 오래 걸린다.
-`npm run deploy:prod` 가 배포 전후 실서버 스키마를 비교해 이 경우에만 크게 알린다.
+막는 방법이 둘이다.
+1. `api/tools.lock.json` — 커넥터가 마지막으로 맞춰본 스키마. 어긋나면 `npm test` 가 실패한다.
+   의도한 변경이면 `npm run tools:lock` 으로 갱신하고, 그때 커넥터 재추가 안내가 출력된다.
+   **잠금은 배포 경로와 무관하다.** 자동배포를 켜거나 기기가 둘이 돼도 기준이 흔들리지 않는다.
+2. `npm run deploy:prod` — 배포 전후 실서버 스키마를 비교해 같은 안내를 한 번 더 한다.
+   (이쪽만으로는 부족하다. 다른 경로로 이미 배포됐다면 "배포 전"이 이미 바뀐 상태라 조용해진다.)
+
+자동배포를 켜게 되면 GitHub Actions 의 `deployment_status: success` 에서
+`/api/toolcheck` 를 잠금 파일과 대조하는 단계를 추가하면 된다. 지금은 git 연결이 없어 필요 없다.
 
 **핸들러가 읽는 인자는 `inputSchema.properties` 에도 올려야 한다.**
 `args.week` 를 읽어도 스키마에 없으면 클라이언트가 조용히 버린다. `api/_mcp-tools.test.ts` 가

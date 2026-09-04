@@ -1,0 +1,56 @@
+{
+  "note": "툴 스키마 잠금. npm run tools:lock 로 갱신한다.",
+  "tools": {
+    "coach_history": [
+      "limit"
+    ],
+    "coach_month": [
+      "month"
+    ],
+    "coach_week": [
+      "week"
+    ],
+    "health_insight": [],
+    "health_log": [
+      "text"
+    ],
+    "health_today": [],
+    "health_trend": [
+      "metric",
+      "months"
+    ],
+    "health_week": [
+      "days"
+    ],
+    "ledger_add": [
+      "text"
+    ],
+    "ledger_check": [],
+    "ledger_delete": [
+      "id"
+    ],
+    "ledger_edit": [
+      "amount",
+      "category",
+      "date",
+      "id",
+      "memo",
+      "payment",
+      "split",
+      "subCategory"
+    ],
+    "ledger_find": [
+      "query"
+    ],
+    "ledger_fixed": [],
+    "ledger_half": [
+      "id"
+    ],
+    "ledger_month": [
+      "month"
+    ],
+    "ledger_split": [
+      "month"
+    ]
+  }
+}
