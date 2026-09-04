@@ -6,14 +6,14 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="컨디션" />
-  <meta name="theme-color" content="#d5d8ce" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#090c09" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#e7e4da" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#14141c" media="(prefers-color-scheme: dark)" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="manifest" href="/manifest-health.json" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Gothic+A1:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gothic+A1:wght@400;500;700&family=DotGothic16&display=swap" />
   <link rel="stylesheet" href="/health.css" />
   <title>컨디션</title>
 </head>
@@ -34,6 +34,7 @@
         <div class="section-head"><h2>오늘 준비도</h2><span class="band-badge" id="readyBand">불러오는 중</span></div>
         <div class="readiness-main">
           <div class="gauge" id="gauge" aria-label="준비도 점수">
+            <div id="mascot"></div>
             <div class="gauge-copy"><strong id="readyScore">--</strong><span>/100</span></div>
             <div class="meter" id="gaugeValue" aria-hidden="true"></div>
           </div>
@@ -49,7 +50,7 @@
       </article>
 
       <article class="card plan-card" id="todayPlan">
-        <div class="section-head"><h2>오늘의 계획</h2><span class="day-badge" id="todayDay">오늘</span></div>
+        <div class="section-head"><h2>오늘의 퀘스트</h2><span class="day-badge" id="todayDay">오늘</span></div>
         <div id="todayItems" class="today-items"><p class="empty">계획을 불러오고 있어요.</p></div>
       </article>
     </section>
@@ -109,13 +110,13 @@
     </section>
 
     <section class="card section-card" id="fitnessSection">
-      <div class="section-head"><h2>체력</h2></div>
+      <div class="section-head"><h2>스탯</h2></div>
       <p class="section-desc">하루 점수보다 긴 방향을 봐요.</p>
       <div id="fitnessBody" class="fitness-body"></div>
     </section>
 
     <section class="card section-card" id="insightsSection">
-      <div class="section-head"><h2>발견</h2><span class="insight-count" id="insightCount"></span></div>
+      <div class="section-head"><h2>발견한 것</h2><span class="insight-count" id="insightCount"></span></div>
       <p class="section-desc">내 기록에서 표본과 효과크기 기준을 넘긴 관계만 보여요.</p>
       <div id="insightList" class="insight-list"></div>
     </section>

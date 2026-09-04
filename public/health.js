@@ -86,6 +86,37 @@ function sparkline(series, className = 'spark') {
   return `<svg class="${className}" viewBox="0 0 100 36" preserveAspectRatio="none" aria-hidden="true"><path class="grid" d="M0 30H100"/><path class="area" d="${area}"/><path class="line" d="${line}"/><circle class="dot" cx="${last[0]}" cy="${last[1]}" r="2.5"/></svg>`;
 }
 
+/* 도트 마스코트. 12x12 격자에 사각형을 찍는다. 원본 도안이며 어떤 상표도 쓰지 않는다. */
+const MASCOT_BODY = [
+  '....######..',
+  '..##########',
+  '.############',
+  '############',
+  '############',
+  '############',
+  '############',
+  '.##########.',
+  '..########..',
+  '...#....#...',
+  '..##....##..',
+  '............',
+];
+const FACES = {
+  strong: { eyes: [[4, 3], [7, 3]], brow: [[4, 2], [7, 2]], mouth: [[5, 6], [6, 6], [4, 5], [7, 5]], blush: [[2, 5], [9, 5]] },
+  ok: { eyes: [[4, 4], [7, 4]], brow: [], mouth: [[5, 6], [6, 6]], blush: [[2, 5], [9, 5]] },
+  light: { eyes: [[4, 4], [7, 4]], brow: [], mouth: [[5, 6], [6, 6], [4, 6], [7, 6]], blush: [] },
+  tired: { eyes: [[4, 4], [5, 4], [7, 4], [8, 4]], brow: [], mouth: [[5, 7], [6, 7]], blush: [] },
+};
+function mascotSvg(band) {
+  const key = band === '강하게 해도 됨' ? 'strong' : band === '계획대로' ? 'ok' : band === '가볍게' ? 'light' : 'tired';
+  const face = FACES[key];
+  const px = [];
+  MASCOT_BODY.forEach((rowStr, y) => [...rowStr].forEach((ch, x) => { if (ch === '#') px.push(`<rect class="body" x="${x}" y="${y}" width="1" height="1"/>`); }));
+  const dots = (list, cls) => list.map(([x, y]) => `<rect class="${cls}" x="${x}" y="${y}" width="1" height="1"/>`).join('');
+  const cls = key === 'tired' ? 'mascot tired' : key === 'strong' ? 'mascot strong' : 'mascot';
+  return `<svg class="${cls}" viewBox="0 0 12 12" role="img" aria-label="오늘 상태 ${esc(band || '')}">${px.join('')}${dots(face.blush, 'blush')}${dots(face.brow, 'eye')}${dots(face.eyes, 'eye')}${dots(face.mouth, 'mouth')}</svg>`;
+}
+
 function renderAlerts(data) {
   const alerts = Array.isArray(data.alerts) ? data.alerts : [];
   const banners = alerts.map((alert) => `<div class="banner ${alert.level === 'bad' ? 'bad' : ''}">${esc(alert.text)}</div>`);
@@ -99,6 +130,7 @@ function renderReadiness(readiness = {}) {
   const filled = score == null ? 0 : Math.round(score / 10);
   const capped = readiness.band === '휴식' || readiness.band === '가볍게';
   $('#gaugeValue').innerHTML = Array.from({ length: 10 }, (_, i) => `<i class="${i < filled ? (capped ? 'on cap' : 'on') : ''}"></i>`).join('');
+  $('#mascot').innerHTML = mascotSvg(readiness.band);
   $('#gauge').setAttribute('aria-label', score == null ? `준비도 ${readiness.band || '기준선 축적 중'}` : `준비도 ${score}점, ${readiness.band}`);
   $('#readyBand').textContent = readiness.band || '기준선 축적 중';
   $('#readyHeadline').textContent = readiness.headline || '기록이 쌓이면 오늘의 강도를 안내해요.';
@@ -138,7 +170,7 @@ function renderTodayPlan(plan = {}, band) {
   $('#todayItems').innerHTML = items.map((item, index) => {
     const detail = library[item.detailKey] || library[item.name];
     const sub = detail?.target || (item.rest ? '산책은 평소대로' : '상세 계획 확인');
-    return `<div class="plan-item" data-plan="${index}"><button class="plan-toggle" type="button" aria-expanded="false"><span class="plan-icon">${esc(item.rest ? 'OFF' : (String(item.name).length > 2 ? String(item.name).slice(0, 1) : String(item.name)))}</span><span><span class="plan-title">${esc(item.name)}</span><span class="plan-sub">${esc(sub)}</span></span><span class="status-icon ${item.done ? 'done' : ''}">${item.done ? '✓ ' : ''}${esc(doneLabel(item))}<i class="chevron">v</i></span></button>${planDetail(detail, band)}</div>`;
+    return `<div class="plan-item${item.done ? ' cleared' : ''}" data-plan="${index}"><button class="plan-toggle" type="button" aria-expanded="false"><span class="plan-icon">${esc(item.rest ? 'OFF' : (String(item.name).length > 2 ? String(item.name).slice(0, 1) : String(item.name)))}</span><span><span class="plan-title">${esc(item.name)}</span><span class="plan-sub">${esc(sub)}</span></span><span class="status-icon ${item.done ? 'done' : ''}">${item.done ? '✓ ' : ''}${esc(doneLabel(item))}<i class="chevron">v</i></span></button>${planDetail(detail, band)}</div>`;
   }).join('');
   $('#todayItems').querySelectorAll('.plan-toggle').forEach((button) => button.addEventListener('click', () => {
     const item = button.closest('.plan-item');
