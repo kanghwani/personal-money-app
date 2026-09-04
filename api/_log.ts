@@ -51,6 +51,12 @@ export function parseLog(text: string): LogEntry {
     if (!DAYS.includes(d) || !items.length) throw new Error('계획은 "계획 요일 종목..." (예: 계획 월 수영 턱걸이, 계획 토 휴식)')
     return { kind: '계획', extra: [d, items.join(',')].join('|'), echo: `${d}요일: ${items.join(', ')}` }
   }
+  if (h === '코치') {
+    // 사람이 손으로 남기는 형태: 코치 <주기> <제안문>. 측정 가능한 지표가 붙은 제안은 서버가 직접 쓴다.
+    const [horizon, ...words] = rest
+    if (!['일간', '주간', '월간'].includes(horizon) || !words.length) throw new Error('코치 기록은 "코치 주간 취침 30분 당기기" 형식이에요')
+    return { kind: '코치', extra: [horizon, 'hold', 'none', '0', words.join(' ')].join('|'), echo: `${horizon} 제안: ${words.join(' ')}` }
+  }
   if (h === '태그') {
     if (!rest.length) throw new Error('태그 뒤에 어휘를 (예: 태그 술 늦은식사 카페인 출장 아픔)')
     return { kind: '태그', extra: rest.join('|'), echo: rest.join(', ') }
