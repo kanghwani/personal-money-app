@@ -93,32 +93,81 @@ export function evaluate(prev: ReturnType<typeof adviceFromRow>, last: WeekFacts
 // ── 진급 게이트 ────────────────────────────────────────────
 export type Promotion = { area: string; from: string; to: string; why: string }
 
-/** 계획 라이브러리의 진행 규칙을 기록으로 판정한다. 조건을 못 넘기면 null. */
-export function promotions(tabs: Tabs, today: string): Promotion[] {
-  const out: Promotion[] = []
+/** 진급까지 얼마나 왔는지. 조건을 못 넘겨도 진행도를 돌려주므로 "몇 번 더 남았는지"를 말할 수 있다. */
+export type Gate = { area: string; stage: string; next: string; done: number; need: number; detail: string; ready: boolean; blocked?: string }
+
+const painNear = (tabs: Tabs, today: string, days: number, sitePattern: RegExp) =>
+  (tabs.manual ?? []).find((m) => m.value === '통증' && day(m) >= shift(today, -days)
+    && Number((m.extra || '').split('|')[1]) >= 3 && sitePattern.test((m.extra || '').split('|')[0]))
+
+/** 턱걸이 세션 한 줄을 숫자로. extra = 변형|세트|횟수(초 포함 가능) */
+const pullRow = (m: HealthRow) => {
+  const [variant = '', sets = '', reps = ''] = (m.extra || '').split('|')
+  const nums = String(reps).replace(/초/g, '').split(',').map(Number).filter((v) => v > 0)
+  return { variant, sets: Number(sets) || nums.length, best: nums.length ? Math.max(...nums) : 0, reps: nums.length > 1 ? nums.length : Number(sets) || 0 }
+}
+
+/**
+ * 진급 게이트. 조건은 계획 라이브러리의 진행 규칙과 **같은 숫자**를 쓴다.
+ * (예전에는 계획이 "네거티브 5초 3~4회"를 시키는데 게이트는 "8초 5세트"를 요구해서
+ *  계획대로 해도 영원히 진급하지 않았다.)
+ */
+export function gates(tabs: Tabs, today: string): Gate[] {
+  const out: Gate[] = []
   const manual = tabs.manual ?? []
   const since = shift(today, -21)
-  const pull = manual.filter((m) => m.value === '턱걸이' && day(m) >= since).map((m) => {
-    const [variant = '', sets = '', reps = ''] = (m.extra || '').split('|')
-    const nums = String(reps).replace(/초/g, '').split(',').map(Number).filter((v) => v > 0)
-    return { variant, sets: Number(sets) || nums.length, best: nums.length ? Math.max(...nums) : 0, isHold: /초/.test(reps) }
-  })
+  const pull = manual.filter((m) => m.value === '턱걸이' && day(m) >= since).map(pullRow)
+  const shoulder = painNear(tabs, today, 14, /어깨|팔|손목/)
+
   const dead = pull.filter((p) => /데드행|매달/.test(p.variant))
   const neg = pull.filter((p) => /네거티브/.test(p.variant))
-  if (dead.filter((p) => p.best >= 30 && p.sets >= 3).length >= 3 && neg.length === 0) {
-    out.push({ area: '턱걸이', from: '데드행', to: '네거티브 8초', why: '최근 3주에 데드행 30초 3세트를 3회 이상 채웠어요.' })
-  } else if (neg.filter((p) => p.best >= 8 && p.sets >= 5).length >= 3) {
-    out.push({ area: '턱걸이', from: '네거티브', to: '밴드 보조 정자세 3~5회', why: '네거티브 8초 5세트를 3회 이상 채웠어요.' })
+  const band = pull.filter((p) => /밴드/.test(p.variant))
+  const strict = pull.filter((p) => /정자세|스트릭트/.test(p.variant))
+
+  // 지금 어느 단계인지는 최근에 무엇을 기록했는지로 판단한다(따로 저장하지 않아 스스로 교정된다)
+  if (strict.length) {
+    out.push({ area: '턱걸이', stage: '정자세', next: '개수 늘리기', done: strict.length, need: strict.length, detail: '정자세 단계예요. 이제 개수를 늘려가요.', ready: false })
+  } else if (band.length) {
+    const ok = band.filter((p) => p.best >= 5 && p.sets >= 3).length
+    out.push({ area: '턱걸이', stage: '밴드 보조', next: '정자세 1회 도전', done: ok, need: 3,
+      detail: `밴드 5회 3세트를 21일 안에 3회 채우면 정자세에 도전해요 (지금 ${ok}회)`, ready: ok >= 3 && !shoulder, blocked: shoulder ? '어깨 통증이 가라앉은 뒤에' : undefined })
+  } else if (neg.length) {
+    const ok = neg.filter((p) => p.best >= 8 && p.reps >= 3).length
+    out.push({ area: '턱걸이', stage: '네거티브', next: '밴드 보조 정자세 3~5회', done: ok, need: 3,
+      detail: `네거티브 8초를 3회 이상 한 세션이 21일 안에 3번 있으면 밴드로 넘어가요 (지금 ${ok}회)`, ready: ok >= 3 && !shoulder, blocked: shoulder ? '어깨 통증이 가라앉은 뒤에' : undefined })
+  } else {
+    const ok = dead.filter((p) => p.best >= 30 && p.sets >= 3).length
+    out.push({ area: '턱걸이', stage: '데드행', next: '네거티브 8초', done: ok, need: 3,
+      detail: `데드행 30초 3세트를 21일 안에 3회 채우면 네거티브로 넘어가요 (지금 ${ok}회)`, ready: ok >= 3 && !shoulder, blocked: shoulder ? '어깨 통증이 가라앉은 뒤에' : undefined })
   }
-  // 러닝: 최근 3주 최장 거리가 늘지 않았고 통증 기록이 없으면 10% 증가
-  const runs = (tabs.workout ?? []).filter((w) => /running/i.test(w.value) && day(w) >= shift(today, -21))
-  if (runs.length >= 6) {
-    const km = (w: HealthRow) => { const d = (w.extra || '').split('|')[2] || ''; const v = parseFloat(d) || 0; return /km/i.test(d) || v < 50 ? v : v / 1000 }
-    const longest = Math.max(...runs.map(km))
-    const hurt = manual.some((m) => m.value === '통증' && day(m) >= shift(today, -21) && Number((m.extra || '').split('|')[1]) >= 3)
-    if (longest > 0 && !hurt) out.push({ area: '러닝', from: `최장 ${round(longest, 1)}km`, to: `${round(longest * 1.1, 1)}km`, why: '3주 동안 같은 거리를 유지했고 통증 기록이 없어요. 10% 이내면 안전한 범위예요.' })
-  }
+
+  // 러닝: 세션 수 + **거리 정체** + 통증 없음. 정체 확인이 빠져 있어서 직전에 늘린 뒤에도 또 늘리라고 했었다.
+  const km = (w: HealthRow) => { const d = (w.extra || '').split('|')[2] || ''; const v = parseFloat(d) || 0; return /km/i.test(d) || v < 50 ? v : v / 1000 }
+  const runs = (tabs.workout ?? []).filter((w) => /running/i.test(w.value))
+  const recent = runs.filter((w) => day(w) >= since)
+  const prior = runs.filter((w) => day(w) >= shift(today, -42) && day(w) < since)
+  const leg = painNear(tabs, today, 21, /무릎|발|정강이|아킬레스|고관절|허벅지|종아리/)
+  const longNow = recent.length ? Math.max(...recent.map(km)) : 0
+  const longPrev = prior.length ? Math.max(...prior.map(km)) : 0
+  const plateau = longPrev === 0 ? recent.length >= 6 : longNow <= longPrev * 1.05
+  const ready = recent.length >= 6 && longNow > 0 && plateau && !leg
+  out.push({
+    area: '러닝', stage: longNow ? `최장 ${round(longNow, 1)}km` : '아직 기록 없음',
+    next: longNow ? `${round(longNow * 1.1, 1)}km` : '주 2회부터',
+    done: recent.length, need: 6,
+    detail: recent.length < 6 ? `21일 안에 6회를 채우면 거리 조정을 봐요 (지금 ${recent.length}회)`
+      : !plateau ? '최근에 거리를 늘렸어요. 3~4주 유지한 뒤에 다시 봐요.'
+      : leg ? '통증 기록이 있어 지금은 늘리지 않아요.'
+      : '3주 동안 같은 거리를 유지했고 통증도 없어요. 10% 이내면 안전한 범위예요.',
+    ready, blocked: leg ? `${(leg.extra || '').split('|')[0]} 통증이 가라앉은 뒤에` : undefined,
+  })
   return out
+}
+
+/** 조건을 넘긴 것만. nextChange 와 월간 결정이 쓴다. */
+export function promotions(tabs: Tabs, today: string): Promotion[] {
+  return gates(tabs, today).filter((g) => g.ready)
+    .map((g) => ({ area: g.area, from: g.stage, to: g.next, why: g.detail }))
 }
 
 // ── 다음 주 변경 하나 고르기 ───────────────────────────────
@@ -264,7 +313,7 @@ export function monthReview(tabs: Tabs, today: string, monthAnchor?: string) {
     sleepMean: nights.length ? Math.round(mean(nights.map((n) => n.totalMin))) : null, nights: nights.length,
     vo2: vNow.length ? round(mean(vNow), 1) : null, vo2Change: vNow.length && vThen.length ? round(mean(vNow) - mean(vThen), 1) : null,
     rhr: rNow.length ? round(mean(rNow), 1) : null, rhrChange: rNow.length && rThen.length ? round(mean(rNow) - mean(rThen), 1) : null,
-    tags: tagImpact(tabs, to), promotions: promo,
+    tags: tagImpact(tabs, to), promotions: promo, gates: gates(tabs, to),
   }
 }
 
@@ -279,7 +328,7 @@ export function formatMonth(r: ReturnType<typeof monthReview>): string {
     ? r.tags.map((t) => `  ${t.tag} ${t.days}일 기록${t.diff != null ? `, 다음 날 HRV 차이 ${t.diff >= 0 ? '+' : ''}${t.diff}ms` : ''} (${t.verdict})`).join('\n')
     : '  기록된 태그가 없어요.')
   lines.push('\n[진급 판정]')
-  lines.push(r.promotions.length ? r.promotions.map((p) => `  ${p.area}: ${p.from} → ${p.to}\n    ${p.why}`).join('\n') : '  아직 다음 단계 조건을 넘긴 항목이 없어요.')
+  lines.push(r.gates.map((g) => `  ${g.area} [${g.stage}] ${g.ready ? `→ ${g.next} 준비됨` : `${g.done}/${g.need}`}\n    ${g.detail}${g.blocked ? ` (${g.blocked})` : ''}`).join('\n'))
   if (r.prevDecision) lines.push(`\n지난달 결정: ${r.prevDecision.text}`)
   lines.push(`\n[이번 달 결정] ${r.decision.text}\n  ${r.decision.why}`)
   return lines.join('\n')

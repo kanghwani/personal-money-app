@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { weekFacts, nextChange, evaluate, promotions, weekReview, formatWeek, tagImpact, mondayOf, adviceToExtra, adviceFromRow, adviceHistory, formatHistory, monthReview, formatMonth } from './_coach'
+import { weekFacts, nextChange, evaluate, promotions, weekReview, formatWeek, tagImpact, mondayOf, adviceToExtra, adviceFromRow, adviceHistory, formatHistory, monthReview, formatMonth, gates } from './_coach'
 import { parseLog } from './_log'
 import type { HealthRow, Tabs } from './_health'
 
@@ -179,5 +179,60 @@ describe('월간 결정', () => {
     expect(r.sessions).toBe(1)
     expect(r.prevDecision?.text).toBe('다음 달도 지금 단계 유지')
     expect(formatMonth(r)).toContain('[이번 달 결정]')
+  })
+})
+
+describe('진급 게이트 (수정 후)', () => {
+  const g = (tabs: Tabs, area: string, today = TODAY) => gates(tabs, today).find((x) => x.area === area)!
+
+  it('계획이 시키는 대로 하면 실제로 진급한다 (예전에는 게이트가 더 빡세서 영원히 못 넘었다)', () => {
+    const tabs = base()
+    // 계획: 네거티브 8초 3~4회. 게이트도 같은 숫자여야 한다.
+    for (const d of ['2026-08-20', '2026-08-25', '2026-08-30']) tabs.manual.push(row(`${d} 12:00`, '턱걸이', '네거티브|3|8초,8초,8초'))
+    expect(g(tabs, '턱걸이')).toMatchObject({ stage: '네거티브', ready: true, done: 3, need: 3 })
+  })
+  it('아직 못 채웠으면 몇 번 남았는지 알려준다', () => {
+    const tabs = base()
+    tabs.manual.push(row('2026-08-25 12:00', '턱걸이', '데드행|3|30초'))
+    expect(g(tabs, '턱걸이')).toMatchObject({ stage: '데드행', ready: false, done: 1, need: 3 })
+    expect(g(tabs, '턱걸이').detail).toContain('지금 1회')
+  })
+  it('어깨 통증이 있으면 조건을 채워도 미룬다', () => {
+    const tabs = base()
+    for (const d of ['2026-08-20', '2026-08-25', '2026-08-30']) tabs.manual.push(row(`${d} 12:00`, '턱걸이', '데드행|3|30초'))
+    tabs.manual.push(row('2026-08-31 20:00', '통증', '어깨|4|'))
+    expect(g(tabs, '턱걸이').ready).toBe(false)
+    expect(g(tabs, '턱걸이').blocked).toContain('어깨')
+  })
+  it('러닝은 거리가 정체했을 때만 늘린다', () => {
+    const plateau = base(), rising = base()
+    for (let i = 0; i < 6; i++) {                                   // 최근 21일 6회, 3km 유지
+      const d = new Date(Date.UTC(2026, 7, 18) + i * 3 * 86400_000).toISOString().slice(0, 10)
+      plateau.workout.push(row(`${d} 07:00`, 'Running', '20|150|3.0|135'))
+      rising.workout.push(row(`${d} 07:00`, 'Running', `20|150|${3.0 + i * 0.4}|135`))
+    }
+    for (let i = 0; i < 4; i++) {                                   // 그 이전 21일에도 3km
+      const d = new Date(Date.UTC(2026, 6, 25) + i * 4 * 86400_000).toISOString().slice(0, 10)
+      plateau.workout.push(row(`${d} 07:00`, 'Running', '20|150|3.0|135'))
+      rising.workout.push(row(`${d} 07:00`, 'Running', '20|150|3.0|135'))
+    }
+    expect(g(plateau, '러닝').ready).toBe(true)
+    expect(g(plateau, '러닝').next).toBe('3.3km')
+    expect(g(rising, '러닝').ready).toBe(false)                      // 방금 늘렸으면 또 늘리지 않는다
+    expect(g(rising, '러닝').detail).toContain('최근에 거리를 늘렸어요')
+  })
+  it('다리 통증이 있으면 늘리지 않는다', () => {
+    const tabs = base()
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(Date.UTC(2026, 7, 18) + i * 3 * 86400_000).toISOString().slice(0, 10)
+      tabs.workout.push(row(`${d} 07:00`, 'Running', '20|150|3.0|135'))
+    }
+    tabs.manual.push(row('2026-08-30 20:00', '통증', '무릎|3|'))
+    expect(g(tabs, '러닝').ready).toBe(false)
+  })
+  it('기록이 없으면 시작점을 안내한다', () => {
+    const tabs = base()
+    expect(g(tabs, '턱걸이')).toMatchObject({ stage: '데드행', done: 0, ready: false })
+    expect(g(tabs, '러닝')).toMatchObject({ stage: '아직 기록 없음', ready: false })
   })
 })
