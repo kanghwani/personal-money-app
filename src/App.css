@@ -1490,3 +1490,90 @@
 .fixed-track > :nth-child(2) {
   background: var(--ring-6);
 }
+
+/* 12. 원장·인사이트 마무리 ---------------------------------------- */
+
+/* recharts 는 stroke·stopColor 를 SVG '속성'으로 넣는데 SVG 속성 파서는 var() 를 모른다.
+   그래서 월별 흐름 선이 아예 안 그려지고 있었다(이 디자인 이전부터). CSS 선언은 var() 를
+   해석하므로 여기서 덮으면 그려진다. */
+.chart-frame path[stroke^='var('] {
+  stroke: var(--ink);
+}
+
+.chart-frame stop {
+  stop-color: var(--ink);
+}
+
+/* 세그먼트는 탭이다. 선택을 빨강 덩어리로 칠하면 화면에서 제일 강한 것이
+   "지금 어느 목록을 보는가"가 되어버린다. 밑줄이면 충분하다. */
+.segmented {
+  gap: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.segmented button {
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  font-weight: 600;
+  min-height: 34px;
+}
+
+.segmented button.active {
+  background: transparent;
+  color: var(--ink);
+  border-bottom-color: var(--stamp);
+  box-shadow: none;
+}
+
+/* 장부의 행은 붙어 있어야 훑어읽힌다. 사이를 벌리면 점선이 허공에 뜬다. */
+.ledger-table {
+  gap: 0;
+}
+
+.ledger-row {
+  margin-bottom: 0;
+  padding: 12px 2px;
+}
+
+/* 수정·삭제는 행마다 있다. 빨강으로 두면 화면에 붉은 점이 열 개 찍힌다.
+   평소엔 잉크, 누를 때만 도장색. */
+.row-actions button,
+.row-actions button.edit-btn {
+  color: var(--muted);
+  border-color: var(--line);
+  background: transparent;
+}
+
+.row-actions button:hover,
+.row-actions button:active,
+.row-actions button.edit-btn:hover {
+  color: var(--stamp);
+  border-color: var(--stamp);
+  background: transparent;
+}
+
+/* 전월대비 막대도 계조로. 증감은 막대 색이 아니라 부호와 글자색이 말한다. */
+.delta-bar-wrap {
+  background: transparent;
+  border: 1px solid var(--line);
+  height: 10px;
+}
+
+.delta-bar.up,
+.delta-bar.down {
+  background: var(--ring-4);
+}
+
+.delta-val.up { color: var(--stamp); }
+.delta-val.down { color: var(--muted); }
+
+/* 인사이트 카드의 아이콘 상자도 같은 규칙 - 테두리만. */
+.insight-icon {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  color: var(--muted);
+}
