@@ -1193,3 +1193,273 @@
   border: 1px solid var(--line-strong); border-radius: var(--r-sm); color: var(--on-accent); background: var(--accent); }
 .bank-group.off .bank-check { background: none; border-color: var(--line); }
 .bank-name { font-size: 13px; font-weight: 600; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   영수증·장부 스킨
+   위쪽 규칙은 그대로 두고 재료만 바꾼다. 카드를 걷어내고 종이 한 장 위에
+   괘선으로 나눈다. 클래스명은 App.tsx 를 건드리지 않으려고 유지했다.
+
+   등폭(--mono)은 **숫자와 영문 라벨에만** 쓴다. IBM Plex Mono 에는 한글이
+   없어서 한글에 걸면 시스템 폰트로 떨어지고, 자간까지 주면 글자가 흩어진다.
+   한글은 IBM Plex Sans KR 로 두고, 장부의 성격은 숫자 정렬과 괘선이 만든다.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* 1. 종이 --------------------------------------------------------- */
+/* 슬립은 배경보다 밝고, 경계는 1px 선 하나. 그림자로 띄우지 않는다. */
+.quick-panel,
+.view-stack > section,
+.ring-card,
+.insight-card,
+.guide-card,
+.benefit-board,
+.fixed-panel,
+.cat-sheet,
+.card-import {
+  background: var(--surface-solid);
+  border: 1px solid var(--line);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* 2. 제목 --------------------------------------------------------- */
+/* 섹션 제목은 이중 괘선 위에 앉는다. 장부의 계정 구분선과 같은 역할이다. */
+.section-header {
+  border-top: 3px double var(--line-strong);
+  padding-top: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+}
+
+.eyebrow,
+.benefit-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  text-transform: none;
+}
+
+.app-header h1 {
+  font-weight: 700;
+  font-size: 26px;
+  letter-spacing: -0.02em;
+}
+
+/* 3. 숫자 --------------------------------------------------------- */
+/* 금액·날짜·비율은 전부 등폭. 세로줄이 맞아야 훑어읽을 수 있다. */
+.row-amt,
+.cat-amt,
+.cat-tx-amt,
+.delta-val,
+.pb-rate,
+.cal-amt,
+.cal-day,
+.fixed-total,
+.perf-cap,
+.perf-excl,
+.guide-gain,
+.guide-total,
+.benefit-balance-meta,
+.value-stack strong,
+.balance-band,
+.bar-label,
+.cat-pct,
+.cat-ring-center {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: -0.01em;
+}
+
+.row-amt,
+.cat-amt,
+.cat-tx-amt,
+.fixed-total,
+.cal-amt {
+  text-align: right;
+}
+
+/* 4. 행 ----------------------------------------------------------- */
+/* 행마다 카드를 두르지 않는다. 점선 한 줄이면 충분하고, 훨씬 빨리 읽힌다. */
+.row-item,
+.ledger-row,
+.cat-tx-row,
+.delta-row,
+.pb-row,
+.perf-row,
+.fixed-row,
+.guide-hit,
+.benefit-balance {
+  border: 0;
+  border-bottom: 1px dotted var(--line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.row-item:last-child,
+.ledger-row:last-child,
+.cat-tx-row:last-child,
+.delta-row:last-child,
+.pb-row:last-child,
+.perf-row:last-child,
+.fixed-row:last-child,
+.guide-hit:last-child,
+.benefit-balance:last-child {
+  border-bottom: 0;
+}
+
+/* 5. 도장 --------------------------------------------------------- */
+/* 확정 동작에만 빨강을 쓴다. 채우지 않고 테두리로 - 찍기 전의 도장. */
+.send-button,
+.fixed-save,
+.card-import-open {
+  border: 1.5px solid var(--stamp);
+  background: transparent;
+  color: var(--stamp);
+  font-weight: 700;
+}
+
+.send-button:active,
+.fixed-save:active,
+.card-import-open:active {
+  background: var(--stamp);
+  color: var(--on-accent);
+}
+
+/* 배지는 면이 아니라 테두리다. 빨강 덩어리가 여러 개 뜨면 어디를 볼지 알 수 없다. */
+.fixed-badge,
+.quick-chip,
+.fix-chip,
+.reassign-opt,
+.benefit-card-tabs button,
+.segmented button {
+  border-radius: 0;
+  font-size: 12px;
+}
+
+.benefit-basis b {
+  border: 1px solid currentColor;
+  background: transparent;
+  padding: 2px 7px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+/* 6. 막대 --------------------------------------------------------- */
+/* 곡선 막대 대신 각진 눈금. */
+.bar-track,
+.perf-bar,
+.fixed-track,
+.delta-bar-wrap,
+.benefit-progress {
+  border-radius: 0;
+  background: transparent;
+  border: 1px solid var(--line);
+}
+
+.perf-fill,
+.delta-bar,
+.benefit-progress > * {
+  border-radius: 0;
+}
+
+/* 7. 탭 바 -------------------------------------------------------- */
+/* 떠 있는 알약을 바닥에 붙인 한 줄로. 종이 아래 눌러둔 인덱스 탭.
+   선택된 탭은 빨강 덩어리가 아니라 위쪽에 그은 붉은 줄로 표시한다. */
+.tab-bar {
+  bottom: 0;
+  left: 0;
+  transform: none;
+  width: 100%;
+  max-width: none;
+  gap: 0;
+  border-radius: 0;
+  border: 0;
+  border-top: 1px solid var(--line-strong);
+  background: var(--surface-solid);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  padding: 0 0 env(safe-area-inset-bottom, 0px);
+}
+
+.tab-bar button {
+  border-radius: 0;
+  font-size: 11px;
+  background: transparent;
+  color: var(--muted);
+  border-top: 2px solid transparent;
+  padding: 8px 0 9px;
+}
+
+.tab-bar button + button {
+  border-left: 1px dotted var(--line);
+}
+
+.tab-bar button[aria-current='page'],
+.tab-bar button.active,
+.tab-bar button[aria-selected='true'] {
+  background: transparent;
+  color: var(--stamp);
+  border-top-color: var(--stamp);
+}
+
+/* 8. 입력 --------------------------------------------------------- */
+.home-input,
+.day-input,
+.card-import-text,
+.quick-input-row {
+  border-radius: 0;
+  background: var(--surface-solid);
+  border: 1px solid var(--line-strong);
+}
+
+/* 9. 달력 -------------------------------------------------------- */
+.cal-grid {
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.cal-cell {
+  border-radius: 0;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+}
+
+/* 10. 남은 채움면 정리 ------------------------------------------- */
+/* 선택된 카드 탭은 빨강 덩어리가 아니라 밑줄. 활성 상태는 하나만 있으면 된다. */
+.benefit-card-tabs button {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  padding: 6px 10px;
+  font-weight: 600;
+}
+
+.benefit-card-tabs button.active,
+.benefit-card-tabs button[aria-selected='true'] {
+  background: transparent;
+  color: var(--ink);
+  border-bottom-color: var(--stamp);
+}
+
+/* 상태 배지는 전부 테두리로. 면으로 칠하면 셋이 동시에 눈에 띄어 서열이 사라진다. */
+.perf-note,
+.fixed-badge,
+.reassign-btn {
+  background: transparent;
+  border: 1px solid currentColor;
+}
+
+/* 파란 그림자 하나가 남아 있었다. 이 화면에 그림자는 없다. */
+.quick-leading,
+.send-button {
+  box-shadow: none;
+}
