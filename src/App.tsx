@@ -943,7 +943,9 @@ function CardBenefitOverview({ rows, monthKey, onOpenInsights, ledgerStatus }: {
   const currentCard = cardGroups.some((group) => group.spec.card === selectedCard) ? selectedCard : preferred
   const current = cardGroups.find((group) => group.spec.card === currentCard)
   const currentLocked = current?.items.some((item) => item.locked) ?? false
-  const currentChecking = !current?.spec.familyPooled && ledgerStatus !== 'ready'
+  // 'error' 까지 '확인 중'으로 보여주면 영영 확인 중이다. 못 읽은 건 못 읽었다고 해야 한다.
+  const currentChecking = !current?.spec.familyPooled && ledgerStatus === 'loading'
+  const currentFailed = !current?.spec.familyPooled && ledgerStatus === 'error'
   const currentBasisAmount = basisPerf.find((item) => item.name === currentCard)?.qualified ?? 0
   const missedTotal = missed.reduce((sum, item) => sum + item.discount, 0)
   const pct = (rate: number) => `${Math.round(rate * 100)}%`
@@ -992,8 +994,9 @@ function CardBenefitOverview({ rows, monthKey, onOpenInsights, ledgerStatus }: {
                 : ledgerStatus === 'error' ? t('home_benefit_load_error')
                 : t('home_benefit_prev_perf', { month: basisMonth, amt: formatMoney(currentBasisAmount) })}</span>
             </div>
-            <b className={currentChecking ? 'checking' : currentLocked ? 'locked' : 'available'}>
+            <b className={currentChecking ? 'checking' : currentFailed ? 'locked' : currentLocked ? 'locked' : 'available'}>
               {currentChecking ? t('home_benefit_checking')
+                : currentFailed ? t('home_benefit_unknown')
                 : currentLocked ? t('home_benefit_unavailable', { month: monthKey }) : t('home_benefit_available', { month: monthKey })}
             </b>
           </div>
