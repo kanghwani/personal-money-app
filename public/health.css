@@ -8,9 +8,9 @@
   --bg: #d5d8ce;          /* 오래된 기계 플라스틱 */
   --card: #f3f4ec;        /* 패널 */
   --ink: #12150f;
-  --muted: #545b4c;
+  --muted: #474e3f;
   --line: #12150f;
-  --rule: rgba(18, 21, 15, .28);
+  --rule: rgba(18, 21, 15, .34);
   --shade: #e2e4d9;       /* 안쪽 홈 */
   --accent: #0f6b3f;      /* 인광 그린 */
   --on-accent: #f3f4ec;
@@ -28,10 +28,10 @@
   :root {
     --bg: #090c09;
     --card: #10150f;
-    --ink: #c8e6ce;
-    --muted: #7c9683;
-    --line: #354c3a;
-    --rule: rgba(200, 230, 206, .22);
+    --ink: #dfeee3;
+    --muted: #94ab9a;
+    --line: #3e5744;
+    --rule: rgba(210, 235, 216, .3);
     --shade: #161c15;
     --accent: #45cf7d;
     --on-accent: #090c09;
@@ -50,21 +50,20 @@ html, body {
   color: var(--ink);
   font-family: var(--font-body);
   font-size: 16px;
-  line-height: 1.55;
+  line-height: 1.62;
   word-break: keep-all;
 }
 
-/* 화면 전체에 옅은 주사선. 고정 레이어라 스크롤 리페인트가 없다. */
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  pointer-events: none;
-  background: repeating-linear-gradient(to bottom, rgba(18, 21, 15, .05) 0 1px, transparent 1px 3px);
+/* 주사선은 페이지 배경에만. 카드 위 글자를 덮지 않으므로 가독성 손해가 없다. */
+body {
+  background-image: repeating-linear-gradient(to bottom, rgba(18, 21, 15, .045) 0 1px, transparent 1px 4px);
+  -webkit-font-smoothing: antialiased;
 }
 @media (prefers-color-scheme: dark) {
-  body::after { background: repeating-linear-gradient(to bottom, rgba(180, 230, 195, .05) 0 1px, transparent 1px 3px); }
+  body {
+    background-image: repeating-linear-gradient(to bottom, rgba(180, 230, 195, .05) 0 1px, transparent 1px 4px);
+    font-weight: 500;   /* 어두운 배경에서 한글 획이 가늘어 보이는 것을 보정 */
+  }
 }
 
 .shell {
@@ -75,7 +74,7 @@ body::after {
   gap: 14px;
 }
 
-h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 400; margin: 0; letter-spacing: -.01em; }
+h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 400; margin: 0; }
 p { margin: 0; }
 strong, b { font-weight: 700; }
 
@@ -94,14 +93,14 @@ button, input { font: inherit; color: inherit; }
 .topbar h1 { font-size: 26px; line-height: 1.15; }
 .eyebrow {
   font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: .04em;
+  font-size: 12px;
+  letter-spacing: .03em;
   color: var(--muted);
   margin-bottom: 2px;
 }
 .sync-mark {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
   white-space: nowrap;
   padding-bottom: 3px;
@@ -114,8 +113,8 @@ button, input { font: inherit; color: inherit; }
   border: 1px solid var(--line);
   border-left-width: 6px;
   background: var(--card);
-  padding: 9px 12px;
-  font-size: 14px;
+  padding: 10px 12px;
+  font-size: 14.5px;
 }
 .banner.bad { border-left-color: var(--bad); color: var(--bad); }
 .banner.info { border-left-color: var(--muted); }
@@ -143,10 +142,10 @@ button, input { font: inherit; color: inherit; }
 @media (prefers-color-scheme: dark) {
   .section-head { background: var(--line); color: var(--ink); }
 }
-.section-head h2 { font-size: 16px; letter-spacing: .02em; }
+.section-head h2 { font-size: 17px; letter-spacing: .01em; }
 .section-kicker { display: none; }          /* 영문 라벨 제거 */
 .section-desc {
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--muted);
   padding: 0 14px;
   margin-bottom: 10px;
@@ -155,7 +154,7 @@ button, input { font: inherit; color: inherit; }
 
 .band-badge, .day-badge, .week-score {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 12.5px;
   letter-spacing: .02em;
   white-space: nowrap;
 }
@@ -186,12 +185,13 @@ button, input { font: inherit; color: inherit; }
 .meter i.on { background: var(--accent); }
 .meter i.cap { background: var(--warn); }
 
-.ready-copy p { font-size: 15px; margin-bottom: 8px; }
+.ready-copy p { font-size: 15.5px; margin-bottom: 9px; }
 .signal-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
 .signal-list li {
-  font-size: 13.5px;
+  font-size: 14px;
+  line-height: 1.5;
   color: var(--muted);
-  padding-left: 14px;
+  padding-left: 15px;
   position: relative;
 }
 .signal-list li::before {
@@ -199,7 +199,7 @@ button, input { font: inherit; color: inherit; }
   position: absolute;
   left: 0;
   font-family: var(--font-mono);
-  color: var(--rule);
+  color: var(--muted);
 }
 .signal-list li.good { color: var(--accent); }
 .signal-list li.good::before { content: '+'; color: var(--accent); }
@@ -212,7 +212,7 @@ button, input { font: inherit; color: inherit; }
 .component-details summary {
   cursor: pointer;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 12.5px;
   display: flex;
   justify-content: space-between;
   gap: 8px;
@@ -230,6 +230,7 @@ button, input { font: inherit; color: inherit; }
   font-size: 13px;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  color: var(--muted);
 }
 .component-top strong { font-family: var(--font-body); font-size: 13.5px; }
 .component .bar { height: 9px; border: 1px solid var(--line); background: var(--shade); margin: 3px 0 2px; }
@@ -238,7 +239,7 @@ button, input { font: inherit; color: inherit; }
   height: 100%;
   background: repeating-linear-gradient(90deg, var(--accent) 0 3px, transparent 3px 5px);
 }
-.component-text { font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+.component-text { font-size: 12.5px; color: var(--muted); font-family: var(--font-mono); line-height: 1.45; }
 
 /* ── 계획 ──────────────────────────────────────────────── */
 .today-items { display: grid; gap: 0; border-top: 1px solid var(--rule); }
@@ -264,11 +265,11 @@ button, input { font: inherit; color: inherit; }
   text-align: center;
   letter-spacing: -.04em;
 }
-.plan-title { display: block; font-size: 16px; font-family: var(--font-display); }
-.plan-sub { display: block; font-size: 12px; color: var(--muted); }
+.plan-title { display: block; font-size: 17px; font-family: var(--font-display); }
+.plan-sub { display: block; font-size: 13px; color: var(--muted); margin-top: 1px; }
 .status-icon {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
   white-space: nowrap;
   display: flex;
@@ -281,7 +282,7 @@ button, input { font: inherit; color: inherit; }
 
 .plan-detail { display: none; padding: 0 0 12px; }
 .plan-item.open .plan-detail { display: block; }
-.plan-summary { font-size: 14px; margin-bottom: 10px; }
+.plan-summary { font-size: 15px; margin-bottom: 12px; }
 .today-rule {
   border: 1px solid var(--accent);
   border-left-width: 6px;
@@ -290,26 +291,26 @@ button, input { font: inherit; color: inherit; }
   display: grid;
   gap: 2px;
 }
-.today-rule small { font-family: var(--font-mono); font-size: 11px; color: var(--accent); }
-.today-rule strong { font-size: 14.5px; }
+.today-rule small { font-family: var(--font-mono); font-size: 12px; color: var(--accent); }
+.today-rule strong { font-size: 15px; line-height: 1.45; }
 .detail-grid { display: grid; gap: 12px; }
 .detail-block h4 {
   font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: .06em;
+  font-size: 12px;
+  letter-spacing: .04em;
   color: var(--muted);
   border-bottom: 1px solid var(--rule);
   padding-bottom: 3px;
   margin-bottom: 5px;
 }
-.detail-block p { font-size: 13.5px; }
-.steps { margin: 0; padding-left: 20px; font-size: 13.5px; display: grid; gap: 3px; }
-.caution-list { margin: 0; padding-left: 16px; font-size: 13.5px; display: grid; gap: 3px; }
-.log-hint { margin-top: 10px; font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
+.detail-block p { font-size: 14.5px; line-height: 1.6; }
+.steps { margin: 0; padding-left: 20px; font-size: 14.5px; line-height: 1.55; display: grid; gap: 5px; }
+.caution-list { margin: 0; padding-left: 16px; font-size: 14.5px; line-height: 1.55; display: grid; gap: 5px; }
+.log-hint { margin-top: 12px; font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); line-height: 1.45; }
 
 /* ── 운동 ──────────────────────────────────────────────── */
 .action-head { flex-wrap: wrap; }
-.inline-hint { font-family: var(--font-mono); font-size: 11.5px; color: var(--warn); margin-bottom: 8px; }
+.inline-hint { font-family: var(--font-mono); font-size: 12.5px; color: var(--warn); margin-bottom: 8px; }
 .inline-hint:empty { display: none; }
 .workout-list { display: grid; border-top: 1px solid var(--rule); }
 .workout-item { border-bottom: 1px solid var(--rule); }
@@ -326,35 +327,36 @@ button, input { font: inherit; color: inherit; }
   text-align: left;
   cursor: pointer;
 }
-.workout-name { display: block; font-size: 15.5px; font-family: var(--font-display); }
+.workout-name { display: block; font-size: 16.5px; font-family: var(--font-display); }
 .needs-rpe {
   font-family: var(--font-mono);
   font-style: normal;
-  font-size: 10.5px;
+  font-size: 11.5px;
   background: var(--warn);
   color: var(--card);
-  padding: 1px 5px;
+  padding: 2px 6px;
   margin-left: 7px;
   vertical-align: 2px;
 }
 .workout-meta {
   display: block;
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 12.5px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+  margin-top: 2px;
 }
 .rpe-result { text-align: right; font-family: var(--font-mono); }
 .rpe-result strong { display: block; font-size: 20px; font-weight: 500; }
-.rpe-result span { font-size: 10.5px; color: var(--muted); }
-.workout-note { font-size: 13px; padding: 0 0 10px; color: var(--muted); }
+.rpe-result span { font-size: 11.5px; color: var(--muted); }
+.workout-note { font-size: 14px; padding: 0 0 12px; color: var(--muted); line-height: 1.5; }
 .rpe-form { display: none; padding-bottom: 12px; }
 .workout-item.open .rpe-form { display: grid; gap: 8px; }
 .rpe-label {
   display: flex;
   justify-content: space-between;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
 }
 .rpe-scale { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; }
@@ -367,7 +369,7 @@ button, input { font: inherit; color: inherit; }
   cursor: pointer;
   box-shadow: var(--shadow-sm);
 }
-.rpe-scale button { font-size: 12px; padding: 10px 0; }
+.rpe-scale button { font-size: 13px; padding: 11px 0; }
 .rpe-scale button.on, .scale button.on {
   background: var(--accent);
   color: var(--on-accent);
@@ -379,8 +381,8 @@ button, input { font: inherit; color: inherit; }
 /* ── 컨디션 ────────────────────────────────────────────── */
 .wellness-list { display: grid; gap: 12px; }
 .well-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 5px; }
-.well-label { font-size: 14.5px; font-family: var(--font-display); }
-.well-hint { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.well-label { font-size: 15.5px; font-family: var(--font-display); }
+.well-hint { font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin-left: 6px; }
 .scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
 .scale button { font-size: 15px; min-height: 44px; }
 
@@ -396,13 +398,13 @@ button, input { font: inherit; color: inherit; }
   min-height: 80px;
 }
 .week-day.today { border: 2px solid var(--line); background: var(--shade); }
-.week-label { font-family: var(--font-display); font-size: 13px; }
-.week-date { font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+.week-label { font-family: var(--font-display); font-size: 14px; }
+.week-date { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
 .week-chip {
-  font-size: 10px;
+  font-size: 11px;
   font-family: var(--font-mono);
   border: 1px solid var(--rule);
-  padding: 1px 2px;
+  padding: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -416,7 +418,7 @@ button, input { font: inherit; color: inherit; }
   gap: 10px;
   margin-top: 10px;
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 11.5px;
   color: var(--muted);
 }
 .legend span { display: flex; align-items: center; gap: 4px; }
@@ -428,15 +430,15 @@ button, input { font: inherit; color: inherit; }
 /* ── 추세 ──────────────────────────────────────────────── */
 .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .metric { border: 1px solid var(--rule); padding: 8px; display: grid; gap: 3px; }
-.metric-label { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); }
+.metric-label { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
 .metric-value {
   font-family: var(--font-mono);
-  font-size: 21px;
+  font-size: 22px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
 }
-.metric-value small { font-size: 10px; color: var(--muted); margin-left: 2px; }
+.metric-value small { font-size: 11px; color: var(--muted); margin-left: 2px; }
 
 .spark { width: 100%; height: 30px; display: block; }
 .well-spark { width: 84px; height: 22px; flex: none; }
@@ -454,14 +456,14 @@ button, input { font: inherit; color: inherit; }
   padding-bottom: 4px;
   margin-bottom: 9px;
 }
-.subhead h3 { font-size: 14px; }
-.subhead span { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); }
+.subhead h3 { font-size: 15px; }
+.subhead span { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
 .sport-trends { display: grid; gap: 14px; }
 .sport-row { display: grid; gap: 6px; }
 .summary-count { font-variant-numeric: tabular-nums; }
 .sport-copy { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
-.sport-copy strong { font-size: 13.5px; }
-.sport-copy span { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sport-copy strong { font-size: 14.5px; }
+.sport-copy span { font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .bar-chart {
   display: flex;
   align-items: flex-end;
@@ -478,13 +480,14 @@ button, input { font: inherit; color: inherit; }
   border: 1px solid var(--accent);
 }
 .bar-col.current i { background: var(--accent); }
-.bar-col small { font-family: var(--font-mono); font-size: 9px; color: var(--muted); }
+.bar-col small { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); }
 .load-empty, .empty {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--muted);
   border: 1px dashed var(--rule);
-  padding: 12px;
+  padding: 14px 12px;
   text-align: center;
 }
 
@@ -493,14 +496,14 @@ button, input { font: inherit; color: inherit; }
 .tag-list button {
   border: 1px solid var(--line);
   background: var(--card);
-  padding: 7px 11px;
-  font-size: 13px;
+  padding: 8px 12px;
+  font-size: 14px;
   cursor: pointer;
   box-shadow: var(--shadow-sm);
   min-height: 40px;
 }
 .tag-list button.on { background: var(--accent); color: var(--on-accent); box-shadow: none; transform: translate(2px, 2px); }
-.field-label { display: block; font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.field-label { display: block; font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin-bottom: 5px; }
 .text-field {
   width: 100%;
   border: 1px solid var(--line);
@@ -510,16 +513,17 @@ button, input { font: inherit; color: inherit; }
 }
 .text-field::placeholder { color: var(--muted); opacity: .8; }
 .recent-log { margin-top: 14px; }
-.recent-log h3 { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-bottom: 5px; }
+.recent-log h3 { font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin-bottom: 6px; }
 .log-row {
   display: grid;
-  grid-template-columns: 58px 1fr;
+  grid-template-columns: 62px 1fr;
   gap: 8px;
-  font-size: 13px;
-  padding: 5px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 7px 0;
   border-top: 1px solid var(--rule);
 }
-.log-row time { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
+.log-row time { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
 
 /* ── 버튼 ──────────────────────────────────────────────── */
 .primary-btn, .secondary-btn {
@@ -551,10 +555,10 @@ button, input { font: inherit; color: inherit; }
 .auth { place-content: center; min-height: 80dvh; }
 .auth-card { padding: 24px; text-align: center; }
 .auth-card h1 { font-size: 22px; margin-bottom: 8px; }
-.auth-card p { font-size: 14px; color: var(--muted); }
+.auth-card p { font-size: 15px; color: var(--muted); line-height: 1.6; }
 .auth-mark { font-family: var(--font-mono); font-size: 28px; margin-bottom: 6px; }
 
-.footnote { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); text-align: right; }
+.footnote { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); text-align: right; }
 
 .toast {
   position: fixed;
@@ -565,8 +569,8 @@ button, input { font: inherit; color: inherit; }
   color: var(--card);
   border: 1px solid var(--ink);
   box-shadow: var(--shadow);
-  padding: 10px 14px;
-  font-size: 13.5px;
+  padding: 11px 15px;
+  font-size: 14.5px;
   max-width: 90vw;
   z-index: 70;
   opacity: 0;
