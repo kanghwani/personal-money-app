@@ -101,7 +101,10 @@ BLOCKS = [
 # 하루 1회 가드: iCloud Drive/Shortcuts/health_run/<오늘>.txt 가 있으면 즉시 종료(앱 열 때 트리거로 여러 번 돌아도 한 번만).
 # 조건문에 변수 비교를 넣으면 앱이 값을 못 읽어서, 파일 이름을 날짜로 하고 "값이 있음"만 검사한다.
 today_txt, last_file, guard = U(), U(), U()
-guard_path = lambda: token_string(['health_run/', {'OutputUUID': today_txt, 'OutputName': 'Text', 'Type': 'ActionOutput'}, '.txt'])
+# 가드 파일명에 단축어 입력을 끼워 넣는다: 입력이 없으면 health_run/<오늘>.txt(자동화 = 하루 1회),
+# 앱의 "워치에서 가져오기"(shortcuts://...&text=force)면 health_run/<오늘>force.txt 라 항상 새로 돈다.
+guard_path = lambda: token_string(['health_run/', {'OutputUUID': today_txt, 'OutputName': 'Text', 'Type': 'ActionOutput'},
+                                   {'Type': 'ExtensionInput'}, '.txt'])
 guard_actions = [
     act('gettext', UUID=today_txt, WFTextActionText=token_string([{'Type': 'CurrentDate', 'Aggrandizements': [
         {'Type': 'WFDateFormatVariableAggrandizement', 'WFDateFormatStyle': 'Custom', 'WFDateFormat': 'yyyy-MM-dd', 'WFISO8601IncludeTime': False}]}])),
@@ -158,18 +161,10 @@ def document(name, acts, glyph, color):
         'WFWorkflowMinimumClientVersion': 900, 'WFWorkflowMinimumClientVersionString': '900',
         'WFWorkflowIcon': {'WFWorkflowIconGlyphNumber': glyph, 'WFWorkflowIconStartColor': color},
         'WFWorkflowHasOutputFallback': False, 'WFWorkflowImportQuestions': [], 'WFWorkflowOutputContentItemClasses': [],
-        'WFWorkflowTypes': ['Watch'], 'WFWorkflowInputContentItemClasses': [],
+        'WFWorkflowTypes': ['Watch'], 'WFWorkflowHasShortcutInputVariables': True,
+        'WFWorkflowInputContentItemClasses': ['WFStringContentItem'],
     }
 
-doc = {
-    'WFWorkflowName': '건강 업로드',
-    'WFWorkflowActions': actions,
-    'WFWorkflowClientVersion': '2700.0.4', 'WFWorkflowClientRelease': '26A0000a',
-    'WFWorkflowMinimumClientVersion': 900, 'WFWorkflowMinimumClientVersionString': '900',
-    'WFWorkflowIcon': {'WFWorkflowIconGlyphNumber': 61440, 'WFWorkflowIconStartColor': 4282601983},
-    'WFWorkflowHasOutputFallback': False, 'WFWorkflowImportQuestions': [], 'WFWorkflowOutputContentItemClasses': [],
-    'WFWorkflowTypes': [], 'WFWorkflowInputContentItemClasses': [],
-}
 out_dir = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else '.')
 for name, acts, glyph, color in [('건강 업로드', actions, 61440, 4282601983), ('컨디션', checkin, 61440, 463140863)]:
     (out_dir / f'{name}.xml').write_bytes(plistlib.dumps(document(name, acts, glyph, color), fmt=plistlib.FMT_XML))
