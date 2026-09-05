@@ -110,9 +110,9 @@ BLOCKS = [
 # 하루 1회 가드: iCloud Drive/Shortcuts/health_run/<오늘>.txt 가 있으면 즉시 종료(앱 열 때 트리거로 여러 번 돌아도 한 번만).
 # 조건문에 변수 비교를 넣으면 앱이 값을 못 읽어서, 파일 이름을 날짜로 하고 "값이 있음"만 검사한다.
 today_txt, last_file, guard = U(), U(), U()
-hour_txt, early, night = U(), U(), U()
+hour_txt, early, night, manual = U(), U(), U(), U()
 # 가드 키 = 오늘 날짜 + 단축어 입력. 입력이 없으면 health_run/<오늘>.txt(자동화 = 하루 1회),
-# 앱의 "워치에서 가져오기"(shortcuts://...&text=force)면 health_run/<오늘>force.txt 라 항상 새로 돈다.
+# 앱의 "워치에서 가져오기"(입력 force)는 가드 검사를 건너뛰어 항상 돈다.
 # 두 토큰을 첫 텍스트 액션에 함께 넣는다 — 경로에 섞어 넣으면 화면에서 보이지 않아 확인이 어렵다.
 guard_path = lambda: token_string(['health_run/', {'OutputUUID': today_txt, 'OutputName': 'Text', 'Type': 'ActionOutput'}, '.txt'])
 # 새벽 0~4시에는 아무것도 하지 않는다.
@@ -135,16 +135,25 @@ night_guard = [
     act('conditional', GroupingIdentifier=night, WFControlFlowMode=2, UUID=U()),
 ]
 
+ext_input = {'Type': 'Variable', 'Variable': {'Value': {'Type': 'ExtensionInput'}, 'WFSerializationType': 'WFTextTokenAttachment'}}
 guard_actions = night_guard + [
+    # 날짜는 항상 계산한다. 마지막의 마커 저장 경로에도 쓰인다.
     act('gettext', UUID=today_txt, WFTextActionText=token_string([
         {'Type': 'CurrentDate', 'Aggrandizements': [
             {'Type': 'WFDateFormatVariableAggrandizement', 'WFDateFormatStyle': 'Custom', 'WFDateFormat': 'yyyy-MM-dd', 'WFISO8601IncludeTime': False}]},
         {'Type': 'ExtensionInput'}])),
+    # 입력이 있으면(앱의 "워치에서 가져오기") 가드를 아예 건너뛴다.
+    # 예전엔 이름만 다른 마커(<날짜>force.txt)를 썼는데, 그걸 검사도 하고 쓰기도 해서
+    # 앱 버튼도 결국 하루 1회가 됐다. 운동 끝나고 당겨오는 게 이 버튼의 존재 이유인데
+    # 그날 이미 한 번 눌렀으면 조용히 아무 일도 일어나지 않았다.
+    act('conditional', GroupingIdentifier=manual, WFControlFlowMode=0, WFCondition=100, WFInput=ext_input),
+    act('conditional', GroupingIdentifier=manual, WFControlFlowMode=1),
     act('documentpicker.open', UUID=last_file, WFGetFilePath=guard_path(), WFShowFilePicker=False, WFFileErrorIfNotFound=False),
     act('conditional', GroupingIdentifier=guard, WFControlFlowMode=0, WFCondition=100,   # 100 = 값이 있음
         WFInput={'Type': 'Variable', 'Variable': out_ref(last_file, 'File')}),
     act('exit'),
     act('conditional', GroupingIdentifier=guard, WFControlFlowMode=2, UUID=U()),
+    act('conditional', GroupingIdentifier=manual, WFControlFlowMode=2, UUID=U()),
 ]
 
 actions = [
