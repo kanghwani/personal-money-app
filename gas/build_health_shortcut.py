@@ -100,6 +100,12 @@ BLOCKS = [
     # 샘플 0개면 단축어가 멈추므로, 비어 있을 수 있는 블록은 맨 뒤에 둔다
     # 운동 세션은 제외: Find Health Samples 타입 라벨 'Workouts'/'Workout' 모두 미인식. 백필(backfill_health.py)로만 채운다.
     ('VO2',   'VO2 Max',                 'vo2max',      60, None,  ('Start Date', 'End Date', 'Value')),
+    # 준비도가 쓰는 8개 성분 중 손목온도(0.10)·호흡수(0.05)가 매일 안 들어오고 있었다.
+    # 백필로만 채워져서 항상 며칠 뒤처졌고, 그래서 준비도가 6개 성분으로만 계산됐다.
+    # 특히 손목온도는 질병 신호의 핵심인데 그게 빠진 채 "질병 신호를 살피라"고 말하고 있었다.
+    # 타입 라벨이 틀리면 그 블록에서 멈추므로 맨 뒤에 둔다(앞 블록은 이미 전송 완료).
+    ('호흡수',  'Respiratory Rate',       'respiratory_rate', 3, 'Day', ('Start Date', 'End Date', 'Value')),
+    ('손목온도', 'Wrist Temperature',     'wrist_temp',       3, 'Day', ('Start Date', 'End Date', 'Value')),
 ]
 # 하루 1회 가드: iCloud Drive/Shortcuts/health_run/<오늘>.txt 가 있으면 즉시 종료(앱 열 때 트리거로 여러 번 돌아도 한 번만).
 # 조건문에 변수 비교를 넣으면 앱이 값을 못 읽어서, 파일 이름을 날짜로 하고 "값이 있음"만 검사한다.

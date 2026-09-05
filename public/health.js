@@ -439,9 +439,46 @@ function render(data) {
   $('#app').setAttribute('aria-busy', 'false');
 }
 
+/**
+ * 화면을 캐시로 먼저 그리고, 서버 응답이 오면 바꿔 끼운다.
+ *
+ * 서버는 9년치(약 2MB)를 GAS 에서 받아 계산한다. 오래된 부분은 변하지 않는데도
+ * 매번 7초를 기다리며 빈 화면을 보고 있었다. 어제까지의 결론은 이미 알고 있으니
+ * 그걸 먼저 보여주고 새 값이 오면 조용히 갱신한다.
+ * 캐시가 오늘 것이 아니면 '어제 기준'이라고 밝힌다. 틀린 숫자를 말없이 보여주지 않는다.
+ */
+const CACHE_KEY = 'health-payload:v1';
+
+function readCache() {
+  try { return JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); } catch { return null; }
+}
+
 async function load() {
-  try { render(await request()); }
-  catch (error) { if (error.message !== 'unauthorized') toast(error.message); }
+  const cached = readCache();
+  if (cached && cached.payload) {
+    render(cached.payload);
+    if (cached.payload.today !== todayKey()) {
+      $('#syncMark').textContent = '이전 기록 · 갱신 중';
+    } else {
+      $('#syncMark').textContent = '갱신 중';
+    }
+  }
+  try {
+    const fresh = await request();
+    render(fresh);
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ payload: fresh })); } catch { /* 용량 초과는 무시 */ }
+  } catch (error) {
+    if (error.message === 'unauthorized') return;
+    // 캐시로 이미 뭔가 보여준 상태라면, 그게 최신이 아니라는 것만 알리면 된다.
+    if (cached && cached.payload) $('#syncMark').textContent = '갱신 실패 · 이전 기록';
+    else toast(error.message);
+  }
+}
+
+/** 기기 기준 오늘(KST). 서버 payload.today 와 같은 형식. */
+function todayKey() {
+  const d = new Date(Date.now() + (9 * 60 + new Date().getTimezoneOffset()) * 60000);
+  return d.toISOString().slice(0, 10);
 }
 
 /**
