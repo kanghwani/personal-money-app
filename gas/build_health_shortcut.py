@@ -104,11 +104,32 @@ BLOCKS = [
 # 하루 1회 가드: iCloud Drive/Shortcuts/health_run/<오늘>.txt 가 있으면 즉시 종료(앱 열 때 트리거로 여러 번 돌아도 한 번만).
 # 조건문에 변수 비교를 넣으면 앱이 값을 못 읽어서, 파일 이름을 날짜로 하고 "값이 있음"만 검사한다.
 today_txt, last_file, guard = U(), U(), U()
+hour_txt, early, night = U(), U(), U()
 # 가드 키 = 오늘 날짜 + 단축어 입력. 입력이 없으면 health_run/<오늘>.txt(자동화 = 하루 1회),
 # 앱의 "워치에서 가져오기"(shortcuts://...&text=force)면 health_run/<오늘>force.txt 라 항상 새로 돈다.
 # 두 토큰을 첫 텍스트 액션에 함께 넣는다 — 경로에 섞어 넣으면 화면에서 보이지 않아 확인이 어렵다.
 guard_path = lambda: token_string(['health_run/', {'OutputUUID': today_txt, 'OutputName': 'Text', 'Type': 'ActionOutput'}, '.txt'])
-guard_actions = [
+# 새벽 0~4시에는 아무것도 하지 않는다.
+# 알람 보려고 시계 앱을 열면 자동화가 돌고, 그 실행이 그날 마커를 써버려서
+# 정작 아침에는 "이미 돌았다"고 종료했다. 그날 수면과 준비도가 통째로 빈다.
+# 게다가 그 시각엔 잠이 진행 중이라 끊긴 수면 구간이 올라가 총수면이 부풀 수 있다.
+#
+# 시각 비교 대신 문자열 매칭을 쓴다. 'HH' 를 정규식으로 보는 것이라
+# 혹시 Match Text 가 값을 안 돌려줘도 조건이 거짓이 되어 예전과 똑같이 동작한다.
+# (날짜 빼기로 구현하면 실패했을 때 파일 이름이 비어 영영 안 도는 쪽으로 깨진다)
+night_guard = [
+    act('gettext', UUID=hour_txt, WFTextActionText=token_string([
+        {'Type': 'CurrentDate', 'Aggrandizements': [
+            {'Type': 'WFDateFormatVariableAggrandizement', 'WFDateFormatStyle': 'Custom', 'WFDateFormat': 'HH', 'WFISO8601IncludeTime': False}]}])),
+    act('text.match', UUID=early, WFMatchTextPattern='^0[0-4]$', WFMatchTextCaseSensitive=False,
+        text=out_text(hour_txt, 'Text')),
+    act('conditional', GroupingIdentifier=night, WFControlFlowMode=0, WFCondition=100,
+        WFInput={'Type': 'Variable', 'Variable': out_ref(early, 'Matches')}),
+    act('exit'),
+    act('conditional', GroupingIdentifier=night, WFControlFlowMode=2, UUID=U()),
+]
+
+guard_actions = night_guard + [
     act('gettext', UUID=today_txt, WFTextActionText=token_string([
         {'Type': 'CurrentDate', 'Aggrandizements': [
             {'Type': 'WFDateFormatVariableAggrandizement', 'WFDateFormatStyle': 'Custom', 'WFDateFormat': 'yyyy-MM-dd', 'WFISO8601IncludeTime': False}]},
@@ -123,6 +144,7 @@ guard_actions = [
 actions = [
     comment(f'{UPLOAD_NAME}: 애플워치 데이터를 가계부 GAS 건강 시트로 보낸다(탭: sleep, resting_hr, hrv, active_kcal, vo2max, workout). 같은 행은 서버가 버리므로 여러 번 실행해도 됨.'),
     comment('생성: personal-money-app/gas/build_health_shortcut.py (직접 고치지 말고 스크립트를 수정해서 다시 서명)'),
+    comment('새벽 0~4시 종료: 알람 보려고 시계 앱을 연 실행이 그날 몫을 태우지 않게. 그 시각엔 수면이 진행 중이라 올릴 것도 없다.'),
     comment('하루 1회 가드: 오늘 날짜 + 단축어 입력으로 파일 이름을 만들고, 그 파일이 있으면 종료. 앱에서 force 를 넘기면 이름이 달라져 항상 다시 돈다.'),
 ] + guard_actions
 noti = []
