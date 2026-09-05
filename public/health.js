@@ -453,6 +453,36 @@ function readCache() {
   try { return JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); } catch { return null; }
 }
 
+/**
+ * 화면 전환. 섹션 12개를 성격으로 나눈다.
+ * '오늘'은 매일 읽고 입력하는 것, '기록'은 가끔 보는 추세.
+ * 목록에 없는 섹션은 항상 보인다 - 새 섹션이 추가돼도 사라지지 않게.
+ */
+const LOG_SECTIONS = ['weekSection', 'coachSection', 'trainingLoadSection', 'trendsSection', 'fitnessSection', 'insightsSection'];
+const TODAY_SECTIONS = ['sleepStagesSection', 'workoutsSection', 'wellnessSection', 'journalSection'];
+const VIEW_KEY = 'health-view:v1';
+
+function applyView(view) {
+  const hero = document.querySelector('.hero-grid');
+  if (hero) hero.hidden = view !== 'today';
+  for (const id of TODAY_SECTIONS) { const el = document.getElementById(id); if (el) el.hidden = view !== 'today'; }
+  for (const id of LOG_SECTIONS) { const el = document.getElementById(id); if (el) el.hidden = view !== 'log'; }
+  for (const b of document.querySelectorAll('#viewTabs button')) b.setAttribute('aria-pressed', String(b.dataset.view === view));
+  try { localStorage.setItem(VIEW_KEY, view); } catch { /* 무시 */ }
+}
+
+(function wireViewTabs() {
+  let saved = 'today';
+  try { saved = localStorage.getItem(VIEW_KEY) || 'today'; } catch { /* 무시 */ }
+  document.getElementById('viewTabs').addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-view]');
+    if (!button) return;
+    applyView(button.dataset.view);
+    scrollTo({ top: 0, behavior: 'smooth' });
+  });
+  applyView(saved);
+})();
+
 async function load() {
   const cached = readCache();
   if (cached && cached.payload) {

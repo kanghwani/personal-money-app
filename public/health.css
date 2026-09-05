@@ -791,3 +791,37 @@ button, input { font: inherit; color: inherit; }
 @media (max-width: 400px) { .coach-stats { grid-template-columns: repeat(2, 1fr); } }
 .coach-month { border-top: 1px solid var(--rule); padding-top: 9px; display: grid; gap: 3px; }
 .coach-month-line { font-family: var(--font-mono); font-size: 12px; color: var(--muted); line-height: 1.45; }
+
+/* 화면 전환 --------------------------------------------------------
+   섹션이 12개라 아래로 너무 길었다. 성격이 둘로 갈린다.
+   '오늘' = 매일 읽고 입력하는 것(준비도·퀘스트·수면·RPE·컨디션·메모),
+   '기록' = 가끔 들여다보는 추세(주간·코치·부하·흐름·스탯·발견).
+   섞어두면 매일 쓰는 칸을 찾으려고 매번 지나쳐야 한다. */
+.view-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  margin: 0 0 14px;
+  border: 2px solid var(--line);
+  box-shadow: var(--shadow);
+  background: var(--card);
+}
+
+.view-tabs button {
+  padding: 11px 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.view-tabs button + button { border-left: 2px solid var(--line); }
+
+.view-tabs button[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--card);
+}
