@@ -70,6 +70,17 @@ export function readiness(tabs: Tabs, today: string) {
   const caps: string[] = []
   const rhrz = -(comps.find((c) => c.key === 'rhr')?.z ?? 0)
   if (tz >= 2 && (rhrz >= 1 || rz >= 1)) { score = Math.min(score, 40); caps.push('질병 가능성(손목온도↑ + 심박/호흡↑)') }
+  // 손목온도가 없는 날에도 질병 패턴을 놓치지 않는다.
+  // 워치가 손목온도를 재는 밤이 관측 120일 중 39일뿐이었다. 나머지 날에는 위 판정이
+  // 성립할 수 없어서, 아파도 '휴식'이 구조적으로 나올 수 없었다.
+  // 대신 문턱을 높인다 - 안정심박↑·호흡수↑·HRV↓ 중 둘 이상이 크게(|z|≥1.5) 이탈해야 한다.
+  // 완전 휴식 권고는 한 번 틀리면 다음부터 안 믿게 되므로 보수적으로 잡는다.
+  // NaN 비교는 항상 false라 값이 없는 지표는 자동으로 빠진다.
+  const hrv7z = comps.find((c) => c.key === 'hrv7')?.z ?? NaN
+  if (isNaN(tz)) {
+    const flags = [rhrz >= 1.5, rz >= 1.5, hrv7z <= -1.5].filter(Boolean).length
+    if (flags >= 2) { score = Math.min(score, 40); caps.push('질병 가능성(회복 지표 둘 이상 크게 이탈)') }
+  }
   const badN = comps.filter((c) => ['hrv7', 'rhr', 'temp', 'rr'].includes(c.key) && c.z <= -1.5).length
   if (badN >= 2) { score = Math.min(score, 55); caps.push('회복 지표 둘 이상 이탈') }
   score = Math.round(score)

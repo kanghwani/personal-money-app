@@ -33,6 +33,28 @@ describe('readiness', () => {
     const r = readiness(tabs, today)
     expect(r.score).toBeLessThanOrEqual(40); expect(r.reasons[0]).toContain('질병 가능성')
   })
+  // 워치가 손목온도를 재는 밤이 관측 120일 중 39일뿐이었다.
+  // 나머지 날에는 질병 판정이 성립할 수 없어서 아파도 '휴식'이 안 나왔다.
+  it('손목온도가 없어도 심박·호흡이 함께 크게 튀면 질병으로 본다', () => {
+    const rhr = Array(N).fill(60).map((v, i) => v + (i % 3)); rhr[N - 1] = 75
+    const rr = Array(N).fill(13).map((v, i) => v + (i % 2) * 0.2); rr[N - 1] = 16
+    const tabs = { hrv: rows(Array(N).fill(40).map((v, i) => v + (i % 5))), resting_hr: rows(rhr),
+      sleep: Array.from({ length: N }, (_, i) => night(i, 400 + (i % 4) * 10)), respiratory_rate: rows(rr) }
+    const r = readiness(tabs, today)
+    expect(r.comps.some((c) => c.key === 'temp')).toBe(false)
+    expect(r.band).toBe('휴식')
+    expect(r.score).toBeLessThanOrEqual(40)
+  })
+
+  // 완전 휴식 권고는 한 번 틀리면 다음부터 안 믿는다. 하나만 튀는 날은 그냥 낮은 점수다.
+  it('하나만 튀면 휴식이라고 하지 않는다', () => {
+    const rhr = Array(N).fill(60).map((v, i) => v + (i % 3)); rhr[N - 1] = 75
+    const tabs = { hrv: rows(Array(N).fill(40).map((v, i) => v + (i % 5))), resting_hr: rows(rhr),
+      sleep: Array.from({ length: N }, (_, i) => night(i, 400 + (i % 4) * 10)),
+      respiratory_rate: rows(Array(N).fill(13).map((v, i) => v + (i % 2) * 0.2)) }
+    expect(readiness(tabs, today).band).not.toBe('휴식')
+  })
+
   it('데이터가 적으면 축적 중', () => {
     expect(readiness({ hrv: rows([40, 41, 42]) }, today).band).toBe('기준선 축적 중')
     expect(formatReadiness(readiness({}, today), today)).toContain('축적 중')
