@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shiba-money-v24';
+const CACHE_NAME = 'shiba-money-v25';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

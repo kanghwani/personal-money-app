@@ -797,6 +797,10 @@ button, input { font: inherit; color: inherit; }
    '오늘' = 매일 읽고 입력하는 것(준비도·퀘스트·수면·RPE·컨디션·메모),
    '기록' = 가끔 들여다보는 추세(주간·코치·부하·흐름·스탯·발견).
    섞어두면 매일 쓰는 칸을 찾으려고 매번 지나쳐야 한다. */
+/* display 를 지정한 요소는 hidden 을 이긴다(.hero-grid 가 display:grid).
+   화면 전환이 조용히 안 먹는 원인이라 여기서 못을 박는다. */
+[hidden] { display: none !important; }
+
 .view-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
