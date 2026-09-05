@@ -105,11 +105,17 @@ BLOCKS = [
     # 특히 손목온도는 질병 신호의 핵심인데 그게 빠진 채 "질병 신호를 살피라"고 말하고 있었다.
     # 타입 라벨이 틀리면 그 블록에서 멈추므로 맨 뒤에 둔다(앞 블록은 이미 전송 완료).
     ('호흡수',  'Respiratory Rate',       'respiratory_rate', 3, 'Day', ('Start Date', 'End Date', 'Value')),
-    # 'Wrist Temperature' 라벨은 맞다 - 단축어 편집 화면에 '손목 온도' 로 뜬다.
-    # 그런데도 0개가 나왔다면 남는 원인은 타입별 건강 권한이다.
-    # 권한이 없으면 오류가 아니라 조용히 0개가 나온다.
+    # 'Sleep Wrist Temperature'. 'Wrist Temperature' 도 'Sleeping Wrist Temperature' 도 아니다.
+    # 둘 다 0개가 나왔는데, 단축어는 모르는 열거값을 오류로 알리지 않고 원문을 그대로 보여주며
+    # 조용히 0개를 돌려준다. 그래서 권한·데이터 문제로 착각하고 한참 헤맸다.
+    # 결국 폰에서 목록으로 고른 뒤 iCloud 로 동기화된 ~/Library/Shortcuts/Shortcuts.sqlite 의
+    # ZSHORTCUTACTIONS.ZDATA(바이너리 plist)를 열어 실제 값을 읽었다.
+    #   sqlite3 ~/Library/Shortcuts/Shortcuts.sqlite \
+    #     "select writefile('/tmp/hs.bin', ZDATA) from ZSHORTCUTACTIONS
+    #      where ZSHORTCUT=(select Z_PK from ZSHORTCUT where ZNAME='healthsync')"
+    # 새 타입을 추가할 때 라벨이 안 먹으면 추측하지 말고 이 방법으로 읽을 것.
     # 잠잘 때만 재는 값이라 밤을 걸러 비는 날이 많다(120일에 39일). 창은 30일.
-    ('손목온도', 'Wrist Temperature', 'wrist_temp', 30, 'Day', ('Start Date', 'End Date', 'Value')),
+    ('손목온도', 'Sleep Wrist Temperature', 'wrist_temp', 30, 'Day', ('Start Date', 'End Date', 'Value')),
 ]
 # 하루 1회 가드: iCloud Drive/Shortcuts/health_run/<오늘>.txt 가 있으면 즉시 종료(앱 열 때 트리거로 여러 번 돌아도 한 번만).
 # 조건문에 변수 비교를 넣으면 앱이 값을 못 읽어서, 파일 이름을 날짜로 하고 "값이 있음"만 검사한다.
