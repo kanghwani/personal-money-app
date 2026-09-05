@@ -68,17 +68,26 @@ describe('dedupById', () => {
 describe('keepPending', () => {
   // 다른 기기가 더 최신이면 store 가 통째로 교체된다. 그때 방금 입력해서
   // 아직 원장에 못 올린 거래가 조용히 사라졌다. (2,700원 한 건을 그렇게 잃었다)
-  const tx = (id: string) => ({ id, amount: 2700 })
+  const tx = (id: string, memo = id) => ({ id, date: '2026-06-01', amount: 2700, memo })
+  const key = (t: { date: string; amount: number; memo?: string }) => `${t.date}|${t.amount}|${(t.memo || '').trim()}`
 
   it('원격에도 원장에도 없는 로컬 거래를 살린다', () => {
-    expect(keepPending([tx('new')], [tx('old')], new Set())).toEqual([tx('new'), tx('old')])
+    expect(keepPending([tx('new')], [tx('old')], new Set(), key)).toEqual([tx('new'), tx('old')])
   })
 
   it('원장에 이미 들어간 거래는 다시 넣지 않는다', () => {
-    expect(keepPending([tx('done')], [], new Set(['done']))).toEqual([])
+    expect(keepPending([tx('done')], [], new Set([key(tx('done'))]), key)).toEqual([])
+  })
+
+  // id 만 보면 원장에서 고쳐 저장해 id 가 바뀐 거래를 '못 보낸 것'으로 오해해 되살린다.
+  // 실제로 5~6월 거래 10건이 그렇게 원장에 두 번 들어갔다.
+  it('id가 달라도 내용이 같으면 이미 원장에 있는 것으로 본다', () => {
+    const local = { id: 'old-id', date: '2026-06-01', amount: 2700, memo: '카페' }
+    const inLedger = { id: 'new-id', date: '2026-06-01', amount: 2700, memo: '카페' }
+    expect(keepPending([local], [], new Set([key(inLedger)]), key)).toEqual([])
   })
 
   it('원격에 같은 id가 있으면 원격을 쓴다', () => {
-    expect(keepPending([tx('a')], [tx('a')], new Set())).toEqual([tx('a')])
+    expect(keepPending([tx('a')], [tx('a')], new Set(), key)).toEqual([tx('a')])
   })
 })

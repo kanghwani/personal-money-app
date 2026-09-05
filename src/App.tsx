@@ -98,6 +98,8 @@ type Transaction = {
   fixedType: FixedType
   split: number
   raw: string
+  /** 시트에 기록된 시각. 원장 목록을 '적은 순'으로 세울 때 쓴다. 로컬 입력분에는 없다. */
+  enteredAt?: string
 }
 
 type Asset = {
@@ -235,7 +237,12 @@ function App() {
   useEffect(() => {
     if (ledgerStatus !== 'ready' || !store.transactions.length) return
     const ledgerIds = new Set(history.map((item) => item.id))
-    const pending = store.transactions.filter((item) => !ledgerIds.has(item.id) && !ledgerAppendInFlight.current.has(item.id))
+    // 내용까지 본다. id 만 보면 같은 거래가 다른 id 로 다시 올라간다.
+    // 서버의 appendLedger 는 id 로만 중복을 막는데, 원장에서 고쳐 저장하면 id 가 바뀐다.
+    // 그 뒤 로컬에 남아 있던 옛 사본이 재전송돼 5~6월 거래 10건이 원장에 두 번 들어갔다.
+    const ledgerKeys = new Set(history.map(contentKey))
+    const pending = store.transactions.filter((item) =>
+      !ledgerIds.has(item.id) && !ledgerKeys.has(contentKey(item)) && !ledgerAppendInFlight.current.has(item.id))
     if (!pending.length) return
     pending.forEach((item) => ledgerAppendInFlight.current.add(item.id))
     void Promise.all(pending.map((item) => appendLedger(item).catch(() => false)))
@@ -1086,7 +1093,14 @@ function Ledger({
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const categoryOptions = useMemo(() => distinctCategoryOptions(transactions), [transactions])
-  const filtered = transactions.filter((item) => filter === 'all' || item.type === filter)
+  // 원장은 '적은 순'으로 본다. 날짜순이면 매달 1~5일에 자동 등록되는 고정비가
+  // 늘 맨 위를 차지해서, 방금 적은 것을 확인하려면 그걸 지나쳐 내려가야 했다.
+  // 아직 시트에 못 올라간 로컬 입력분(enteredAt 없음)은 방금 적은 것이므로 맨 앞에 둔다.
+  const recorded = (item: Transaction) => item.enteredAt || '9999-99-99'
+  const filtered = transactions
+    .filter((item) => filter === 'all' || item.type === filter)
+    .slice()
+    .sort((a, b) => recorded(b).localeCompare(recorded(a)) || b.date.localeCompare(a.date))
   const yearMonth = `${ym.year}-${String(ym.month).padStart(2, '0')}`
   const totals = dailyTotals(transactions, yearMonth)
   const prevMonth = () => setYm((s) => (s.month === 1 ? { year: s.year - 1, month: 12 } : { ...s, month: s.month - 1 }))
@@ -2177,6 +2191,10 @@ function cacheCardPerf(month: string, perf: { name: string; qualified: number }[
   } catch { /* 용량 초과 등은 무시 */ }
 }
 
+/** 같은 거래인지 판단하는 키. id 는 원장에서 고치면 바뀌므로 내용으로 본다. */
+const contentKey = (t: { date: string; amount: number; memo?: string }) =>
+  `${t.date}|${t.amount}|${(t.memo || '').trim()}`
+
 const LEDGER_CACHE_KEY = 'shiba-ledger:v1'
 
 function readLedgerCache(): Transaction[] {
@@ -2268,10 +2286,10 @@ function usePersistentStore() {
           updatedAtRef.current = winner.updatedAt
           window.localStorage.setItem(UPDATED_AT_KEY, winner.updatedAt)
           // 원격이 이겨도 아직 원장에 못 올린 로컬 입력은 버리지 않는다.
-          const ledgerIds = new Set(readLedgerCache().map((tx) => tx.id))
+          const ledgerKeys = new Set(readLedgerCache().map(contentKey))
           setStore({
             ...winner.store,
-            transactions: keepPending(storeRef.current.transactions ?? [], winner.store.transactions ?? [], ledgerIds),
+            transactions: keepPending(storeRef.current.transactions ?? [], winner.store.transactions ?? [], ledgerKeys, contentKey),
           })
           setSyncStatus('idle')
         } else if (remote === null) {

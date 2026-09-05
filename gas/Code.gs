@@ -1962,9 +1962,16 @@ function readLedgerTransactions_(ss) {
     if (!amount && !memo) continue;
     const rawDate = row[idx['날짜']];
     const date = rawDate instanceof Date ? formatDate_(rawDate) : String(rawDate || '');
+    // 앱 원장은 '적은 순'으로 보여준다. 고정비는 매달 1~5일에 자동 등록돼서
+    // 날짜순으로 두면 방금 적은 것이 늘 그 아래로 밀린다.
+    const rawEntered = row[idx['입력시각']];
+    const enteredAt = rawEntered instanceof Date
+      ? Utilities.formatDate(rawEntered, TZ, 'yyyy-MM-dd HH:mm:ss')
+      : String(rawEntered || '');
     out.push({
       id: String(row[idx['거래ID']] || ('led-' + r)),
       date: date,
+      enteredAt: enteredAt,
       type: String(row[idx['구분']] || '') === '수입' ? 'income' : 'expense',
       amount: amount,
       memo: memo,

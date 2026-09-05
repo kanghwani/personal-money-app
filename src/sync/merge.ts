@@ -32,9 +32,11 @@ export function dedupById<T extends { id: string }>(history: T[], store: T[]): T
  * 대기열은 원장에 들어가는 순간 지워지므로, id 기준으로 남겨두는 것이 항상 안전하다.
  */
 export function keepPending<T extends { id: string }>(
-  localTx: T[], remoteTx: T[], ledgerIds: Set<string>,
+  localTx: T[], remoteTx: T[], ledgerKeys: Set<string>, keyOf: (t: T) => string = (t) => t.id,
 ): T[] {
   const known = new Set(remoteTx.map((t) => t.id))
-  const pending = localTx.filter((t) => !known.has(t.id) && !ledgerIds.has(t.id))
+  // 원장 대조는 id 가 아니라 내용으로 한다. 원장에서 고쳐 저장하면 id 가 바뀌므로,
+  // id 만 보면 이미 있는 거래를 '아직 못 보낸 것'으로 오해해 되살린다.
+  const pending = localTx.filter((t) => !known.has(t.id) && !ledgerKeys.has(keyOf(t)))
   return pending.length ? [...pending, ...remoteTx] : remoteTx
 }
