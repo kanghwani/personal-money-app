@@ -105,13 +105,11 @@ BLOCKS = [
     # 특히 손목온도는 질병 신호의 핵심인데 그게 빠진 채 "질병 신호를 살피라"고 말하고 있었다.
     # 타입 라벨이 틀리면 그 블록에서 멈추므로 맨 뒤에 둔다(앞 블록은 이미 전송 완료).
     ('호흡수',  'Respiratory Rate',       'respiratory_rate', 3, 'Day', ('Start Date', 'End Date', 'Value')),
-    # 손목온도는 라벨을 확신할 수 없다. 'Wrist Temperature' 로 0개가 나왔는데
-    # 시트에는 9/1~9/3 값이 있으니 데이터가 없어서가 아니라 이름이 안 맞는 것이다.
-    # 후보 둘을 나란히 둔다. 맞는 쪽이 채우고 틀린 쪽은 0개로 조용히 지나간다.
-    # (라벨을 하나씩 바꿔가며 재설치를 반복하는 것보다 한 번에 끝내는 편이 낫다)
-    # 잠잘 때만 재는 값이라 밤을 걸러 비는 날이 많다(120일에 39일). 창을 30일로 넓힌다.
-    ('손목온도', 'Wrist Temperature',          'wrist_temp', 30, 'Day', ('Start Date', 'End Date', 'Value')),
-    ('손목온도2', 'Sleeping Wrist Temperature', 'wrist_temp', 30, 'Day', ('Start Date', 'End Date', 'Value')),
+    # 'Wrist Temperature' 라벨은 맞다 - 단축어 편집 화면에 '손목 온도' 로 뜬다.
+    # 그런데도 0개가 나왔다면 남는 원인은 타입별 건강 권한이다.
+    # 권한이 없으면 오류가 아니라 조용히 0개가 나온다.
+    # 잠잘 때만 재는 값이라 밤을 걸러 비는 날이 많다(120일에 39일). 창은 30일.
+    ('손목온도', 'Wrist Temperature', 'wrist_temp', 30, 'Day', ('Start Date', 'End Date', 'Value')),
 ]
 # 하루 1회 가드: iCloud Drive/Shortcuts/health_run/<오늘>.txt 가 있으면 즉시 종료(앱 열 때 트리거로 여러 번 돌아도 한 번만).
 # 조건문에 변수 비교를 넣으면 앱이 값을 못 읽어서, 파일 이름을 날짜로 하고 "값이 있음"만 검사한다.
