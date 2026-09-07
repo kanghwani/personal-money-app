@@ -55,6 +55,26 @@ describe('readiness', () => {
     expect(readiness(tabs, today).band).not.toBe('휴식')
   })
 
+  // 손목온도가 평소보다 낮다고 몸이 더 준비된 것은 아니다.
+  // 양방향 채점이면 낮기만 해도 만점이 붙어 준비도가 부풀었다.
+  it('손목온도가 기준선보다 낮아도 만점을 주지 않는다', () => {
+    const base = { hrv: rows(Array(N).fill(40).map((v, i) => v + (i % 5))), resting_hr: rows(Array(N).fill(60).map((v, i) => v + (i % 3))),
+      sleep: Array.from({ length: N }, (_, i) => night(i, 400 + (i % 4) * 10)) }
+    const temp = Array(N).fill(35.6).map((v, i) => v + (i % 2) * 0.1); temp[N - 1] = 35.0
+    const r = readiness({ ...base, wrist_temp: rows(temp) }, today)
+    const t = r.comps.find((c) => c.key === 'temp')!
+    expect(t.z).toBeGreaterThan(1)      // 기준선보다 확실히 낮다
+    expect(t.sub).toBe(50)              // 그래도 중립. 가점 없음
+  })
+
+  it('손목온도가 높으면 여전히 감점한다', () => {
+    const base = { hrv: rows(Array(N).fill(40).map((v, i) => v + (i % 5))), resting_hr: rows(Array(N).fill(60).map((v, i) => v + (i % 3))),
+      sleep: Array.from({ length: N }, (_, i) => night(i, 400 + (i % 4) * 10)) }
+    const temp = Array(N).fill(35.6).map((v, i) => v + (i % 2) * 0.1); temp[N - 1] = 36.4
+    const t = readiness({ ...base, wrist_temp: rows(temp) }, today).comps.find((c) => c.key === 'temp')!
+    expect(t.sub).toBeLessThan(50)
+  })
+
   it('데이터가 적으면 축적 중', () => {
     expect(readiness({ hrv: rows([40, 41, 42]) }, today).band).toBe('기준선 축적 중')
     expect(formatReadiness(readiness({}, today), today)).toContain('축적 중')

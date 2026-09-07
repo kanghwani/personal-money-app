@@ -7,6 +7,12 @@ const mean = (xs: number[]) => xs.length ? xs.reduce((s, v) => s + v, 0) / xs.le
 const sd = (xs: number[]) => { const m = mean(xs); return Math.sqrt(mean(xs.map((v) => (v - m) ** 2))) }
 const clip = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 const sub = (z: number) => 100 * clip(0.5 + z / 4, 0, 1)
+/**
+ * 한쪽으로만 채점한다. 손목온도와 호흡수는 **높으면 나쁘고, 낮다고 좋은 게 아니다**.
+ * 양방향으로 두면 기준선보다 낮기만 해도 만점을 받는다. 실제로 손목온도가 평소보다
+ * 0.6° 낮은 날 100점이 붙어 준비도가 5점 부풀었다. 정상 범위는 만점이 아니라 중립이다.
+ */
+const subPenaltyOnly = (z: number) => sub(Math.min(0, z))
 const shift = (d: string, n: number) => new Date(Date.parse(d + 'T00:00:00Z') + n * 86400_000).toISOString().slice(0, 10)
 const MIN_BASE = 14
 /** 401 → "6시간 41분", 62 → "1시간 02분", 12 → "12분" */
@@ -53,10 +59,10 @@ export function readiness(tabs: Tabs, today: string) {
   // 손목 온도(편차 °C, 높으면 나쁨) · 호흡수(높으면 나쁨)
   const temp = dailySeries(tabs.wrist_temp); const t1 = latest(temp, today)
   let tz = NaN
-  if (t1) { const bs = window(temp, b0, b1); const z = zOf(t1.v, bs); if (!isNaN(z)) { tz = z; comps.push({ key: 'temp', label: '손목온도', w: 0.10, z: -z, sub: sub(-z), bad: z > 1, text: `손목온도 ${t1.v - mean(bs) >= 0 ? '+' : ''}${(t1.v - mean(bs)).toFixed(1)}°`, friendly: `손목 온도 평소보다 ${t1.v - mean(bs) >= 0 ? '+' : ''}${(t1.v - mean(bs)).toFixed(1)}°${z >= 1 ? ', 무리했거나 아플 수 있어요' : ', 평소 범위'}` }) } }
+  if (t1) { const bs = window(temp, b0, b1); const z = zOf(t1.v, bs); if (!isNaN(z)) { tz = z; comps.push({ key: 'temp', label: '손목온도', w: 0.10, z: -z, sub: subPenaltyOnly(-z), bad: z > 1, text: `손목온도 ${t1.v - mean(bs) >= 0 ? '+' : ''}${(t1.v - mean(bs)).toFixed(1)}°`, friendly: `손목 온도 평소보다 ${t1.v - mean(bs) >= 0 ? '+' : ''}${(t1.v - mean(bs)).toFixed(1)}°${z >= 1 ? ', 무리했거나 아플 수 있어요' : ', 평소 범위'}` }) } }
   const rr = dailySeries(tabs.respiratory_rate); const rr1 = latest(rr, today)
   let rz = NaN
-  if (rr1) { const bs = window(rr, b0, b1); const z = zOf(rr1.v, bs); if (!isNaN(z)) { rz = z; comps.push({ key: 'rr', label: '호흡수', w: 0.05, z: -z, sub: sub(-z), bad: z > 1, text: `호흡 ${rr1.v.toFixed(1)}/분 (평소 ${mean(bs).toFixed(1)})`, friendly: `호흡수 ${rr1.v.toFixed(1)}/분, ${z >= 1 ? '평소보다 높음, 컨디션 저하 신호' : '평소 범위'}` }) } }
+  if (rr1) { const bs = window(rr, b0, b1); const z = zOf(rr1.v, bs); if (!isNaN(z)) { rz = z; comps.push({ key: 'rr', label: '호흡수', w: 0.05, z: -z, sub: subPenaltyOnly(-z), bad: z > 1, text: `호흡 ${rr1.v.toFixed(1)}/분 (평소 ${mean(bs).toFixed(1)})`, friendly: `호흡수 ${rr1.v.toFixed(1)}/분, ${z >= 1 ? '평소보다 높음, 컨디션 저하 신호' : '평소 범위'}` }) } }
 
   // 전날 부하: 활동 kcal vs 28일, +1 SD 넘으면 감점 (sRPE가 쌓이면 그걸로 교체)
   const kcal = dailySeries(tabs.active_kcal); const y = shift(today, -1)
