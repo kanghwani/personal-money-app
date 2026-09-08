@@ -310,12 +310,22 @@ export function parseCardStatement(text: string, fallbackDate = ''): CardRow[] {
 export type CardPerf = { name: string; charged: number; excluded: number; qualified: number }
 
 /**
- * 카드 실적에 넣을 결제수단인지. 현금·계좌·페이는 실적이 쌓이지 않는다.
- * '국민계좌'처럼 은행 이름이 들어간 계좌를 카드로 착각하면 유령 카드가 생긴다.
+ * 카드 실적에 넣을 결제수단인지.
+ *
+ * 예전에는 "현금·계좌·페이가 아니면 전부 카드"였다. 제외 목록 방식이라
+ * 원장에 새 표기가 하나 들어올 때마다 유령 카드가 생겼다.
+ * 실제로 '온라인결제'·'알리'·'온누리상품권'·'토스'·'카드/이체' 가 각각 카드 한 장으로
+ * 세어지고 있었다. 실적 화면에 없는 카드가 뜨고, 합계도 그만큼 갈라진다.
+ *
+ * 이제 카드처럼 보이는 것만 카드로 본다. 모르는 표기는 카드가 아니다.
+ * 새 카드를 쓰기 시작하면 이름을 '○○카드' 로 적거나 KNOWN_CARDS 에 넣으면 된다.
  */
-const NON_CARD = ['현금', '계좌이체', '미상', '카드/현금']
-export const isCardPayment = (name: string) =>
-  !NON_CARD.includes(name) && !name.endsWith('계좌') && !name.endsWith('페이') && !name.endsWith('뱅크')
+const KNOWN_CARDS = ['토스체크', '아멕스']
+export const isCardPayment = (name: string) => {
+  const n = (name || '').trim()
+  if (n === '카드/현금') return false     // 어느 쪽인지 모르는 기록
+  return n.endsWith('카드') || KNOWN_CARDS.includes(n)
+}
 
 /**
  * 카드별 '실적 제외' 키워드 - 카드사 공식 상품안내서 원문 기준(추측 금지).
