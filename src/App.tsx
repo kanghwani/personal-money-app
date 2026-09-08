@@ -161,40 +161,21 @@ const R = RULES[LANG]
 const DEFAULT_FIX_OPTIONS = R.defaultOptions
 
 
-const seedData: FinanceStore = {
-  transactions: [
-    tx('2026-06-01', 'expense', 171680, '국민연금', '주거/통신', '세금/공과금', '국민카드', 'fixed'),
-    tx('2026-06-01', 'expense', 95000, '주차비', '교통/차량', '차량', '계좌이체', 'fixed'),
-    tx('2026-06-02', 'expense', 3300, 'Apple 구독', '문화/구독', '구독', '카드', 'fixed'),
-    tx('2026-06-03', 'expense', 18200, '점심 비빔밥', '식비', '외식', '카드', 'variable'),
-    tx('2026-06-04', 'expense', 35920, '스팀 게임', '취미', '게임', '카드', 'variable'),
-    tx('2026-06-05', 'expense', 5000, '다이소 생활잡화', '생활', '생활잡화', '카드', 'variable'),
-    tx('2026-06-06', 'expense', 12500, '카페', '식비', '카페', '카드', 'variable'),
-    tx('2026-05-24', 'expense', 28000, '점심 돈까스', '식비', '외식', '카드', 'variable'),
-    tx('2026-05-25', 'expense', 7100, '오뎅바', '식비', '외식', '카드', 'variable'),
-    tx('2026-05-26', 'income', 3200000, '급여', '수입', '급여', '계좌', 'fixed'),
-  ],
-  assets: [
-    asset('2026-06-07', '현금', '생활비', '토스', 950625),
-    asset('2026-06-07', '예금', '비상금', '카카오뱅크', 2500000),
-  ],
-  investments: [
-    investment('2026-06-07', '일반', '크래프톤', '259960', 4562694, 0.0008),
-    investment('2026-06-07', '일반', '시프트업', '462870', 1722635, -0.308),
-    investment('2026-06-07', 'ISA', '삼성전자', '005930', 21797000, 0.3119),
-    investment('2026-06-07', '연금저축', 'TIGER 미국배당 다우존스', '458730', 2230800, 0.0749),
-  ],
-  loans: [
-    loan('2026-06-07', '햇살론', '토스뱅크', 6100000, 225779, 0, '매월 1일'),
-    loan('2026-06-07', '자동차 할부', '국민카드', 3500000, 515690, 0, '매월 14일'),
-  ],
-  budget: 1000000,
-}
+/**
+ * 앱은 항상 빈 상태로 시작한다.
+ *
+ * 예전에는 한국어 빌드에만 데모 시드(급여 320만·점심 돈까스·크래프톤 주식 등)를 넣었다.
+ * 새 기기에서 처음 열면 그 시드가 store 에 들어가고, 동기화가 그대로 시트 원장에 올려서
+ * 실제 가계부에 가짜 거래 10건과 가짜 자산 8건이 섞였다. 5월 수입이 320만 부풀고
+ * 순자산 2,400만이 통째로 허구였다.
+ *
+ * 데모는 한 사람이 쓰는 앱에 아무 값어치가 없고, 오염은 되돌리기 어렵다.
+ * 예산 기본값만 남긴다.
+ */
+const DEFAULT_BUDGET = 1_000_000
 
-// 프로필 인스턴스(예: 브리 es)는 데모 시드 없이 빈 상태로 시작한다.
-// 빈 백엔드에 처음 접속할 때 seedData(한국어 데모)가 업로드되어 오염되는 것을 막는다.
-const emptyStore: FinanceStore = { transactions: [], assets: [], investments: [], loans: [], budget: seedData.budget }
-const initialStore: FinanceStore = import.meta.env.VITE_PROFILE ? emptyStore : seedData
+const emptyStore: FinanceStore = { transactions: [], assets: [], investments: [], loans: [], budget: DEFAULT_BUDGET }
+const initialStore: FinanceStore = emptyStore
 
 function App() {
   // 브라우저 탭 제목도 언어에 맞춘다(index.html은 ko 고정이라 es 빌드에서 어긋났음)
@@ -2243,7 +2224,7 @@ function usePersistentStore() {
     try {
       const parsed = JSON.parse(saved) as FinanceStore
       if (typeof parsed.budget !== 'number') {
-        parsed.budget = seedData.budget
+        parsed.budget = DEFAULT_BUDGET
       }
       return parsed
     } catch {
@@ -2761,21 +2742,7 @@ function upsertManyInvestments(items: Investment[], nextItems: Investment[]) {
   return [...nextItems, ...items.filter((item) => !keys.has(`${item.account}:${item.name}`))]
 }
 
-function tx(date: string, type: TransactionType, amount: number, memo: string, category: string, subCategory: string, payment: string, fixedType: FixedType): Transaction {
-  return { id: uid(), date, type, amount, memo, category, subCategory, payment, fixedType, split: 0, raw: memo }
-}
-
-function asset(date: string, kind: string, name: string, institution: string, amount: number): Asset {
-  return { id: uid(), date, kind, name, institution, amount, note: '' }
-}
-
-function investment(date: string, account: string, name: string, ticker: string, value: number, returnRate: number): Investment {
-  return { id: uid(), date, account, name, ticker, value, returnRate, note: '' }
-}
-
-function loan(date: string, name: string, institution: string, balance: number, monthlyPayment: number, rate: number, dueDay: string): Loan {
-  return { id: uid(), date, name, institution, balance, monthlyPayment, rate, dueDay, status: 'active' }
-}
+// (데모 시드용 tx/asset/investment/loan 헬퍼는 시드를 없애면서 함께 제거)
 
 function resultLabel(result: Exclude<ParseResult, { kind: 'error' }>) {
   if (result.kind === 'transaction') return `${result.transaction.memo} ${formatMoney(result.transaction.amount)}`
