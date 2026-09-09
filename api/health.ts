@@ -4,7 +4,7 @@ import { gasGet, gasPost } from './_gas.js'
 import { dailyLoad, fitnessPayload, insights, nightSegments, stagesFrom } from './_analysis.js'
 import { weekReview, monthReview, adviceHistory, adviceFromRow, mondayOf as coachMonday } from './_coach.js'
 import { dailySeries, groupNights, meters, minutes, type HealthRow, type Tabs } from './_health.js'
-import { logStamp, parseLog, SPORT } from './_log.js'
+import { logStamp, matchesLog, matchesWorkout, parseLog, SPORT } from './_log.js'
 import { PLAN_LIBRARY, detailKey } from './_plan.js'
 import { readiness, structuredReadiness } from './_readiness.js'
 
@@ -121,8 +121,8 @@ function planPayload(manual: HealthRow[], workoutRows: HealthRow[], today: strin
       const date = shift(monday, i), wd = DAYS[new Date(`${date}T00:00:00Z`).getUTCDay()]
       const items = (config.get(wd) ?? []).map((name) => {
         const rest = name === '휴식'; if (!rest) planned++
-        const watch = !rest && !!SPORT[name] && workoutRows.some((w) => day(w) === date && w.value.toLowerCase() === SPORT[name].toLowerCase())
-        const logged = !rest && ((name === '턱걸이' && manual.some((r) => day(r) === date && r.value === '턱걸이')) || manual.some((r) => day(r) === date && r.value === 'sRPE' && (r.extra || '').split('|')[0] === name))
+        const watch = !rest && workoutRows.some((w) => day(w) === date && matchesWorkout(name, w.value))
+        const logged = !rest && ((name === '턱걸이' && manual.some((r) => day(r) === date && r.value === '턱걸이')) || manual.some((r) => day(r) === date && r.value === 'sRPE' && matchesLog(name, (r.extra || '').split('|')[0])))
         const hit = date <= through && (watch || logged); if (hit) done++
         return { name, rest, done: hit, doneBy: watch ? 'watch' as const : logged ? 'log' as const : null, detailKey: detailKey(name) }
       })

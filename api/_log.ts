@@ -6,6 +6,19 @@ const WELL = ['수면질', '피로', '스트레스', '근육통']   // 컨디션
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']
 /** 계획 종목(한글) ↔ 워치 워크아웃 타입 */
 export const SPORT: Record<string, string> = { 수영: 'Swimming', 러닝: 'Running', 달리기: 'Running', 걷뛰: 'Running', 요가: 'Yoga', 걷기: 'Walking', 자전거: 'Cycling', 등산: 'Hiking', 근력: 'FunctionalStrengthTraining', 코어: 'CoreTraining' }
+/**
+ * 계획 종목 하나가 인정하는 다른 이름들. 걷뛰는 러닝만 인정했더니, 계획서가 스스로
+ * "가볍게: 달리기 구간을 빼고 걷기"라고 시킨 날에 워치가 Walking 을 올려서 미이행으로 찍혔다.
+ * 판정은 계획·코치·주간 화면이 모두 아래 두 함수를 거치게 해서 한 곳에서만 고친다.
+ */
+const ALIAS: Record<string, string[]> = { 걷뛰: ['걷뛰', '걷기', '러닝', '달리기'] }
+const namesOf = (plan: string) => ALIAS[plan] ?? [plan]
+/** 계획 종목이 인정하는 워치 워크아웃 타입들 */
+export const sportTypes = (plan: string) => [...new Set(namesOf(plan).map((n) => SPORT[n]).filter(Boolean))]
+/** 그날 워치 워크아웃이 이 계획 종목을 채웠는가 */
+export const matchesWorkout = (plan: string, type: string) => sportTypes(plan).some((t) => t.toLowerCase() === type.toLowerCase())
+/** 한 줄 기록(sRPE)의 종목명이 이 계획 종목을 채웠는가 */
+export const matchesLog = (plan: string, sport: string) => namesOf(plan).includes(sport)
 
 /** "컨디션 4 3 2 3" / "sRPE 수영 55 6 무릎 살짝" / "턱걸이 밴드 3x5" / "태그 술 늦은식사" / "통증 무릎 3" / 그 외 → 메모 */
 export function parseLog(text: string): LogEntry {
@@ -146,10 +159,9 @@ export function planWeek(rows: HealthRow[], workouts: HealthRow[], from: string,
     days.push({ date: d, wd, items: items.map((name) => {
       if (name === '휴식') return { name, done: false, rest: true }
       planned++
-      const type = SPORT[name]
-      const hit = !!(type && workouts.some((w) => day(w) === d && w.value.toLowerCase() === type.toLowerCase()))
+      const hit = workouts.some((w) => day(w) === d && matchesWorkout(name, w.value))
         || (name === '턱걸이' && rows.some((r) => day(r) === d && r.value === '턱걸이'))
-        || rows.some((r) => day(r) === d && r.value === 'sRPE' && (r.extra || '').split('|')[0] === name)
+        || rows.some((r) => day(r) === d && r.value === 'sRPE' && matchesLog(name, (r.extra || '').split('|')[0]))
       if (hit) done++
       return { name, done: hit, rest: false }
     }) })
