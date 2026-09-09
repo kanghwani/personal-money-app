@@ -223,7 +223,9 @@ export function buildHealthResponse(tabs: Tabs, today: string, now = Date.now())
 
 async function saveManual(stamp: string, entry: ReturnType<typeof parseLog>) {
   const result = await gasPost({ action: 'health', type: 'manual', rows: [stamp, stamp, entry.kind, entry.extra].join('|') }) as { added?: number | boolean }
-  tabsCache = null   // 방금 저장한 값을 다음 조회에서 바로 보이게
+  // 캐시를 버리면 저장 직후의 화면 갱신이 9년치를 다시 받느라 10초 넘게 멈춘다.
+  // GAS 도 시트 끝에 붙이므로, 방금 쓴 행 하나만 같은 자리에 붙이면 다시 받은 것과 결과가 같다.
+  if (result.added && tabsCache) tabsCache.tabs.manual = [...(tabsCache.tabs.manual ?? []), { start: stamp, end: stamp, value: entry.kind, extra: entry.extra }]
   return !!result.added
 }
 
