@@ -10,8 +10,10 @@ describe('readiness', () => {
   it('정상 기준선이면 50~75 근처, 항목이 모두 채워진다', () => {
     const tabs = { hrv: rows(Array(N).fill(40)), resting_hr: rows(Array(N).fill(60)), sleep: Array.from({ length: N }, (_, i) => night(i, 400)),
       wrist_temp: rows(Array(N).fill(35.5)), respiratory_rate: rows(Array(N).fill(13)), active_kcal: rows(Array(N).fill(500)) }
-    // 분산 0이면 z 계산 불가 → 약간의 변동
+    // 분산 0이면 z 계산 불가 → 약간의 변동. 수면도 마찬가지다(예전에는 sd 0 을 1 로 때워서 살아남았다)
     tabs.hrv[3].value = '44'; tabs.resting_hr[3].value = '62'; tabs.wrist_temp[3].value = '35.8'; tabs.respiratory_rate[3].value = '13.5'; tabs.active_kcal[N - 10].value = '700'
+    // 마지막 밤이 기준선 평균과 같아야 "평범한 날" 픽스처가 된다(주기가 저점에서 끝나면 잠 부족한 날이 된다)
+    tabs.sleep = Array.from({ length: N }, (_, i) => night(i, 400 + ((i + 1) % 3) * 10))
     const r = readiness(tabs, today)
     expect(r.comps.map((c) => c.key)).toEqual(['hrv7', 'hrv1', 'rhr', 'sleep', 'debt', 'temp', 'rr', 'load'])
     expect(r.score).toBeGreaterThanOrEqual(50)
@@ -73,6 +75,17 @@ describe('readiness', () => {
     const temp = Array(N).fill(35.6).map((v, i) => v + (i % 2) * 0.1); temp[N - 1] = 36.4
     const t = readiness({ ...base, wrist_temp: rows(temp) }, today).comps.find((c) => c.key === 'temp')!
     expect(t.sub).toBeLessThan(50)
+  })
+
+  // 7일 평균을 하루치 SD로 재면 z가 늘 0 근처로 눌려 가중치 0.30 짜리 항목이 50점에 갇힌다.
+  // 실제로 HRV 가 평소보다 11% 높은 주에도 준비도가 74에서 움직이지 않았다.
+  it('HRV 7일 평균이 꾸준히 높으면 하루치 잡음에 묻히지 않고 점수가 오른다', () => {
+    const noisy = Array.from({ length: N }, (_, i) => 40 + (i % 7) * 4 - 12)   // 하루치는 크게 흔들리고
+    const up = [...noisy]; for (let i = N - 7; i < N; i++) up[i] = noisy[i] + 6  // 최근 7일만 통째로 위로
+    const base = { resting_hr: rows(Array(N).fill(60).map((v, i) => v + (i % 3))), sleep: Array.from({ length: N }, (_, i) => night(i, 400 + (i % 4) * 10)) }
+    const flat = readiness({ ...base, hrv: rows(noisy) }, today).comps.find((c) => c.key === 'hrv7')!
+    const lifted = readiness({ ...base, hrv: rows(up) }, today).comps.find((c) => c.key === 'hrv7')!
+    expect(lifted.sub).toBeGreaterThan(flat.sub + 20)
   })
 
   it('데이터가 적으면 축적 중', () => {

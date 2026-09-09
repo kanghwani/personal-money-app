@@ -19,6 +19,23 @@ const MIN_BASE = 14
 const hm = (min: number) => { const m = Math.round(Math.abs(min)); return m >= 60 ? `${Math.floor(m / 60)}시간 ${String(m % 60).padStart(2, '0')}분` : `${m}분` }
 const dir = (z: number, good = '평소보다 좋음', bad = '평소보다 낮음', mid = '평소 수준') => z > 0.5 ? good : z < -0.5 ? bad : mid
 
+/**
+ * n일 평균을 **하루치 표준편차**로 재면 안 된다. 평균은 노이즈가 상쇄돼 하루치만큼 흔들리지
+ * 않으므로 z가 늘 0 근처(=50점)로 눌린다. 실측으로 lnHRV의 하루치 SD는 7일 평균 SD의 3.5배였다.
+ * 가중치가 가장 큰 HRV 7일 평균(0.30)과 수면 부채(0.05)가 이 때문에 구조적으로 50~65에 갇혀
+ * 있었고, HRV가 평소보다 11% 높은 좋은 주에도 준비도가 74에서 움직이지 않았다.
+ * √n 을 가정하는 대신 기준선 구간에서 같은 길이의 연속 평균을 실제로 만들어 그 SD로 잰다.
+ * (자기상관을 데이터가 알아서 반영하고, 표본이 모자라면 NaN 이라 항목이 조용히 빠진다.)
+ */
+const zOfMean = (cur: number, base: number[], n: number) => {
+  if (base.length < n + MIN_BASE || !(sd(base) > 0)) return NaN
+  const rolls = Array.from({ length: base.length - n + 1 }, (_, i) => mean(base.slice(i, i + n)))
+  // 바닥은 독립일 때의 이론값 sd/√n. 거의 일정한 구간에서 실측 SD가 0 가까이 내려가면
+  // 사소한 차이가 z 3 으로 튀어 만점·빵점이 붙는다. 실측이 더 클 때만 실측을 쓴다.
+  const den = Math.max(sd(rolls), sd(base) / Math.sqrt(n))
+  return clip((cur - mean(rolls)) / den, -3, 3)
+}
+
 /** series에서 [from, to] 구간의 값들(날짜순) */
 const window = (s: Map<string, number>, from: string, to: string) => [...s.entries()].filter(([d]) => d >= from && d <= to).sort().map(([, v]) => v)
 /** 오늘 또는 어제 값(어느 날짜인지 함께) */
@@ -34,7 +51,7 @@ export function readiness(tabs: Tabs, today: string) {
   const base = window(lnHrv, b0, b1)
   const last7 = window(lnHrv, shift(today, -6), today)
   if (last7.length >= 3) {
-    const z = zOf(mean(last7), base); const m7 = Math.exp(mean(last7)), m60 = Math.exp(mean(base))
+    const z = zOfMean(mean(last7), base, last7.length); const m7 = Math.exp(mean(last7)), m60 = Math.exp(mean(base))
     if (!isNaN(z)) comps.push({ key: 'hrv7', label: 'HRV 7일 평균', w: 0.30, z, sub: sub(z), bad: z < -1, text: `HRV 7일 평균 ${m7.toFixed(0)}ms (평소 ${m60.toFixed(0)}, ${((m7 / m60 - 1) * 100).toFixed(0)}%)`, friendly: `회복 신호(심박 변이) ${m7.toFixed(0)}ms, ${dir(z, '평소보다 좋음', '평소보다 낮음, 피로가 쌓이는 중')}` })
   }
   const h1 = latest(lnHrv, today)
@@ -53,7 +70,8 @@ export function readiness(tabs: Tabs, today: string) {
     const z = clip((s1.v - mean(sBase)) / (sd(sBase) || 1), -3, 3)
     comps.push({ key: 'sleep', label: '어젯밤 수면', w: 0.20, z, sub: z >= 0 ? 100 : sub(z), bad: z < -1, text: `수면 ${dur(s1.v)} (평소 ${dur(mean(sBase))}, ${s1.v - mean(sBase) >= 0 ? '+' : '-'}${dur(Math.abs(s1.v - mean(sBase)))})${s1.d !== today ? ' ※ 어젯밤 기록 아직 없음, 전날 기준' : ''}`, friendly: `잠 ${hm(s1.v)}, 평소보다 ${hm(s1.v - mean(sBase))} ${s1.v >= mean(sBase) ? '더 잠' : '부족'}${s1.d !== today ? ' (어젯밤 기록 아직 없어 전날 기준)' : ''}` })
     const w7 = window(tot, shift(today, -6), today)
-    if (w7.length >= 3) { const z7 = clip((mean(w7) - mean(sBase)) / (sd(sBase) || 1), -3, 3); comps.push({ key: 'debt', label: '수면 부채', w: 0.05, z: z7, sub: sub(z7), bad: z7 < -1, text: `7일 평균 수면 ${dur(mean(w7))}`, friendly: `이번 주 평균 수면 ${hm(mean(w7))}, ${z7 < -0.5 ? '평소보다 부족한 편' : '평소 수준'}` }) }
+    const z7 = w7.length >= 3 ? zOfMean(mean(w7), sBase, w7.length) : NaN
+    if (!isNaN(z7)) { comps.push({ key: 'debt', label: '수면 부채', w: 0.05, z: z7, sub: sub(z7), bad: z7 < -1, text: `7일 평균 수면 ${dur(mean(w7))}`, friendly: `이번 주 평균 수면 ${hm(mean(w7))}, ${z7 < -0.5 ? '평소보다 부족한 편' : '평소 수준'}` }) }
   }
 
   // 손목 온도(편차 °C, 높으면 나쁨) · 호흡수(높으면 나쁨)
