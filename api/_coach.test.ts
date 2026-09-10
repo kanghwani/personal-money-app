@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { weekFacts, nextChange, evaluate, promotions, weekReview, formatWeek, tagImpact, mondayOf, adviceToExtra, adviceFromRow, adviceHistory, formatHistory, monthReview, formatMonth, gates } from './_coach'
+import { weekFacts, nextChange, evaluate, promotions, weekReview, formatWeek, tagImpact, mondayOf, adviceToExtra, adviceFromRow, adviceHistory, formatHistory, monthReview, formatMonth, gates, lifeChange } from './_coach'
 import { parseLog } from './_log'
 import type { HealthRow, Tabs } from './_health'
 
@@ -234,5 +234,78 @@ describe('진급 게이트 (수정 후)', () => {
     const tabs = base()
     expect(g(tabs, '턱걸이')).toMatchObject({ stage: '데드행', done: 0, ready: false })
     expect(g(tabs, '러닝')).toMatchObject({ stage: '아직 기록 없음', ready: false })
+  })
+})
+
+describe('lifeChange', () => {
+  const r = (start: string, value: string, extra = ''): HealthRow => ({ start, end: start, value, extra })
+  const tabs = (manual: HealthRow[]): Tabs => ({ manual } as unknown as Tabs)
+
+  it('3일 안 마감이 최우선이다', () => {
+    const a = lifeChange(tabs([r('2026-09-01 10:00', '약속', '09-13|카제나 QA 제출')]), '2026-09-11', '2026-09-07')
+    expect(a.key).toBe('deadline')
+    expect(a.text).toContain('카제나')
+  })
+
+  it('마감이 없고 이행률이 낮으면 backlog', () => {
+    const manual = [
+      r('2026-08-01 10:00', '약속', '화|지원서'),
+      r('2026-08-01 10:01', '약속', '수|이력서'),
+    ]
+    expect(lifeChange(tabs(manual), '2026-09-11', '2026-09-07').key).toBe('backlog')
+  })
+
+  it('활성이 상한이면 overflow', () => {
+    const manual = ['가', '나', '다', '라', '마'].map((t, i) => r(`2026-08-01 10:0${i}`, '약속', `화|${t}`))
+    // 이행 행은 판정 창(2026-08-31~09-06) **안**에 둔다. 창 밖에 두면 done=0/5 라
+    // backlog 가 먼저 발동해 overflow 에 영원히 도달하지 못한다.
+    const done = manual.map((m, i) => r(`2026-09-01 09:0${i}`, '이행', (m.extra || '').split('|')[1]))
+    expect(lifeChange(tabs([...manual, ...done]), '2026-09-11', '2026-09-07').key).toBe('overflow')
+  })
+
+  it('약속이 없으면 life_hold', () => {
+    expect(lifeChange(tabs([]), '2026-09-11', '2026-09-07').key).toBe('life_hold')
+  })
+
+  it('주간 리뷰가 건강 제안과 삶 제안을 따로 낸다', () => {
+    const t = base()
+    t.manual.push(r('2026-08-20 10:00', '약속', '09-13|카제나 QA 제출'))
+    const w = weekReview(t, '2026-09-11')
+    expect(w.life.key).toBe('deadline')
+    expect(w.advice.key).not.toBe('deadline')          // 건강 제안은 건강 후보에서만 나온다
+    // 이 테스트의 마감(09-13)은 리뷰 주(08-31~09-06) 밖이라 commitments.planned=0 이고
+    // 약속 줄은 가드에 막힌다. 항상 출력되는 삶 제안 줄로 단언한다.
+    expect(formatWeek(w)).toContain('삶 쪽')
+  })
+
+  it('주간 리뷰의 삶 제안과 약속 이행률이 같은 주를 본다', () => {
+    // lifeChange 는 "이번 주 월요일"을 받아 그 직전 주를 잰다. 리뷰 주(lastMonday)를 그대로
+    // 넘기면 한 주 앞을 재서, 같은 출력에 "약속 2/2" 와 "2개 중 0개만 했어요"가 함께 찍혔다.
+    const t = base()
+    t.manual.push(
+      r('2026-08-01 10:00', '약속', '화|지원서'),
+      r('2026-08-01 10:01', '약속', '수|이력서'),
+      r('2026-09-01 09:00', '이행', '지원서'),   // 리뷰 주(08-31~09-06) 안에서 둘 다 이행
+      r('2026-09-02 09:00', '이행', '이력서'),
+    )
+    const w = weekReview(t, '2026-09-11')
+    expect(w.week).toBe('2026-08-31 ~ 2026-09-06')
+    expect(w.commitments).toMatchObject({ planned: 2, done: 2 })
+    expect(w.life.key).not.toBe('backlog')     // 다 지킨 주를 밀렸다고 말하지 않는다
+    expect(formatWeek(w)).toContain('약속 2/2')
+    expect(formatWeek(w)).not.toContain('지난주 약속 2개 중 0개만 했어요')
+
+    // 반대로 리뷰 주에 못 지켰으면 그 주를 근거로 backlog 가 나와야 한다
+    const t2 = base()
+    t2.manual.push(
+      r('2026-08-01 10:00', '약속', '화|지원서'),
+      r('2026-08-01 10:01', '약속', '수|이력서'),
+      r('2026-08-25 09:00', '이행', '지원서'),   // 리뷰 주 **앞** 주에만 이행
+      r('2026-08-26 09:00', '이행', '이력서'),
+    )
+    const w2 = weekReview(t2, '2026-09-11')
+    expect(w2.commitments).toMatchObject({ planned: 2, done: 0 })
+    expect(w2.life.key).toBe('backlog')
+    expect(w2.life.why).toContain('2개 중 0개만')
   })
 })

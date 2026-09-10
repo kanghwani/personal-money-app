@@ -4,6 +4,17 @@ import type { HealthRow } from './_health.js'
 export type LogEntry = { kind: string; extra: string; echo: string }
 const WELL = ['수면질', '피로', '스트레스', '근육통']   // 컨디션 4항목 순서 고정(Hooper 최소형)
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']
+const SLOTS = ['아침', '점심', '저녁', '밤']
+/**
+ * 약속 트리거. 날짜형 'MM-DD' 또는 요일형 '화'/'화아침'. 그 외는 null.
+ * "언젠가 할 일"을 받는 순간 핀보드가 되므로 여기서 막는다.
+ */
+export function parseTrigger(t: string): { mmdd: string } | { wd: string; slot: string } | null {
+  const d = /^(\d{2})-(\d{2})$/.exec(t)
+  if (d) return +d[1] >= 1 && +d[1] <= 12 && +d[2] >= 1 && +d[2] <= 31 ? { mmdd: t } : null
+  const w = new RegExp(`^([${DAYS.join('')}])(${SLOTS.join('|')})?$`).exec(t)
+  return w ? { wd: w[1], slot: w[2] || '' } : null
+}
 /** 계획 종목(한글) ↔ 워치 워크아웃 타입 */
 export const SPORT: Record<string, string> = { 수영: 'Swimming', 러닝: 'Running', 달리기: 'Running', 걷뛰: 'Running', 요가: 'Yoga', 걷기: 'Walking', 자전거: 'Cycling', 등산: 'Hiking', 근력: 'FunctionalStrengthTraining', 코어: 'CoreTraining' }
 /**
@@ -57,6 +68,16 @@ export function parseLog(text: string): LogEntry {
     const [w, smm, fat, ...memo] = rest
     if (!(+w > 0) || !(+smm > 0) || !(+fat >= 0)) throw new Error('인바디는 "인바디 체중 골격근량 체지방률" (예: 인바디 72.3 33.1 18.5)')
     return { kind: '인바디', extra: [+w, +smm, +fat, memo.join(' ')].join('|'), echo: `체중 ${+w}kg · 골격근 ${+smm}kg · 체지방 ${+fat}%` }
+  }
+  if (h === '약속') {
+    const [trig, ...task] = rest
+    if (!trig || !parseTrigger(trig) || !task.length)
+      throw new Error('약속은 "약속 09-13 치과" 또는 "약속 화아침 지원서" 형식이에요. 언제 할지가 없으면 등록되지 않습니다')
+    return { kind: '약속', extra: [trig, task.join(' ')].join('|'), echo: `${trig} · ${task.join(' ')}` }
+  }
+  if (h === '했다') {
+    if (!rest.length) throw new Error('했다 뒤에 무엇을 했는지 (예: 했다 카제나)')
+    return { kind: '이행', extra: rest.join(' '), echo: rest.join(' ') }
   }
   if (h === '계획') {
     // 계획 월 수영 턱걸이 / 계획 토 휴식 — 요일별 마지막 것이 유효
@@ -167,4 +188,85 @@ export function planWeek(rows: HealthRow[], workouts: HealthRow[], from: string,
     }) })
   }
   return { days, planned, done }
+}
+
+// ── 약속 (운동이 아닌 것) ───────────────────────────────────
+// 운동은 '계획'이 담당하고 워치·sRPE 로 자동 판정된다. 여기는 그 밖의 것이라 이행이 수동이다.
+export type Commitment = { trigger: string; task: string; due: string | null; wd: string | null; slot: string; at: string }
+
+/**
+ * 약속을 읽을 때 가져오는 시트 창(일). 오늘 표면(api/today.ts · health_today)과 상한 검사가
+ * **같은 창**을 봐야 한다. 창이 다르면 오래 산 요일형 약속이 상한에는 잡히는데 화면에는
+ * 안 뜨는 불일치가 생긴다(75 vs 400 으로 한 번 겪었다). 줄이지 말 것.
+ */
+export const COMMITMENT_DAYS = 400
+
+/** 'MM-DD' → 'yyyy-MM-dd'. 6개월 넘게 과거로 읽히면 다음 해다(연말연시 처리). */
+export const dueDate = (mmdd: string, today: string) => {
+  const y = +today.slice(0, 4)
+  return `${y}-${mmdd}` < shift(today, -183) ? `${y + 1}-${mmdd}` : `${y}-${mmdd}`
+}
+
+/**
+ * MM-DD 는 **그 행을 기록한 날** 기준으로 해석한다. 평가하는 날 기준으로 풀면 시간이 지나면서
+ * 같은 행이 다른 해로 옮겨 붙어, 만료된 약속이 해가 바뀔 때 통째로 되살아난다(자동 이월 금지 위반).
+ * 기록일 기준이면 한 번 정해진 마감이 영원히 그대로다.
+ */
+const commitments = (rows: HealthRow[]): Commitment[] =>
+  rows.filter((r) => r.value === '약속').flatMap((r) => {
+    const [trig = '', task = ''] = (r.extra || '').split('|')
+    const p = parseTrigger(trig)
+    if (!p || !task) return []
+    return [{ trigger: trig, task, due: 'mmdd' in p ? dueDate(p.mmdd, day(r)) : null,
+      wd: 'wd' in p ? p.wd : null, slot: 'wd' in p ? p.slot : '', at: r.start }]
+  })
+
+/** 아직 만료되지 않은 것. 날짜형은 지나면 사라지고, 요일형은 매주 다시 발생한다. */
+export const activeCommitments = (rows: HealthRow[], today: string): Commitment[] =>
+  commitments(rows).filter((c) => !c.due || c.due >= today)
+
+/** 활성 5개가 상한. 과부하가 시스템을 버리게 만드는 2위 원인이라 등록 자체를 막는다. */
+export const CAP = 5
+export const overCap = (rows: HealthRow[], today: string): Commitment[] | null => {
+  const a = activeCommitments(rows, today)
+  return a.length >= CAP ? a : null
+}
+
+/**
+ * 상한에 걸렸으면 거절 문구, 아니면 null. `약속`을 받는 입력 통로가 셋(MCP·단축어·웹앱)이라,
+ * 문구를 한 곳에 둬야 셋이 같은 말을 한다. 약속 행을 지우는 문법은 아직 없어서(범위 밖),
+ * 할 수 없는 행동을 시키지 않으려고 시트를 직접 가리킨다.
+ */
+export function capRefusal(rows: HealthRow[], today: string): string | null {
+  const full = overCap(rows, today)
+  if (!full) return null
+  return '약속은 한 번에 5개까지예요. 시트 manual 탭에서 아래 중 하나의 약속 행을 지운 뒤에 다시 넣어주세요.\n' +
+    full.map((c) => `- ${c.trigger} ${c.task}`).join('\n')
+}
+
+/** 오늘 트리거가 걸린 약속. 없으면 빈 배열이고, 일간 표면은 그때 아무 말도 하지 않는다. */
+export function todayCommitments(rows: HealthRow[], today: string): string[] {
+  const wd = DAYS[new Date(today + 'T00:00:00Z').getUTCDay()]
+  return activeCommitments(rows, today).flatMap((c) => {
+    if (c.due) return c.due === today ? [c.task] : []
+    if (c.wd !== wd) return []
+    return [c.task + (c.slot ? ` (${c.slot})` : '')]
+  })
+}
+
+/** from~to 한 주의 이행. 날짜형은 그 주가 마감일 때만, 요일형은 매주 센다. */
+export function commitmentWeek(rows: HealthRow[], from: string, to: string) {
+  const dones = rows.filter((r) => r.value === '이행' && (r.extra || '').trim() && day(r) >= from && day(r) <= to)
+    .sort((a, b) => (a.start < b.start ? -1 : 1))
+  const items = commitments(rows)
+    .filter((c) => (c.due ? c.due >= from && c.due <= to : true))
+    .map((c) => ({ ...c, done: false as boolean }))
+  // "여러 개가 걸리면 가장 최근 것 하나만 닫는다"(스펙). 부분 문자열 매칭이라 충돌이 드물지 않은데,
+  // 한 줄이 여러 약속을 동시에 닫으면 이행률이 부풀고 그 숫자로 코치가 틀린 제안을 낸다.
+  for (const d of dones) {
+    const key = String(d.extra || '')
+    const hit = items.filter((i) => !i.done && i.task.includes(key)).sort((a, b) => (a.at < b.at ? 1 : -1))[0]
+    if (hit) hit.done = true
+  }
+  return { items, planned: items.length, done: items.filter((i) => i.done).length }
 }

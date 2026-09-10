@@ -8,7 +8,7 @@
  */
 import { dailySeries, type HealthRow, type Tabs } from './_health.js'
 import { nightRows, dailyLoad, loadSummary } from './_analysis.js'
-import { planWeek } from './_log.js'
+import { planWeek, commitmentWeek, activeCommitments, CAP } from './_log.js'
 
 const mean = (xs: number[]) => xs.length ? xs.reduce((s, v) => s + v, 0) / xs.length : NaN
 const shift = (d: string, n: number) => new Date(Date.parse(d + 'T00:00:00Z') + n * 86400_000).toISOString().slice(0, 10)
@@ -18,8 +18,9 @@ const day = (r: HealthRow) => r.start.slice(0, 10)
 export const mondayOf = (d: string) => shift(d, -((new Date(d + 'T00:00:00Z').getUTCDay() + 6) % 7))
 
 // ── 제안 ───────────────────────────────────────────────────
-/** 서버가 고를 수 있는 변경은 이 여섯 가지뿐이다. 매주 하나만 고른다. */
+/** 서버가 고를 수 있는 변경은 건강 7 + 삶 5, 이 열두 가지뿐이다. 매주 도메인당 하나씩만 고른다. */
 export type ChangeKey = 'hold' | 'adherence' | 'deload' | 'lower_intensity' | 'bedtime' | 'add_session' | 'promote'
+  | 'deadline' | 'backlog' | 'overflow' | 'stale' | 'life_hold'
 export type Advice = { key: ChangeKey; text: string; metric: MetricKey; target: number; why: string }
 /** 이행을 서버가 잴 수 있는 지표만 쓴다. */
 export type MetricKey = 'bedtime' | 'sleep' | 'sessions' | 'load' | 'pullups' | 'adherence' | 'none'
@@ -207,6 +208,41 @@ export function nextChange(tabs: Tabs, last: WeekFacts, today: string): Advice {
     why: '지표가 평소 범위 안이에요. 바꾸지 않는 것도 결정이에요.' }
 }
 
+/**
+ * 삶 제안 하나. 건강과 같은 방식으로 우선순위대로 검사해 처음 걸리는 것만 고른다.
+ * 건강 제안과 나란히 서므로 주간 제안은 최대 둘이다. 여섯이 문제였지 둘은 지켜진다.
+ */
+/** monday 는 **이번 주** 월요일이다. 직전 한 주(monday-7 ~ monday-1)가 판정 대상 창이 된다. */
+export function lifeChange(tabs: Tabs, today: string, monday: string): Advice {
+  const manual = tabs.manual ?? []
+  const active = activeCommitments(manual, today)
+  const last = commitmentWeek(manual, shift(monday, -7), shift(monday, -1))
+
+  const soon = active.filter((c) => c.due && c.due >= today && c.due <= shift(today, 3))
+    .sort((a, b) => (a.due! < b.due! ? -1 : 1))
+  if (soon.length) return { key: 'deadline', text: `${soon[0].task} 부터 (${soon[0].due} 마감)`, metric: 'none', target: 0,
+    why: `3일 안에 마감이에요. 다른 걸 새로 넣기 전에 이것부터.` }
+
+  if (last.planned >= 2 && last.done / last.planned < 0.5)
+    return { key: 'backlog', text: '새 약속 그만 넣고 밀린 것부터', metric: 'none', target: 0,
+      why: `지난주 약속 ${last.planned}개 중 ${last.done}개만 했어요. 늘리는 것보다 지키던 것부터.` }
+
+  if (active.length >= CAP)
+    return { key: 'overflow', text: `약속이 ${active.length}개예요. 하나 지우고 시작하기`, metric: 'none', target: 0,
+      why: '한 번에 5개가 상한이에요. 안 할 것을 지우는 것도 결정이에요.' }
+
+  // 요일형이 2주 연속 미이행이면 그 약속 자체가 틀린 것이다 (날짜형은 지나면 만료돼 여기 안 걸린다)
+  const before = commitmentWeek(manual, shift(monday, -14), shift(monday, -8))
+  const stale = active.find((c) => !c.due
+    && last.items.some((i) => i.task === c.task && !i.done)
+    && before.items.some((i) => i.task === c.task && !i.done))
+  if (stale) return { key: 'stale', text: `"${stale.task}" 를 버리거나 더 작게 쪼개기`, metric: 'none', target: 0,
+    why: '2주 연속 못 했어요. 의지 문제가 아니라 덩어리가 큰 것일 수 있어요.' }
+
+  return { key: 'life_hold', text: active.length ? '지금 약속 그대로 유지하기' : '아직 등록된 약속이 없어요', metric: 'none', target: 0,
+    why: active.length ? '약속이 평소 범위 안이에요.' : '"약속 09-13 치과" 처럼 언제 할지를 붙여서 넣어보세요.' }
+}
+
 // ── 주간 리뷰 ──────────────────────────────────────────────
 export function weekReview(tabs: Tabs, today: string, weekOf?: string) {
   // weekOf 가 있으면 그 날짜가 속한 주를 리뷰한다(과거 주 다시 보기). 없으면 막 끝난 주.
@@ -235,7 +271,12 @@ export function weekReview(tabs: Tabs, today: string, weekOf?: string) {
   }
 
   const load = loadSummary(dailyLoad(tabs.workout ?? [], 60), today)
-  return { week: `${last.monday} ~ ${last.to}`, facts: last, before, advice, review, drift, load, promotions: promotions(tabs, today) }
+  // lifeChange 는 "이번 주 월요일"을 받아 그 직전 주를 잰다. 리뷰 대상 주(lastMonday)를 그대로
+  // 넘기면 한 주 앞을 재서, 같은 출력 안에 이행률과 삶 제안이 서로 다른 주를 말하게 된다.
+  const life = lifeChange(tabs, today, shift(lastMonday, 7))
+  const commitments = commitmentWeek(tabs.manual ?? [], last.monday, last.to)
+  return { week: `${last.monday} ~ ${last.to}`, facts: last, before, advice, review, drift, load,
+    promotions: promotions(tabs, today), life, commitments }
 }
 
 export function formatWeek(r: ReturnType<typeof weekReview>): string {
@@ -251,7 +292,11 @@ export function formatWeek(r: ReturnType<typeof weekReview>): string {
   if (f.pain.length) lines.push(`통증: ${f.pain.map((p) => `${p.site} ${p.level}/10`).join(', ')}`)
   lines.push(r.drift.length ? `회복 지표 변화\n  ${r.drift.join('\n  ')}` : '회복 지표는 평소 범위')
   if (r.review) lines.push(r.review.text)
+  if (r.commitments.planned) lines.push(`약속 ${r.commitments.done}/${r.commitments.planned}` +
+    (r.commitments.items.filter((i) => !i.done).length
+      ? ` (남음: ${r.commitments.items.filter((i) => !i.done).map((i) => i.task).join(', ')})` : ''))
   lines.push(`\n[다음 주 변경 하나] ${r.advice.text}\n  ${r.advice.why}`)
+  lines.push(`[삶 쪽 하나] ${r.life.text}\n  ${r.life.why}`)
   return lines.join('\n')
 }
 

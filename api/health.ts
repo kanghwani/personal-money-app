@@ -4,7 +4,7 @@ import { gasGet, gasPost } from './_gas.js'
 import { dailyLoad, fitnessPayload, insights, nightSegments, stagesFrom } from './_analysis.js'
 import { weekReview, monthReview, adviceHistory, adviceFromRow, mondayOf as coachMonday } from './_coach.js'
 import { dailySeries, groupNights, meters, minutes, type HealthRow, type Tabs } from './_health.js'
-import { logStamp, matchesLog, matchesWorkout, parseLog, SPORT } from './_log.js'
+import { capRefusal, logStamp, matchesLog, matchesWorkout, parseLog, SPORT } from './_log.js'
 import { PLAN_LIBRARY, detailKey } from './_plan.js'
 import { readiness, structuredReadiness } from './_readiness.js'
 
@@ -261,7 +261,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ ok: true, echo: entry.echo })
       }
       if (body.action) throw new Error('지원하지 않는 저장 요청이에요')
-      const { stamp, text } = logStamp(String(body.text || '')), entry = parseLog(text), added = await saveManual(stamp, entry)
+      const { stamp, text } = logStamp(String(body.text || '')), entry = parseLog(text)
+      // 약속만 상한을 확인한다 — loadTabs()가 이미 캐싱한 tabs를 그대로 쓰므로 다른 종류는 추가 GAS 호출이 없다.
+      if (entry.kind === '약속') {
+        const refusal = capRefusal((await loadTabs()).manual ?? [], stamp.slice(0, 10))
+        if (refusal) throw new Error(refusal)
+      }
+      const added = await saveManual(stamp, entry)
       return res.status(200).json({ ok: true, added, kind: entry.kind, echo: entry.echo })
     }
     if (req.method !== 'GET') throw new Error('GET 또는 POST 요청만 지원해요')
