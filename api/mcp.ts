@@ -198,7 +198,9 @@ async function runTool(name: string, args: Record<string, unknown>): Promise<str
   }
 
   if (name === 'health_today') {
-    const r = await gasGet<{ tabs?: Tabs }>('healthAll', '&days=75')
+    // api/today.ts(폰 알림)와 같은 창이어야 한다 — 두 일간 표면이 다른 days 를 쓰면
+    // 75일보다 오래 산 요일형 약속이 한쪽에만 뜨는 불일치가 재발한다. 줄이지 말 것.
+    const r = await gasGet<{ tabs?: Tabs }>('healthAll', '&days=400')
     const todayKey = today()
     return formatReadiness(readiness(r.tabs ?? {}, todayKey), todayKey, todayCommitments(r.tabs?.manual ?? [], todayKey))
   }
