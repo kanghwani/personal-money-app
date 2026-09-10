@@ -277,4 +277,35 @@ describe('lifeChange', () => {
     // 약속 줄은 가드에 막힌다. 항상 출력되는 삶 제안 줄로 단언한다.
     expect(formatWeek(w)).toContain('삶 쪽')
   })
+
+  it('주간 리뷰의 삶 제안과 약속 이행률이 같은 주를 본다', () => {
+    // lifeChange 는 "이번 주 월요일"을 받아 그 직전 주를 잰다. 리뷰 주(lastMonday)를 그대로
+    // 넘기면 한 주 앞을 재서, 같은 출력에 "약속 2/2" 와 "2개 중 0개만 했어요"가 함께 찍혔다.
+    const t = base()
+    t.manual.push(
+      r('2026-08-01 10:00', '약속', '화|지원서'),
+      r('2026-08-01 10:01', '약속', '수|이력서'),
+      r('2026-09-01 09:00', '이행', '지원서'),   // 리뷰 주(08-31~09-06) 안에서 둘 다 이행
+      r('2026-09-02 09:00', '이행', '이력서'),
+    )
+    const w = weekReview(t, '2026-09-11')
+    expect(w.week).toBe('2026-08-31 ~ 2026-09-06')
+    expect(w.commitments).toMatchObject({ planned: 2, done: 2 })
+    expect(w.life.key).not.toBe('backlog')     // 다 지킨 주를 밀렸다고 말하지 않는다
+    expect(formatWeek(w)).toContain('약속 2/2')
+    expect(formatWeek(w)).not.toContain('지난주 약속 2개 중 0개만 했어요')
+
+    // 반대로 리뷰 주에 못 지켰으면 그 주를 근거로 backlog 가 나와야 한다
+    const t2 = base()
+    t2.manual.push(
+      r('2026-08-01 10:00', '약속', '화|지원서'),
+      r('2026-08-01 10:01', '약속', '수|이력서'),
+      r('2026-08-25 09:00', '이행', '지원서'),   // 리뷰 주 **앞** 주에만 이행
+      r('2026-08-26 09:00', '이행', '이력서'),
+    )
+    const w2 = weekReview(t2, '2026-09-11')
+    expect(w2.commitments).toMatchObject({ planned: 2, done: 0 })
+    expect(w2.life.key).toBe('backlog')
+    expect(w2.life.why).toContain('2개 중 0개만')
+  })
 })

@@ -107,10 +107,36 @@ describe('약속 집계', () => {
     expect(w.items.every((i) => !i.done)).toBe(true)
   })
 
+  it('만료된 날짜형은 해가 바뀌어도 되살아나지 않는다', () => {
+    // MM-DD 를 평가하는 날 기준으로 풀면 새해 첫날에 지금까지의 모든 날짜형이 한꺼번에
+    // 활성으로 돌아와 5개 상한을 유령으로 채운다. 해석 기준은 기록일이다.
+    const one = [row('2026-09-01 10:00', '약속', '09-13|카제나 QA 제출')]
+    expect(activeCommitments(one, '2026-09-12').map((c) => c.due)).toEqual(['2026-09-13'])
+    expect(activeCommitments(one, '2026-09-20')).toEqual([])
+    expect(activeCommitments(one, '2027-01-01')).toEqual([])
+    expect(activeCommitments(one, '2027-06-01')).toEqual([])
+  })
+
   it('MM-DD 는 6개월 넘게 과거면 다음 해로 읽는다', () => {
     expect(dueDate('09-13', '2026-09-10')).toBe('2026-09-13')
     expect(dueDate('01-05', '2026-12-28')).toBe('2027-01-05')
     expect(dueDate('09-05', '2026-09-10')).toBe('2026-09-05')   // 며칠 전은 올해가 맞다
+  })
+
+  it('했다 한 줄은 걸리는 것 중 가장 최근 약속 하나만 닫는다', () => {
+    const two = [
+      row('2026-09-01 10:00', '약속', '화|지원서 3곳'),
+      row('2026-09-01 10:01', '약속', '수|지원서 초안'),   // 더 최근에 등록
+      row('2026-09-02 09:00', '이행', '지원서'),
+    ]
+    const w = commitmentWeek(two, '2026-08-31', '2026-09-06')
+    expect(w.planned).toBe(2)
+    expect(w.done).toBe(1)
+    expect(w.items.find((i) => i.task === '지원서 초안')?.done).toBe(true)
+    expect(w.items.find((i) => i.task === '지원서 3곳')?.done).toBe(false)
+    // 두 줄이면 둘 다 닫힌다 — 이미 닫은 것을 다시 소비하지 않는다
+    const w2 = commitmentWeek([...two, row('2026-09-03 09:00', '이행', '지원서')], '2026-08-31', '2026-09-06')
+    expect(w2.done).toBe(2)
   })
 
   it('활성 5개면 6개째를 막는다', () => {

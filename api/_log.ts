@@ -192,7 +192,14 @@ export function planWeek(rows: HealthRow[], workouts: HealthRow[], from: string,
 
 // ── 약속 (운동이 아닌 것) ───────────────────────────────────
 // 운동은 '계획'이 담당하고 워치·sRPE 로 자동 판정된다. 여기는 그 밖의 것이라 이행이 수동이다.
-export type Commitment = { trigger: string; task: string; due: string | null; wd: string | null }
+export type Commitment = { trigger: string; task: string; due: string | null; wd: string | null; slot: string; at: string }
+
+/**
+ * 약속을 읽을 때 가져오는 시트 창(일). 오늘 표면(api/today.ts · health_today)과 상한 검사가
+ * **같은 창**을 봐야 한다. 창이 다르면 오래 산 요일형 약속이 상한에는 잡히는데 화면에는
+ * 안 뜨는 불일치가 생긴다(75 vs 400 으로 한 번 겪었다). 줄이지 말 것.
+ */
+export const COMMITMENT_DAYS = 400
 
 /** 'MM-DD' → 'yyyy-MM-dd'. 6개월 넘게 과거로 읽히면 다음 해다(연말연시 처리). */
 export const dueDate = (mmdd: string, today: string) => {
@@ -200,17 +207,23 @@ export const dueDate = (mmdd: string, today: string) => {
   return `${y}-${mmdd}` < shift(today, -183) ? `${y + 1}-${mmdd}` : `${y}-${mmdd}`
 }
 
-const commitments = (rows: HealthRow[], today: string): Commitment[] =>
+/**
+ * MM-DD 는 **그 행을 기록한 날** 기준으로 해석한다. 평가하는 날 기준으로 풀면 시간이 지나면서
+ * 같은 행이 다른 해로 옮겨 붙어, 만료된 약속이 해가 바뀔 때 통째로 되살아난다(자동 이월 금지 위반).
+ * 기록일 기준이면 한 번 정해진 마감이 영원히 그대로다.
+ */
+const commitments = (rows: HealthRow[]): Commitment[] =>
   rows.filter((r) => r.value === '약속').flatMap((r) => {
     const [trig = '', task = ''] = (r.extra || '').split('|')
     const p = parseTrigger(trig)
     if (!p || !task) return []
-    return [{ trigger: trig, task, due: 'mmdd' in p ? dueDate(p.mmdd, today) : null, wd: 'wd' in p ? p.wd : null }]
+    return [{ trigger: trig, task, due: 'mmdd' in p ? dueDate(p.mmdd, day(r)) : null,
+      wd: 'wd' in p ? p.wd : null, slot: 'wd' in p ? p.slot : '', at: r.start }]
   })
 
 /** 아직 만료되지 않은 것. 날짜형은 지나면 사라지고, 요일형은 매주 다시 발생한다. */
 export const activeCommitments = (rows: HealthRow[], today: string): Commitment[] =>
-  commitments(rows, today).filter((c) => !c.due || c.due >= today)
+  commitments(rows).filter((c) => !c.due || c.due >= today)
 
 /** 활성 5개가 상한. 과부하가 시스템을 버리게 만드는 2위 원인이라 등록 자체를 막는다. */
 export const CAP = 5
@@ -225,16 +238,23 @@ export function todayCommitments(rows: HealthRow[], today: string): string[] {
   return activeCommitments(rows, today).flatMap((c) => {
     if (c.due) return c.due === today ? [c.task] : []
     if (c.wd !== wd) return []
-    const slot = parseTrigger(c.trigger)
-    return [c.task + (slot && 'slot' in slot && slot.slot ? ` (${slot.slot})` : '')]
+    return [c.task + (c.slot ? ` (${c.slot})` : '')]
   })
 }
 
 /** from~to 한 주의 이행. 날짜형은 그 주가 마감일 때만, 요일형은 매주 센다. */
 export function commitmentWeek(rows: HealthRow[], from: string, to: string) {
   const dones = rows.filter((r) => r.value === '이행' && (r.extra || '').trim() && day(r) >= from && day(r) <= to)
-  const items = commitments(rows, from)
+    .sort((a, b) => (a.start < b.start ? -1 : 1))
+  const items = commitments(rows)
     .filter((c) => (c.due ? c.due >= from && c.due <= to : true))
-    .map((c) => ({ ...c, done: dones.some((d) => c.task.includes(String(d.extra || ''))) }))
+    .map((c) => ({ ...c, done: false as boolean }))
+  // "여러 개가 걸리면 가장 최근 것 하나만 닫는다"(스펙). 부분 문자열 매칭이라 충돌이 드물지 않은데,
+  // 한 줄이 여러 약속을 동시에 닫으면 이행률이 부풀고 그 숫자로 코치가 틀린 제안을 낸다.
+  for (const d of dones) {
+    const key = String(d.extra || '')
+    const hit = items.filter((i) => !i.done && i.task.includes(key)).sort((a, b) => (a.at < b.at ? 1 : -1))[0]
+    if (hit) hit.done = true
+  }
   return { items, planned: items.length, done: items.filter((i) => i.done).length }
 }

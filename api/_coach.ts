@@ -18,7 +18,7 @@ const day = (r: HealthRow) => r.start.slice(0, 10)
 export const mondayOf = (d: string) => shift(d, -((new Date(d + 'T00:00:00Z').getUTCDay() + 6) % 7))
 
 // ── 제안 ───────────────────────────────────────────────────
-/** 서버가 고를 수 있는 변경은 이 여섯 가지뿐이다. 매주 하나만 고른다. */
+/** 서버가 고를 수 있는 변경은 건강 7 + 삶 5, 이 열두 가지뿐이다. 매주 도메인당 하나씩만 고른다. */
 export type ChangeKey = 'hold' | 'adherence' | 'deload' | 'lower_intensity' | 'bedtime' | 'add_session' | 'promote'
   | 'deadline' | 'backlog' | 'overflow' | 'stale' | 'life_hold'
 export type Advice = { key: ChangeKey; text: string; metric: MetricKey; target: number; why: string }
@@ -212,6 +212,7 @@ export function nextChange(tabs: Tabs, last: WeekFacts, today: string): Advice {
  * 삶 제안 하나. 건강과 같은 방식으로 우선순위대로 검사해 처음 걸리는 것만 고른다.
  * 건강 제안과 나란히 서므로 주간 제안은 최대 둘이다. 여섯이 문제였지 둘은 지켜진다.
  */
+/** monday 는 **이번 주** 월요일이다. 직전 한 주(monday-7 ~ monday-1)가 판정 대상 창이 된다. */
 export function lifeChange(tabs: Tabs, today: string, monday: string): Advice {
   const manual = tabs.manual ?? []
   const active = activeCommitments(manual, today)
@@ -270,7 +271,9 @@ export function weekReview(tabs: Tabs, today: string, weekOf?: string) {
   }
 
   const load = loadSummary(dailyLoad(tabs.workout ?? [], 60), today)
-  const life = lifeChange(tabs, today, lastMonday)
+  // lifeChange 는 "이번 주 월요일"을 받아 그 직전 주를 잰다. 리뷰 대상 주(lastMonday)를 그대로
+  // 넘기면 한 주 앞을 재서, 같은 출력 안에 이행률과 삶 제안이 서로 다른 주를 말하게 된다.
+  const life = lifeChange(tabs, today, shift(lastMonday, 7))
   const commitments = commitmentWeek(tabs.manual ?? [], last.monday, last.to)
   return { week: `${last.monday} ~ ${last.to}`, facts: last, before, advice, review, drift, load,
     promotions: promotions(tabs, today), life, commitments }

@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { gasGet } from './_gas.js'
 import { readiness, formatReadiness, formatFriendly } from './_readiness.js'
-import { todayCommitments } from './_log.js'
+import { todayCommitments, COMMITMENT_DAYS } from './_log.js'
 import type { Tabs } from './_health.js'
 
 /**
@@ -12,7 +12,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store')
   if ((req.query.t as string) !== process.env.SYNC_TOKEN) return res.status(401).send('unauthorized')
   try {
-    const t = (await gasGet<{ tabs?: Tabs }>('healthAll', '&days=400')).tabs ?? {}
+    const t = (await gasGet<{ tabs?: Tabs }>('healthAll', `&days=${COMMITMENT_DAYS}`)).tabs ?? {}
     const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
     const r = readiness(t, today)
     const todos = todayCommitments(t.manual ?? [], today)

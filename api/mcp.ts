@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { summarizeSleep, summarizeDaily, summarizeWorkouts, summarizeTrend, type HealthRow, type Tabs } from './_health.js'
-import { parseLog, logStamp, summarizeManual, overCap, todayCommitments } from './_log.js'
+import { parseLog, logStamp, summarizeManual, overCap, todayCommitments, COMMITMENT_DAYS } from './_log.js'
 import { readiness, formatReadiness } from './_readiness.js'
 import { dailyLoad, fitnessPayload, insights } from './_analysis.js'
 import { weekReview, formatWeek, monthReview, formatMonth, adviceHistory, formatHistory, adviceToExtra, mondayOf, monthOf } from './_coach.js'
@@ -198,9 +198,8 @@ async function runTool(name: string, args: Record<string, unknown>): Promise<str
   }
 
   if (name === 'health_today') {
-    // api/today.ts(폰 알림)와 같은 창이어야 한다 — 두 일간 표면이 다른 days 를 쓰면
-    // 75일보다 오래 산 요일형 약속이 한쪽에만 뜨는 불일치가 재발한다. 줄이지 말 것.
-    const r = await gasGet<{ tabs?: Tabs }>('healthAll', '&days=400')
+    // 약속을 읽는 모든 곳이 COMMITMENT_DAYS 하나를 쓴다(api/today.ts, 아래 상한 검사).
+    const r = await gasGet<{ tabs?: Tabs }>('healthAll', `&days=${COMMITMENT_DAYS}`)
     const todayKey = today()
     return formatReadiness(readiness(r.tabs ?? {}, todayKey), todayKey, todayCommitments(r.tabs?.manual ?? [], todayKey))
   }
@@ -209,9 +208,10 @@ async function runTool(name: string, args: Record<string, unknown>): Promise<str
     const { stamp, text } = logStamp(String(args.text || ''))
     const e = parseLog(text)
     if (e.kind === '약속') {
-      const t = (await gasGet<{ tabs?: Tabs }>('healthAll', '&days=3400')).tabs ?? {}
+      const t = (await gasGet<{ tabs?: Tabs }>('healthAll', `&days=${COMMITMENT_DAYS}`)).tabs ?? {}
       const full = overCap(t.manual ?? [], stamp.slice(0, 10))
-      if (full) return `약속은 한 번에 5개까지예요. 하나를 지우고 다시 넣어주세요.\n` +
+      // 약속 행을 지우는 경로가 여기엔 없다. 할 수 없는 행동을 시키지 않으려고 시트를 가리킨다.
+      if (full) return `약속은 한 번에 5개까지예요. 시트 manual 탭에서 아래 중 하나의 약속 행을 지운 뒤에 다시 넣어주세요.\n` +
         full.map((c) => `- ${c.trigger} ${c.task}`).join('\n')
     }
     const r = await gasPost({ action: 'health', type: 'manual', rows: [stamp, stamp, e.kind, e.extra].join('|') }) as { added?: number; skipped?: number }
