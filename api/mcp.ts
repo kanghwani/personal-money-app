@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { summarizeSleep, summarizeDaily, summarizeWorkouts, summarizeTrend, type HealthRow, type Tabs } from './_health.js'
-import { parseLog, logStamp, summarizeManual } from './_log.js'
+import { parseLog, logStamp, summarizeManual, overCap } from './_log.js'
 import { readiness, formatReadiness } from './_readiness.js'
 import { dailyLoad, fitnessPayload, insights } from './_analysis.js'
 import { weekReview, formatWeek, monthReview, formatMonth, adviceHistory, formatHistory, adviceToExtra, mondayOf, monthOf } from './_coach.js'
@@ -206,6 +206,12 @@ async function runTool(name: string, args: Record<string, unknown>): Promise<str
   if (name === 'health_log') {
     const { stamp, text } = logStamp(String(args.text || ''))
     const e = parseLog(text)
+    if (e.kind === '약속') {
+      const t = (await gasGet<{ tabs?: Tabs }>('healthAll', '&days=3400')).tabs ?? {}
+      const full = overCap(t.manual ?? [], stamp.slice(0, 10))
+      if (full) return `약속은 한 번에 5개까지예요. 하나를 지우고 다시 넣어주세요.\n` +
+        full.map((c) => `- ${c.trigger} ${c.task}`).join('\n')
+    }
     const r = await gasPost({ action: 'health', type: 'manual', rows: [stamp, stamp, e.kind, e.extra].join('|') }) as { added?: number; skipped?: number }
     return `${r.added ? '기록됨' : '이미 있음'}: ${stamp.slice(5, 16)} ${e.kind} — ${e.echo}`
   }

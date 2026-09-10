@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseLog, logStamp, summarizeManual, activeCommitments, commitmentWeek, dueDate } from './_log'
+import { parseLog, logStamp, summarizeManual, activeCommitments, commitmentWeek, dueDate, overCap } from './_log'
 import type { HealthRow } from './_health'
 
 describe('parseLog', () => {
@@ -111,5 +111,11 @@ describe('약속 집계', () => {
     expect(dueDate('09-13', '2026-09-10')).toBe('2026-09-13')
     expect(dueDate('01-05', '2026-12-28')).toBe('2027-01-05')
     expect(dueDate('09-05', '2026-09-10')).toBe('2026-09-05')   // 며칠 전은 올해가 맞다
+  })
+
+  it('활성 5개면 6개째를 막는다', () => {
+    const five = ['가', '나', '다', '라', '마'].map((t, i) => row(`2026-09-01 10:0${i}`, '약속', `화|${t}`))
+    expect(overCap(five, '2026-09-10')).toHaveLength(5)
+    expect(overCap(five.slice(0, 4), '2026-09-10')).toBeNull()
   })
 })

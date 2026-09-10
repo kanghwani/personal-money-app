@@ -212,6 +212,13 @@ const commitments = (rows: HealthRow[], today: string): Commitment[] =>
 export const activeCommitments = (rows: HealthRow[], today: string): Commitment[] =>
   commitments(rows, today).filter((c) => !c.due || c.due >= today)
 
+/** 활성 5개가 상한. 과부하가 시스템을 버리게 만드는 2위 원인이라 등록 자체를 막는다. */
+export const CAP = 5
+export const overCap = (rows: HealthRow[], today: string): Commitment[] | null => {
+  const a = activeCommitments(rows, today)
+  return a.length >= CAP ? a : null
+}
+
 /** from~to 한 주의 이행. 날짜형은 그 주가 마감일 때만, 요일형은 매주 센다. */
 export function commitmentWeek(rows: HealthRow[], from: string, to: string) {
   const dones = rows.filter((r) => r.value === '이행' && (r.extra || '').trim() && day(r) >= from && day(r) <= to)
