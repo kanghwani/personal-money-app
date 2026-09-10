@@ -189,3 +189,34 @@ export function planWeek(rows: HealthRow[], workouts: HealthRow[], from: string,
   }
   return { days, planned, done }
 }
+
+// ── 약속 (운동이 아닌 것) ───────────────────────────────────
+// 운동은 '계획'이 담당하고 워치·sRPE 로 자동 판정된다. 여기는 그 밖의 것이라 이행이 수동이다.
+export type Commitment = { trigger: string; task: string; due: string | null; wd: string | null }
+
+/** 'MM-DD' → 'yyyy-MM-dd'. 6개월 넘게 과거로 읽히면 다음 해다(연말연시 처리). */
+export const dueDate = (mmdd: string, today: string) => {
+  const y = +today.slice(0, 4)
+  return `${y}-${mmdd}` < shift(today, -183) ? `${y + 1}-${mmdd}` : `${y}-${mmdd}`
+}
+
+const commitments = (rows: HealthRow[], today: string): Commitment[] =>
+  rows.filter((r) => r.value === '약속').flatMap((r) => {
+    const [trig = '', task = ''] = (r.extra || '').split('|')
+    const p = parseTrigger(trig)
+    if (!p || !task) return []
+    return [{ trigger: trig, task, due: 'mmdd' in p ? dueDate(p.mmdd, today) : null, wd: 'wd' in p ? p.wd : null }]
+  })
+
+/** 아직 만료되지 않은 것. 날짜형은 지나면 사라지고, 요일형은 매주 다시 발생한다. */
+export const activeCommitments = (rows: HealthRow[], today: string): Commitment[] =>
+  commitments(rows, today).filter((c) => !c.due || c.due >= today)
+
+/** from~to 한 주의 이행. 날짜형은 그 주가 마감일 때만, 요일형은 매주 센다. */
+export function commitmentWeek(rows: HealthRow[], from: string, to: string) {
+  const dones = rows.filter((r) => r.value === '이행' && day(r) >= from && day(r) <= to)
+  const items = commitments(rows, from)
+    .filter((c) => (c.due ? c.due >= from && c.due <= to : true))
+    .map((c) => ({ ...c, done: dones.some((d) => c.task.includes(String(d.extra || ''))) }))
+  return { items, planned: items.length, done: items.filter((i) => i.done).length }
+}

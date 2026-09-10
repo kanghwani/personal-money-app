@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { parseLog, logStamp, summarizeManual } from './_log'
+import { parseLog, logStamp, summarizeManual, activeCommitments, commitmentWeek, dueDate } from './_log'
+import type { HealthRow } from './_health'
 
 describe('parseLog', () => {
   it('컨디션 4항목', () => {
@@ -71,5 +72,38 @@ describe('계획 대비 실행', () => {
     expect(s).toContain('[계획 대비 실행 2/4]')
     expect(s).toContain('08-31(월) 수영✓ 턱걸이✓')
     expect(s).toContain('09-01(화) 러닝✗ 요가✗')
+  })
+})
+
+describe('약속 집계', () => {
+  const row = (start: string, value: string, extra = ''): HealthRow => ({ start, end: start, value, extra })
+  const rows = [
+    row('2026-09-01 10:00', '약속', '09-13|카제나 QA 제출'),
+    row('2026-09-01 10:01', '약속', '화아침|지원서 3곳'),
+    row('2026-09-01 10:02', '약속', '09-05|치과'),
+  ]
+
+  it('지난 날짜형은 활성에서 빠지고 요일형은 남는다', () => {
+    const a = activeCommitments(rows, '2026-09-10')
+    expect(a.map((c) => c.task)).toEqual(['카제나 QA 제출', '지원서 3곳'])   // 09-05 치과는 만료
+  })
+
+  it('했다 키워드가 부분 문자열로 약속을 닫는다', () => {
+    const w = commitmentWeek([...rows, row('2026-09-08 09:00', '이행', '지원서')], '2026-09-07', '2026-09-13')
+    expect(w.planned).toBe(2)                       // 요일형 1 + 그 주가 마감인 09-13 카제나 1
+    expect(w.done).toBe(1)
+    expect(w.items.find((i) => i.task === '지원서 3곳')?.done).toBe(true)
+    expect(w.items.find((i) => i.task === '카제나 QA 제출')?.done).toBe(false)
+  })
+
+  it('그 주에 마감이 아닌 날짜형은 planned 에 안 든다', () => {
+    const w = commitmentWeek(rows, '2026-09-14', '2026-09-20')
+    expect(w.planned).toBe(1)                       // 요일형만
+  })
+
+  it('MM-DD 는 6개월 넘게 과거면 다음 해로 읽는다', () => {
+    expect(dueDate('09-13', '2026-09-10')).toBe('2026-09-13')
+    expect(dueDate('01-05', '2026-12-28')).toBe('2027-01-05')
+    expect(dueDate('09-05', '2026-09-10')).toBe('2026-09-05')   // 며칠 전은 올해가 맞다
   })
 })
