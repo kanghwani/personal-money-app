@@ -319,7 +319,7 @@ GAS 호출이 10초라 약속일 때만 기존 행을 읽는다."
 - Test: `api/_coach.test.ts`
 
 **Interfaces:**
-- Consumes: Task 2 의 `commitmentWeek`, `activeCommitments`, `CAP`; 기존 `Advice`, `mondayOf`, `shift`
+- Consumes: Task 2 의 `commitmentWeek`·`activeCommitments`, **Task 3 의 `CAP`**(`_log.ts` 에서 export), 기존 `Advice`·`mondayOf`·`shift`
 - Produces: `lifeChange(tabs: Tabs, today: string, monday: string): Advice` — `key` 는 `deadline` | `backlog` | `overflow` | `stale` | `life_hold`
 
 - [ ] **Step 1: 실패하는 테스트를 쓴다**
@@ -347,7 +347,9 @@ describe('lifeChange', () => {
 
   it('활성이 상한이면 overflow', () => {
     const manual = ['가', '나', '다', '라', '마'].map((t, i) => r(`2026-08-01 10:0${i}`, '약속', `화|${t}`))
-    const done = manual.map((m, i) => r(`2026-09-08 09:0${i}`, '이행', (m.extra || '').split('|')[1]))
+    // 이행 행은 판정 창(2026-08-31~09-06) **안**에 둔다. 창 밖에 두면 done=0/5 라
+    // backlog 가 먼저 발동해 overflow 에 영원히 도달하지 못한다.
+    const done = manual.map((m, i) => r(`2026-09-01 09:0${i}`, '이행', (m.extra || '').split('|')[1]))
     expect(lifeChange(tabs([...manual, ...done]), '2026-09-11', '2026-09-07').key).toBe('overflow')
   })
 
@@ -457,7 +459,9 @@ stale 은 요일형에만 건다. 날짜형은 지나면 만료돼 걸릴 수가
     const w = weekReview(t, '2026-09-11')
     expect(w.life.key).toBe('deadline')
     expect(w.advice.key).not.toBe('deadline')          // 건강 제안은 건강 후보에서만 나온다
-    expect(formatWeek(w)).toContain('약속')
+    // 이 테스트의 마감(09-13)은 리뷰 주(08-31~09-06) 밖이라 commitments.planned=0 이고
+    // 약속 줄은 가드에 막힌다. 항상 출력되는 삶 제안 줄로 단언한다.
+    expect(formatWeek(w)).toContain('삶 쪽')
   })
 ```
 
