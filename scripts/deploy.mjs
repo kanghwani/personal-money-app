@@ -30,7 +30,9 @@ const before = await liveTools()
 console.log(before ? `배포 전 툴 ${before.size}개` : '배포 전 스키마를 못 읽었습니다(첫 배포이거나 토큰 없음)')
 
 console.log('\n배포 중...')
-execFileSync('npx', ['-y', 'vercel', '--prod', '--yes'], { stdio: 'inherit' })
+// --scope 를 빼면 "Not authorized" 로 죽는다. 계정에 팀이 붙은 뒤로 CLI 가 스코프를 스스로 추론하지 못한다.
+// (vercel whoami 와 project ls 는 멀쩡히 되므로 로그인 문제로 오해하기 쉽다.)
+execFileSync('npx', ['-y', 'vercel', '--prod', '--yes', '--scope', 'kanghwankim-s-projects'], { stdio: 'inherit' })
 
 // 전파를 잠시 기다린다
 let after = null
