@@ -4,6 +4,17 @@ import type { HealthRow } from './_health.js'
 export type LogEntry = { kind: string; extra: string; echo: string }
 const WELL = ['수면질', '피로', '스트레스', '근육통']   // 컨디션 4항목 순서 고정(Hooper 최소형)
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']
+const SLOTS = ['아침', '점심', '저녁', '밤']
+/**
+ * 약속 트리거. 날짜형 'MM-DD' 또는 요일형 '화'/'화아침'. 그 외는 null.
+ * "언젠가 할 일"을 받는 순간 핀보드가 되므로 여기서 막는다.
+ */
+export function parseTrigger(t: string): { mmdd: string } | { wd: string; slot: string } | null {
+  const d = /^(\d{2})-(\d{2})$/.exec(t)
+  if (d) return +d[1] >= 1 && +d[1] <= 12 && +d[2] >= 1 && +d[2] <= 31 ? { mmdd: t } : null
+  const w = new RegExp(`^([${DAYS.join('')}])(${SLOTS.join('|')})?$`).exec(t)
+  return w ? { wd: w[1], slot: w[2] || '' } : null
+}
 /** 계획 종목(한글) ↔ 워치 워크아웃 타입 */
 export const SPORT: Record<string, string> = { 수영: 'Swimming', 러닝: 'Running', 달리기: 'Running', 걷뛰: 'Running', 요가: 'Yoga', 걷기: 'Walking', 자전거: 'Cycling', 등산: 'Hiking', 근력: 'FunctionalStrengthTraining', 코어: 'CoreTraining' }
 /**
@@ -57,6 +68,16 @@ export function parseLog(text: string): LogEntry {
     const [w, smm, fat, ...memo] = rest
     if (!(+w > 0) || !(+smm > 0) || !(+fat >= 0)) throw new Error('인바디는 "인바디 체중 골격근량 체지방률" (예: 인바디 72.3 33.1 18.5)')
     return { kind: '인바디', extra: [+w, +smm, +fat, memo.join(' ')].join('|'), echo: `체중 ${+w}kg · 골격근 ${+smm}kg · 체지방 ${+fat}%` }
+  }
+  if (h === '약속') {
+    const [trig, ...task] = rest
+    if (!trig || !parseTrigger(trig) || !task.length)
+      throw new Error('약속은 "약속 09-13 치과" 또는 "약속 화아침 지원서" 형식이에요. 언제 할지가 없으면 등록되지 않습니다')
+    return { kind: '약속', extra: [trig, task.join(' ')].join('|'), echo: `${trig} · ${task.join(' ')}` }
+  }
+  if (h === '했다') {
+    if (!rest.length) throw new Error('했다 뒤에 무엇을 했는지 (예: 했다 카제나)')
+    return { kind: '이행', extra: rest.join(' '), echo: rest.join(' ') }
   }
   if (h === '계획') {
     // 계획 월 수영 턱걸이 / 계획 토 휴식 — 요일별 마지막 것이 유효

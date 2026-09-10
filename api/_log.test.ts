@@ -28,6 +28,20 @@ describe('parseLog', () => {
     const { stamp, text } = logStamp('어제 태그 술', Date.UTC(2026, 8, 3, 3, 0))   // KST 09-03 12:00
     expect(stamp).toBe('2026-09-02 12:00:00'); expect(text).toBe('태그 술')
   })
+  it('약속 — 날짜형·요일형만 받는다', () => {
+    expect(parseLog('약속 09-13 카제나 QA 제출')).toMatchObject({ kind: '약속', extra: '09-13|카제나 QA 제출' })
+    expect(parseLog('약속 화아침 지원서 3곳').extra).toBe('화아침|지원서 3곳')
+    expect(parseLog('약속 화 지원서').extra).toBe('화|지원서')
+    // 트리거가 없으면 거부한다 — 이게 이 시스템의 유일한 규율이다
+    expect(() => parseLog('약속 이력서 정리')).toThrow()
+    expect(() => parseLog('약속 언젠가 이력서 정리')).toThrow()
+    expect(() => parseLog('약속 09-13')).toThrow()      // 할 것이 없다
+    expect(() => parseLog('약속 13-99 치과')).toThrow() // 날짜가 아니다
+  })
+  it('했다 — 키워드만 남긴다', () => {
+    expect(parseLog('했다 카제나')).toMatchObject({ kind: '이행', extra: '카제나' })
+    expect(() => parseLog('했다')).toThrow()
+  })
 })
 
 describe('summarizeManual', () => {
