@@ -266,4 +266,15 @@ describe('lifeChange', () => {
   it('약속이 없으면 life_hold', () => {
     expect(lifeChange(tabs([]), '2026-09-11', '2026-09-07').key).toBe('life_hold')
   })
+
+  it('주간 리뷰가 건강 제안과 삶 제안을 따로 낸다', () => {
+    const t = base()
+    t.manual.push(r('2026-08-20 10:00', '약속', '09-13|카제나 QA 제출'))
+    const w = weekReview(t, '2026-09-11')
+    expect(w.life.key).toBe('deadline')
+    expect(w.advice.key).not.toBe('deadline')          // 건강 제안은 건강 후보에서만 나온다
+    // 이 테스트의 마감(09-13)은 리뷰 주(08-31~09-06) 밖이라 commitments.planned=0 이고
+    // 약속 줄은 가드에 막힌다. 항상 출력되는 삶 제안 줄로 단언한다.
+    expect(formatWeek(w)).toContain('삶 쪽')
+  })
 })

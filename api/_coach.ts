@@ -270,7 +270,10 @@ export function weekReview(tabs: Tabs, today: string, weekOf?: string) {
   }
 
   const load = loadSummary(dailyLoad(tabs.workout ?? [], 60), today)
-  return { week: `${last.monday} ~ ${last.to}`, facts: last, before, advice, review, drift, load, promotions: promotions(tabs, today) }
+  const life = lifeChange(tabs, today, lastMonday)
+  const commitments = commitmentWeek(tabs.manual ?? [], last.monday, last.to)
+  return { week: `${last.monday} ~ ${last.to}`, facts: last, before, advice, review, drift, load,
+    promotions: promotions(tabs, today), life, commitments }
 }
 
 export function formatWeek(r: ReturnType<typeof weekReview>): string {
@@ -286,7 +289,11 @@ export function formatWeek(r: ReturnType<typeof weekReview>): string {
   if (f.pain.length) lines.push(`통증: ${f.pain.map((p) => `${p.site} ${p.level}/10`).join(', ')}`)
   lines.push(r.drift.length ? `회복 지표 변화\n  ${r.drift.join('\n  ')}` : '회복 지표는 평소 범위')
   if (r.review) lines.push(r.review.text)
+  if (r.commitments.planned) lines.push(`약속 ${r.commitments.done}/${r.commitments.planned}` +
+    (r.commitments.items.filter((i) => !i.done).length
+      ? ` (남음: ${r.commitments.items.filter((i) => !i.done).map((i) => i.task).join(', ')})` : ''))
   lines.push(`\n[다음 주 변경 하나] ${r.advice.text}\n  ${r.advice.why}`)
+  lines.push(`[삶 쪽 하나] ${r.life.text}\n  ${r.life.why}`)
   return lines.join('\n')
 }
 
