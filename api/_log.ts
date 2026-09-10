@@ -214,7 +214,7 @@ export const activeCommitments = (rows: HealthRow[], today: string): Commitment[
 
 /** from~to 한 주의 이행. 날짜형은 그 주가 마감일 때만, 요일형은 매주 센다. */
 export function commitmentWeek(rows: HealthRow[], from: string, to: string) {
-  const dones = rows.filter((r) => r.value === '이행' && day(r) >= from && day(r) <= to)
+  const dones = rows.filter((r) => r.value === '이행' && (r.extra || '').trim() && day(r) >= from && day(r) <= to)
   const items = commitments(rows, from)
     .filter((c) => (c.due ? c.due >= from && c.due <= to : true))
     .map((c) => ({ ...c, done: dones.some((d) => c.task.includes(String(d.extra || ''))) }))

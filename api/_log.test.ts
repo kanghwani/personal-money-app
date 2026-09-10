@@ -101,6 +101,12 @@ describe('약속 집계', () => {
     expect(w.planned).toBe(1)                       // 요일형만
   })
 
+  it('extra 없는 이행 행이 모든 약속을 done 으로 닫지 않는다', () => {
+    const w = commitmentWeek([...rows, row('2026-09-08 09:00', '이행', '')], '2026-09-07', '2026-09-13')
+    expect(w.done).toBe(0)
+    expect(w.items.every((i) => !i.done)).toBe(true)
+  })
+
   it('MM-DD 는 6개월 넘게 과거면 다음 해로 읽는다', () => {
     expect(dueDate('09-13', '2026-09-10')).toBe('2026-09-13')
     expect(dueDate('01-05', '2026-12-28')).toBe('2027-01-05')
