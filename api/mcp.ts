@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { summarizeSleep, summarizeDaily, summarizeWorkouts, summarizeTrend, type HealthRow, type Tabs } from './_health.js'
-import { parseLog, logStamp, summarizeManual, overCap } from './_log.js'
+import { parseLog, logStamp, summarizeManual, overCap, todayCommitments } from './_log.js'
 import { readiness, formatReadiness } from './_readiness.js'
 import { dailyLoad, fitnessPayload, insights } from './_analysis.js'
 import { weekReview, formatWeek, monthReview, formatMonth, adviceHistory, formatHistory, adviceToExtra, mondayOf, monthOf } from './_coach.js'
@@ -200,7 +200,7 @@ async function runTool(name: string, args: Record<string, unknown>): Promise<str
   if (name === 'health_today') {
     const r = await gasGet<{ tabs?: Tabs }>('healthAll', '&days=75')
     const todayKey = today()
-    return formatReadiness(readiness(r.tabs ?? {}, todayKey), todayKey)
+    return formatReadiness(readiness(r.tabs ?? {}, todayKey), todayKey, todayCommitments(r.tabs?.manual ?? [], todayKey))
   }
 
   if (name === 'health_log') {

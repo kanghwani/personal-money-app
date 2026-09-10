@@ -219,6 +219,17 @@ export const overCap = (rows: HealthRow[], today: string): Commitment[] | null =
   return a.length >= CAP ? a : null
 }
 
+/** 오늘 트리거가 걸린 약속. 없으면 빈 배열이고, 일간 표면은 그때 아무 말도 하지 않는다. */
+export function todayCommitments(rows: HealthRow[], today: string): string[] {
+  const wd = DAYS[new Date(today + 'T00:00:00Z').getUTCDay()]
+  return activeCommitments(rows, today).flatMap((c) => {
+    if (c.due) return c.due === today ? [c.task] : []
+    if (c.wd !== wd) return []
+    const slot = parseTrigger(c.trigger)
+    return [c.task + (slot && 'slot' in slot && slot.slot ? ` (${slot.slot})` : '')]
+  })
+}
+
 /** from~to 한 주의 이행. 날짜형은 그 주가 마감일 때만, 요일형은 매주 센다. */
 export function commitmentWeek(rows: HealthRow[], from: string, to: string) {
   const dones = rows.filter((r) => r.value === '이행' && (r.extra || '').trim() && day(r) >= from && day(r) <= to)

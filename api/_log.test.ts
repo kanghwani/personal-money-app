@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseLog, logStamp, summarizeManual, activeCommitments, commitmentWeek, dueDate, overCap } from './_log'
+import { parseLog, logStamp, summarizeManual, activeCommitments, commitmentWeek, dueDate, overCap, todayCommitments } from './_log'
 import type { HealthRow } from './_health'
 
 describe('parseLog', () => {
@@ -117,5 +117,15 @@ describe('약속 집계', () => {
     const five = ['가', '나', '다', '라', '마'].map((t, i) => row(`2026-09-01 10:0${i}`, '약속', `화|${t}`))
     expect(overCap(five, '2026-09-10')).toHaveLength(5)
     expect(overCap(five.slice(0, 4), '2026-09-10')).toBeNull()
+  })
+
+  it('오늘 트리거가 걸린 것만 나온다', () => {
+    const rs = [
+      row('2026-09-01 10:00', '약속', '09-11|카제나 QA 제출'),
+      row('2026-09-01 10:01', '약속', '금아침|지원서 3곳'),
+      row('2026-09-01 10:02', '약속', '수|이력서'),
+    ]
+    expect(todayCommitments(rs, '2026-09-11')).toEqual(['카제나 QA 제출', '지원서 3곳 (아침)'])  // 2026-09-11 은 금요일
+    expect(todayCommitments(rs, '2026-09-12')).toEqual([])
   })
 })
