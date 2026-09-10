@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseLog, logStamp, summarizeManual, activeCommitments, commitmentWeek, dueDate, overCap, todayCommitments } from './_log'
+import { parseLog, logStamp, summarizeManual, activeCommitments, commitmentWeek, dueDate, overCap, capRefusal, todayCommitments } from './_log'
 import type { HealthRow } from './_health'
 
 describe('parseLog', () => {
@@ -143,6 +143,15 @@ describe('약속 집계', () => {
     const five = ['가', '나', '다', '라', '마'].map((t, i) => row(`2026-09-01 10:0${i}`, '약속', `화|${t}`))
     expect(overCap(five, '2026-09-10')).toHaveLength(5)
     expect(overCap(five.slice(0, 4), '2026-09-10')).toBeNull()
+  })
+
+  it('capRefusal — 상한이면 문구, 아니면 null. 세 입력 통로가 이 함수 하나를 공유한다', () => {
+    const five = ['가', '나', '다', '라', '마'].map((t, i) => row(`2026-09-01 10:0${i}`, '약속', `화|${t}`))
+    const refusal = capRefusal(five, '2026-09-10')
+    expect(refusal).toContain('약속은 한 번에 5개까지예요')
+    expect(refusal).toContain('- 화 가')
+    expect(refusal).toContain('- 화 마')
+    expect(capRefusal(five.slice(0, 4), '2026-09-10')).toBeNull()
   })
 
   it('오늘 트리거가 걸린 것만 나온다', () => {

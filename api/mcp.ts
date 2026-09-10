@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { summarizeSleep, summarizeDaily, summarizeWorkouts, summarizeTrend, type HealthRow, type Tabs } from './_health.js'
-import { parseLog, logStamp, summarizeManual, overCap, todayCommitments, COMMITMENT_DAYS } from './_log.js'
+import { parseLog, logStamp, summarizeManual, capRefusal, todayCommitments, COMMITMENT_DAYS } from './_log.js'
 import { readiness, formatReadiness } from './_readiness.js'
 import { dailyLoad, fitnessPayload, insights } from './_analysis.js'
 import { weekReview, formatWeek, monthReview, formatMonth, adviceHistory, formatHistory, adviceToExtra, mondayOf, monthOf } from './_coach.js'
@@ -209,10 +209,8 @@ async function runTool(name: string, args: Record<string, unknown>): Promise<str
     const e = parseLog(text)
     if (e.kind === '약속') {
       const t = (await gasGet<{ tabs?: Tabs }>('healthAll', `&days=${COMMITMENT_DAYS}`)).tabs ?? {}
-      const full = overCap(t.manual ?? [], stamp.slice(0, 10))
-      // 약속 행을 지우는 경로가 여기엔 없다. 할 수 없는 행동을 시키지 않으려고 시트를 가리킨다.
-      if (full) return `약속은 한 번에 5개까지예요. 시트 manual 탭에서 아래 중 하나의 약속 행을 지운 뒤에 다시 넣어주세요.\n` +
-        full.map((c) => `- ${c.trigger} ${c.task}`).join('\n')
+      const refusal = capRefusal(t.manual ?? [], stamp.slice(0, 10))
+      if (refusal) return refusal
     }
     const r = await gasPost({ action: 'health', type: 'manual', rows: [stamp, stamp, e.kind, e.extra].join('|') }) as { added?: number; skipped?: number }
     return `${r.added ? '기록됨' : '이미 있음'}: ${stamp.slice(5, 16)} ${e.kind} — ${e.echo}`

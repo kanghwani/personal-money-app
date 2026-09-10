@@ -232,6 +232,18 @@ export const overCap = (rows: HealthRow[], today: string): Commitment[] | null =
   return a.length >= CAP ? a : null
 }
 
+/**
+ * 상한에 걸렸으면 거절 문구, 아니면 null. `약속`을 받는 입력 통로가 셋(MCP·단축어·웹앱)이라,
+ * 문구를 한 곳에 둬야 셋이 같은 말을 한다. 약속 행을 지우는 문법은 아직 없어서(범위 밖),
+ * 할 수 없는 행동을 시키지 않으려고 시트를 직접 가리킨다.
+ */
+export function capRefusal(rows: HealthRow[], today: string): string | null {
+  const full = overCap(rows, today)
+  if (!full) return null
+  return '약속은 한 번에 5개까지예요. 시트 manual 탭에서 아래 중 하나의 약속 행을 지운 뒤에 다시 넣어주세요.\n' +
+    full.map((c) => `- ${c.trigger} ${c.task}`).join('\n')
+}
+
 /** 오늘 트리거가 걸린 약속. 없으면 빈 배열이고, 일간 표면은 그때 아무 말도 하지 않는다. */
 export function todayCommitments(rows: HealthRow[], today: string): string[] {
   const wd = DAYS[new Date(today + 'T00:00:00Z').getUTCDay()]
