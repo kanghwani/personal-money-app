@@ -11,6 +11,7 @@
 import type { HealthRow, Tabs } from './_health.js'
 import { PLAN_LIBRARY, detailKey } from './_plan.js'
 import { todayCommitments } from './_log.js'
+import { nightRows } from './_analysis.js'
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']
 const day = (r: HealthRow) => r.start.slice(0, 10)
@@ -65,7 +66,11 @@ export function morningBrief(tabs: Tabs, today: string): Brief {
 
   // 이상 징후 — 파이프라인이 끊겼는지. 없으면 아무 말도 하지 않는다.
   const alerts: string[] = []
-  const hasSleepLastNight = (tabs.sleep ?? []).some((r) => day(r) === today)
+  // 수면은 자정을 넘나든다. 행의 **시작 날짜**로 보면 23시대에 잠든 날마다
+  // "오늘 수면 없음" 으로 읽혀 가짜 경고가 뜬다. 시스템의 다른 곳이 이미 쓰는 규칙
+  // (정오~정오를 한 밤으로, 기상일을 키로)을 여기서도 따른다.
+  // 가짜 경고가 반복되면 진짜 경고도 무시하게 되므로 이건 사소한 문제가 아니다.
+  const hasSleepLastNight = nightRows(tabs.sleep ?? []).some((n) => n.key === today)
   if (!hasSleepLastNight) alerts.push('어젯밤 수면이 아직 안 올라왔어요')
   // 파이프라인이 살아있는지는 **워치가 올리는 탭**으로 본다. manual 에는 계획·코치 같은
   // 설정 행이 섞여 있어서, 계획만 고쳐놓고 업로드가 죽어도 "최근 기록 있음"으로 보인다.

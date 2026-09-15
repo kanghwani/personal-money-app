@@ -3,6 +3,7 @@ import { morningBrief, briefTail } from './_brief'
 import type { HealthRow, Tabs } from './_health'
 
 const row = (start: string, value: string, extra = ''): HealthRow => ({ start, end: start, value, extra })
+const night = (start: string, end: string): HealthRow => ({ start, end, value: '코어 수면', extra: '' })
 /** 2026-09-15 는 화요일 */
 const TODAY = '2026-09-15'
 const tabs = (manual: HealthRow[], sleep: HealthRow[] = []): Tabs =>
@@ -44,8 +45,14 @@ describe('morningBrief', () => {
 
   it('수면이 안 올라왔으면 경고하고, 올라왔으면 조용하다', () => {
     expect(morningBrief(tabs(PLAN), TODAY).alerts).toContain('어젯밤 수면이 아직 안 올라왔어요')
-    const slept = morningBrief(tabs(PLAN, [row(`${TODAY} 02:00`, '코어 수면')]), TODAY)
+    const slept = morningBrief(tabs(PLAN, [night('2026-09-15 02:00', '2026-09-15 07:00')]), TODAY)
     expect(slept.alerts).toHaveLength(0)
+  })
+
+  it('자정 전에 잠든 밤도 오늘 수면으로 본다 (가짜 경고 방지)', () => {
+    // 09-14 23:10 에 잠들어 09-15 06:30 기상 — 행의 시작 날짜는 09-14 지만 기상일은 09-15 다
+    const b = morningBrief(tabs(PLAN, [night('2026-09-14 23:10', '2026-09-15 06:30')]), TODAY)
+    expect(b.alerts).toHaveLength(0)
   })
 })
 
