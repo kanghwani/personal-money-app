@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { summarizeSleep, summarizeDaily, summarizeWorkouts, summarizeTrend, type HealthRow, type Tabs } from './_health.js'
 import { parseLog, logStamp, summarizeManual, capRefusal, todayCommitments, COMMITMENT_DAYS } from './_log.js'
 import { readiness, formatReadiness } from './_readiness.js'
+import { morningBrief, briefTail } from './_brief.js'
 import { dailyLoad, fitnessPayload, insights } from './_analysis.js'
 import { weekReview, formatWeek, monthReview, formatMonth, adviceHistory, formatHistory, adviceToExtra, mondayOf, monthOf } from './_coach.js'
 import { gasGet, gasPost } from './_gas.js'
@@ -201,7 +202,7 @@ async function runTool(name: string, args: Record<string, unknown>): Promise<str
     // 약속을 읽는 모든 곳이 COMMITMENT_DAYS 하나를 쓴다(api/today.ts, 아래 상한 검사).
     const r = await gasGet<{ tabs?: Tabs }>('healthAll', `&days=${COMMITMENT_DAYS}`)
     const todayKey = today()
-    return formatReadiness(readiness(r.tabs ?? {}, todayKey), todayKey, todayCommitments(r.tabs?.manual ?? [], todayKey))
+    return formatReadiness(readiness(r.tabs ?? {}, todayKey), todayKey, briefTail(morningBrief(r.tabs ?? {}, todayKey), '-'))
   }
 
   if (name === 'health_log') {

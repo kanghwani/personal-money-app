@@ -142,18 +142,16 @@ export function structuredReadiness(r: ReturnType<typeof readiness>) {
   }
 }
 
-export function formatReadiness(r: ReturnType<typeof readiness>, today: string, todos: string[] = []): string {
-  const tail = todos.length ? `\n\n[오늘 약속]\n` + todos.map((t) => '- ' + t).join('\n') : ''
+export function formatReadiness(r: ReturnType<typeof readiness>, today: string, tail = ''): string {
   if (isNaN(r.score)) return `준비도 - ${r.band}\n${r.reasons.join('\n')}` + tail
   return `준비도 ${r.score} · ${r.band} (${today})\n` + r.reasons.map((x) => '- ' + x).join('\n') +
     `\n\n[구성] ` + r.comps.map((c) => `${c.label} ${Math.round(c.sub)}`).join(' · ') + tail
 }
 
 /** 알림용 쉬운 말 버전. 숫자 대신 "평소보다 ~" 문장, 눈에 띄는 항목만. */
-export function formatFriendly(r: ReturnType<typeof readiness>, todos: string[] = []): string {
-  const tail = todos.map((t) => '□ ' + t)
-  if (isNaN(r.score)) return [`준비도 계산 중. ${r.reasons[0]}`, ...tail].join('\n')
+export function formatFriendly(r: ReturnType<typeof readiness>, tail = ''): string {
+  if (isNaN(r.score)) return `준비도 계산 중. ${r.reasons[0]}` + tail
   const v = structuredReadiness(r)
-  return [`준비도 ${r.score}. ${v.headline}`, ...r.caps.map((c) => '⚠ ' + c), ...v.lines.map((l) => l.text), ...tail].join('\n')
+  return [`준비도 ${r.score}. ${v.headline}`, ...r.caps.map((c) => '⚠ ' + c), ...v.lines.map((l) => l.text)].join('\n') + tail
 }
 
