@@ -17,6 +17,8 @@ export function parseTrigger(t: string): { mmdd: string } | { wd: string; slot: 
 }
 /** 계획 종목(한글) ↔ 워치 워크아웃 타입 */
 export const SPORT: Record<string, string> = { 수영: 'Swimming', 러닝: 'Running', 달리기: 'Running', 걷뛰: 'Running', 요가: 'Yoga', 걷기: 'Walking', 자전거: 'Cycling', 등산: 'Hiking', 근력: 'FunctionalStrengthTraining', 코어: 'CoreTraining' }
+/** 종목명만 쳤을 때 쓸 기본 분. 최소판이 정의된 짧은 보조 운동만 둔다. */
+const SOLO_MIN: Record<string, number> = { 근력: 5, 코어: 5 }
 /**
  * 계획 종목 하나가 인정하는 다른 이름들. 걷뛰는 러닝만 인정했더니, 계획서가 스스로
  * "가볍게: 달리기 구간을 빼고 걷기"라고 시킨 날에 워치가 Walking 을 올려서 미이행으로 찍혔다.
@@ -99,6 +101,16 @@ export function parseLog(text: string): LogEntry {
     const [site, level, ...memo] = rest
     if (!site || !(+level >= 0 && +level <= 10)) throw new Error('통증은 "통증 부위 0~10 [메모]" (예: 통증 무릎 3)')
     return { kind: '통증', extra: [site, +level, memo.join(' ')].join('|'), echo: `${site} ${+level}/10${memo.length ? ' · ' + memo.join(' ') : ''}` }
+  }
+  // 종목명 한 단어로 운동 기록. "근력" / "근력 15" / "요가 40".
+  // 기록 마찰이 근력이 0회인 이유였다 — "sRPE 근력 5 4" 는 네 토막이고 분·RPE 를 생각해야 한다.
+  // 뒤가 비었을 때는 최소판 기본값이 있는 종목만 받는다. 그 외(예: "수영 물이 차가웠음")는 메모로 흘린다.
+  if (SPORT[head] && rest.length <= 1) {
+    const min = rest.length ? Number(rest[0]) : SOLO_MIN[head]
+    if (min > 0) {
+      const rpe = 4
+      return { kind: 'sRPE', extra: [head, min, rpe, ''].join('|'), echo: `${head} ${min}분 RPE ${rpe} → 부하 ${min * rpe}` }
+    }
   }
   if (!t) throw new Error('기록할 내용이 없습니다')
   return { kind: '메모', extra: t, echo: t }

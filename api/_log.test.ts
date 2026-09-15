@@ -29,6 +29,15 @@ describe('parseLog', () => {
     const { stamp, text } = logStamp('어제 태그 술', Date.UTC(2026, 8, 3, 3, 0))   // KST 09-03 12:00
     expect(stamp).toBe('2026-09-02 12:00:00'); expect(text).toBe('태그 술')
   })
+  it('종목명 한 단어로 운동 기록', () => {
+    expect(parseLog('근력')).toMatchObject({ kind: 'sRPE', extra: '근력|5|4|' })   // 최소판 기본값
+    expect(parseLog('근력 15').extra).toBe('근력|15|4|')
+    expect(parseLog('요가 40').extra).toBe('요가|40|4|')
+    // 숫자가 없고 기본값도 없는 종목은 메모로 흘린다 (기존 동작 보존)
+    expect(parseLog('수영').kind).toBe('메모')
+    expect(parseLog('수영 물이 차가웠음').kind).toBe('메모')
+    expect(parseLog('오늘 수영 물이 차가웠음').kind).toBe('메모')
+  })
   it('약속 — 날짜형·요일형만 받는다', () => {
     expect(parseLog('약속 09-13 카제나 QA 제출')).toMatchObject({ kind: '약속', extra: '09-13|카제나 QA 제출' })
     expect(parseLog('약속 화아침 지원서 3곳').extra).toBe('화아침|지원서 3곳')
