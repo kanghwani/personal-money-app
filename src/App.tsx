@@ -2483,18 +2483,18 @@ function buildInsights(transactions: Transaction[], summary: Summary, store: Fin
     })
   }
 
-  // 7. 분담금 - 내가 결제했지만 남이 부담하는 몫(정산해서 받을 돈) + 환급분
-  const sb = splitBreakdown(monthTx, summary.monthKey)
-  if (sb.total > 0) {
-    const who = sb.byPerson.map((p) => `${p.name} ${formatMoney(p.value)}`).join(' · ')
+  // 7. 분담금 - 못 받은 돈(월 무관)과 이번 달 받을·받음. 전체 거래를 넘겨야 지난달 미수가 보인다.
+  const sb = splitBreakdown(transactions, summary.monthKey)
+  if (sb.total > 0 || sb.open > 0) {
+    const who = sb.openBy.map((p) => `${p.name} ${formatMoney(p.value)}`).join(' · ')
     rows.push({
-      level: 'good',
+      level: sb.open > 0 ? 'warn' : 'good',
       icon: <Wallet size={18} />,
       title: t('insight_split_title'),
-      body: sb.settle > 0
-        ? t('insight_split_body', { amt: formatMoney(sb.settle), who }) +
-          (sb.refund > 0 ? t('insight_split_refund', { amt: formatMoney(sb.refund) }) : '')
-        : t('insight_split_refund_only', { amt: formatMoney(sb.refund) }),
+      body: (sb.open > 0
+        ? t('insight_split_open', { amt: formatMoney(sb.open), who, total: formatMoney(sb.settle), received: formatMoney(sb.received) })
+        : sb.settle > 0 ? t('insight_split_done', { total: formatMoney(sb.settle) }) : t('insight_split_refund_only', { amt: formatMoney(sb.refund) })) +
+        (sb.refund > 0 && (sb.open > 0 || sb.settle > 0) ? t('insight_split_refund', { amt: formatMoney(sb.refund) }) : ''),
     })
   }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bucketOf, monthSummary, splitReport, settleTargets, settledMemo, type Tx } from './_ledger.js'
+import { bucketOf, monthSummary, monthInsights, splitReport, settleTargets, settledMemo, type Tx } from './_ledger.js'
 
 const tx = (p: Partial<Tx>): Tx => ({
   id: 'aaaaaaaa-1', date: '2026-09-05', type: 'expense', amount: 1000, memo: '', category: '', subCategory: '',
@@ -13,6 +13,8 @@ describe('월 요약 묶음', () => {
     expect(bucketOf(tx({ fixedType: 'fixed', category: '저축/투자' }))).toBe('저축')
     expect(bucketOf(tx({ fixedType: 'fixed', category: '주거/통신' }))).toBe('생활고정')
     expect(bucketOf(tx({ memo: '이케아 3개월할부' }))).toBe('변동')  // 변동은 할부여도 변동
+    expect(bucketOf(tx({ category: '금융/대출', memo: '인천 희망 대출상환' }))).toBe('부채상환')  // 수동 입력 상환도 부채
+    expect(bucketOf(tx({ category: '금융', subCategory: '수수료' }))).toBe('변동')  // 수수료는 빚이 아니다
   })
   it('분담금을 뺀 실지출로 합산한다', () => {
     const exp = [
@@ -22,10 +24,23 @@ describe('월 요약 묶음', () => {
       tx({ id: 'd', fixedType: 'fixed', category: '저축/투자', amount: 22000 }),
       tx({ id: 'e', amount: 5000 }),
     ]
-    const s = monthSummary(exp, [tx({ id: 'i', type: 'income', amount: 100 })], '2026-09')
+    const s = monthSummary([...exp, tx({ id: 'i', type: 'income', amount: 100 })], '2026-09', '2026-09-18')
     expect(s).toContain('생활고정 347,500원 · 변동 5,000원')
     expect(s).toContain('부채상환 609,612원 (대출 430,258원 · 할부 179,354원) · 저축 22,000원')
     expect(s).toContain('수입 100원')
+  })
+  it('인사이트: 수지·변동 비교·페이스·미수 분담금', () => {
+    const all = [
+      tx({ id: 'a', date: '2026-08-10', amount: 100000 }),
+      tx({ id: 'b', date: '2026-09-10', amount: 120000 }),
+      tx({ id: 'c', date: '2026-09-11', memo: '코스트코(브리 반반)', amount: 200000, split: 100000 }),
+      tx({ id: 'i', date: '2026-09-10', type: 'income', amount: 500000 }),
+    ]
+    const r = monthInsights(all, '2026-09', '2026-09-15')
+    expect(r[0]).toBe('수지: 수입 500,000원 − 실지출 220,000원 = +280,000원')
+    expect(r[1]).toBe('변동 220,000원 · 지난달 100,000원 대비 +120% ⚠')
+    expect(r[2]).toBe('지금 페이스면 월말 변동 ≈ 440,000원 (15/30일)')
+    expect(r[r.length - 1]).toBe('안 받은 분담금 100,000원: 여친 100,000원 1건')
   })
 })
 

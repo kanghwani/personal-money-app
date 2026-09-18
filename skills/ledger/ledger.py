@@ -120,10 +120,36 @@ SETTLED = '받음'
 def has(t, ws): return any(w in (t.get('memo') or '') for w in ws)
 def net(t): return t['amount'] - t.get('split', 0)
 def bucket(t):
-    if t.get('fixedType') != 'fixed': return '변동'
-    if t.get('category') == '금융/대출' or '할부' in (t.get('memo') or ''): return '부채상환'
-    if t.get('category') == '저축/투자': return '저축'
-    return '생활고정'
+    if ((t.get('category') or '').startswith('금융') and t.get('subCategory') != '수수료') or (t.get('fixedType') == 'fixed' and '할부' in (t.get('memo') or '')): return '부채상환'
+    if (t.get('category') or '').startswith('저축'): return '저축'
+    return '생활고정' if t.get('fixedType') == 'fixed' else '변동'
+
+def prev_month(m):
+    y, mo = int(m[:4]), int(m[5:]); return f'{y-1}-12' if mo == 1 else f'{y}-{mo-1:02d}'
+def pct(cur, prev): return (f"{'+' if cur >= prev else ''}{round((cur-prev)/prev*100)}%") if prev > 0 else '비교 없음'
+def month_insights(d, m):
+    import calendar
+    exp = [t for t in d if (t.get('date') or '').startswith(m) and t.get('type') == 'expense']
+    inc = sum(t['amount'] for t in d if (t.get('date') or '').startswith(m) and t.get('type') == 'income')
+    pm = prev_month(m); pexp = [t for t in d if (t.get('date') or '').startswith(pm) and t.get('type') == 'expense']
+    var = lambda ts: [t for t in ts if bucket(t) == '변동']
+    real = sum(net(t) for t in exp); v = sum(net(t) for t in var(exp)); vp = sum(net(t) for t in var(pexp))
+    out = []
+    if inc > 0: out.append(f"수지: 수입 {won(inc)} − 실지출 {won(real)} = {'+' if inc-real >= 0 else '-'}{won(abs(inc-real))}")
+    out.append(f"변동 {won(v)} · 지난달 {won(vp)} 대비 {pct(v, vp)}{' ⚠' if vp > 0 and v > vp*1.1 else ''}")
+    today = date.today().isoformat()
+    if today.startswith(m):
+        day = int(today[8:]); days = calendar.monthrange(int(m[:4]), int(m[5:]))[1]
+        if 5 <= day < days: out.append(f'지금 페이스면 월말 변동 ≈ {won(round(v/day*days))} ({day}/{days}일)')
+    top = max(var(exp), key=net, default=None)
+    if top and net(top) >= 150000: out.append(f"가장 큰 변동: {top.get('memo')} {won(net(top))} ⚠")
+    cat = lambda ts: collections.Counter({k: sum(net(t) for t in var(ts) if t.get('category') == k) for k in {t.get('category') for t in var(ts)}})
+    cur, prv = cat(exp), cat(pexp)
+    if cur:
+        k, val = cur.most_common(1)[0]; out.append(f'변동 1위 {k} {won(val)} (지난달 {won(prv.get(k, 0))})')
+    open_ = [t for t in d if is_split(t) and not is_refund(t) and not is_settled(t)]
+    if open_: out.append(f'안 받은 분담금 {won(ssum(open_))}: ' + ' · '.join(f'{w} {won(ssum(ts))} {len(ts)}건' for w, ts in by_who(open_)))
+    return out
 
 def cmd_month(m=None, brief=False):
     m = ym(m); d = rows()
@@ -132,12 +158,14 @@ def cmd_month(m=None, brief=False):
     tot = sum(t['amount'] for t in exp); sp = sum(t.get('split', 0) for t in exp)
     by = collections.Counter()
     for t in exp: by[bucket(t)] += net(t)
-    loan = sum(net(t) for t in exp if bucket(t) == '부채상환' and t.get('category') == '금융/대출')
+    loan = sum(net(t) for t in exp if bucket(t) == '부채상환' and (t.get('category') or '').startswith('금융'))
     print(f'\n=== {m} · {len(exp)}건 ===')
     print(f'  결제 {won(tot)} · 분담/환급 {won(sp)} · 내 실지출 {won(tot - sp)} · 수입 {won(sum(t["amount"] for t in inc))}')
     print(f'  생활고정 {won(by["생활고정"])} · 변동 {won(by["변동"])}')
     print(f'  부채상환 {won(by["부채상환"])} (대출 {won(loan)} · 할부 {won(by["부채상환"] - loan)}) · 저축 {won(by["저축"])}')
     if brief: return
+    print('\n  [인사이트]')
+    for l in month_insights(d, m): print('    ' + l)
     for label, keyf in [('카테고리', 'category'), ('결제수단', 'payment')]:
         c = collections.Counter()
         for t in exp: c[t.get(keyf) or '-'] += net(t)

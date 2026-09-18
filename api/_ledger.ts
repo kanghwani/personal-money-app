@@ -19,20 +19,22 @@ const has = (t: Tx, words: string[]) => words.some((w) => (t.memo || '').include
 
 // ── 월 요약: 고정비를 성격대로 나눈다 ────────────────────────
 export type Bucket = '생활고정' | '부채상환' | '저축' | '변동'
+// 대출·저축은 고정/변동 표시와 무관하게 카테고리로 잡는다(수동 입력한 상환은 변동으로 들어온다).
 export function bucketOf(t: Tx): Bucket {
-  if (t.fixedType !== 'fixed') return '변동'
-  if (t.category === '금융/대출' || (t.memo || '').includes('할부')) return '부채상환'
-  if (t.category === '저축/투자') return '저축'
-  return '생활고정'
+  if (((t.category || '').startsWith('금융') && t.subCategory !== '수수료') || (t.fixedType === 'fixed' && (t.memo || '').includes('할부'))) return '부채상환'
+  if ((t.category || '').startsWith('저축')) return '저축'
+  return t.fixedType === 'fixed' ? '생활고정' : '변동'
 }
 
-export function monthSummary(exp: Tx[], inc: Tx[], m: string): string {
+export function monthSummary(all: Tx[], m: string, todayStr: string): string {
+  const inM = all.filter((t) => t.date.startsWith(m))
+  const exp = inM.filter((t) => t.type === 'expense'), inc = inM.filter((t) => t.type === 'income')
   const tot = exp.reduce((s, t) => s + t.amount, 0)
   const sp = exp.reduce((s, t) => s + (t.split || 0), 0)
   const by = new Map<Bucket, number>()
   exp.forEach((t) => by.set(bucketOf(t), (by.get(bucketOf(t)) || 0) + net(t)))
   const b = (k: Bucket) => won(by.get(k) || 0)
-  const loan = exp.filter((t) => bucketOf(t) === '부채상환' && t.category === '금융/대출').reduce((s, t) => s + net(t), 0)
+  const loan = exp.filter((t) => bucketOf(t) === '부채상환' && (t.category || '').startsWith('금융')).reduce((s, t) => s + net(t), 0)
   const inst = (by.get('부채상환') || 0) - loan
   const group = (key: 'category' | 'payment') => {
     const c = new Map<string, number>()
@@ -41,7 +43,38 @@ export function monthSummary(exp: Tx[], inc: Tx[], m: string): string {
   }
   return `${m} · ${exp.length}건\n결제 ${won(tot)} · 분담/환급 ${won(sp)} · 내 실지출 ${won(tot - sp)} · 수입 ${won(inc.reduce((s, t) => s + t.amount, 0))}\n` +
     `생활고정 ${b('생활고정')} · 변동 ${b('변동')}\n부채상환 ${b('부채상환')} (대출 ${won(loan)} · 할부 ${won(inst)}) · 저축 ${b('저축')}\n` +
-    `\n[카테고리별]\n${group('category')}\n\n[결제수단별]\n${group('payment')}`
+    `\n[인사이트]\n${monthInsights(all, m, todayStr).map((l) => '  ' + l).join('\n')}` +
+    `\n\n[카테고리별]\n${group('category')}\n\n[결제수단별]\n${group('payment')}`
+}
+
+const prevMonth = (m: string) => { const d = new Date(m + '-01T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 7) }
+const pct = (cur: number, prev: number) => prev > 0 ? `${cur >= prev ? '+' : ''}${Math.round((cur - prev) / prev * 100)}%` : '비교 없음'
+
+/** 월 요약 밑의 인사이트. 규칙은 앱 buildInsights 와 같은 취지(수지·변동·최대건·1위 카테고리·미수 분담금). */
+export function monthInsights(all: Tx[], m: string, todayStr: string): string[] {
+  const exp = all.filter((t) => t.date.startsWith(m) && t.type === 'expense')
+  const inc = all.filter((t) => t.date.startsWith(m) && t.type === 'income').reduce((s, t) => s + t.amount, 0)
+  const pm = prevMonth(m)
+  const variable = (ts: Tx[]) => ts.filter((t) => bucketOf(t) === '변동')
+  const real = exp.reduce((s, t) => s + net(t), 0)
+  const v = variable(exp).reduce((s, t) => s + net(t), 0)
+  const vPrev = variable(all.filter((t) => t.date.startsWith(pm) && t.type === 'expense')).reduce((s, t) => s + net(t), 0)
+  const out: string[] = []
+  if (inc > 0) out.push(`수지: 수입 ${won(inc)} − 실지출 ${won(real)} = ${inc - real >= 0 ? '+' : '-'}${won(Math.abs(inc - real))}`)
+  out.push(`변동 ${won(v)} · 지난달 ${won(vPrev)} 대비 ${pct(v, vPrev)}${vPrev > 0 && v > vPrev * 1.1 ? ' ⚠' : ''}`)
+  if (todayStr.startsWith(m)) {
+    const day = Number(todayStr.slice(8)), days = new Date(Number(m.slice(0, 4)), Number(m.slice(5)), 0).getDate()
+    if (day >= 5 && day < days) out.push(`지금 페이스면 월말 변동 ≈ ${won(Math.round(v / day * days))} (${day}/${days}일)`)
+  }
+  const top = [...variable(exp)].sort((a, b) => net(b) - net(a))[0]
+  if (top && net(top) >= 150000) out.push(`가장 큰 변동: ${top.memo} ${won(net(top))} ⚠`)
+  const cat = (ts: Tx[]) => { const c = new Map<string, number>(); variable(ts).forEach((t) => c.set(t.category, (c.get(t.category) || 0) + net(t))); return c }
+  const cur = cat(exp), prv = cat(all.filter((t) => t.date.startsWith(pm) && t.type === 'expense'))
+  const first = [...cur.entries()].sort((a, b) => b[1] - a[1])[0]
+  if (first) out.push(`변동 1위 ${first[0]} ${won(first[1])} (지난달 ${won(prv.get(first[0]) || 0)})`)
+  const open = all.filter(isSplit).filter((t) => !isRefund(t) && !isSettled(t))
+  if (open.length) out.push(`안 받은 분담금 ${won(sum(open))}: ` + byWho(open).map(([w, ts]) => `${w} ${won(sum(ts))} ${ts.length}건`).join(' · '))
+  return out
 }
 
 // ── 분담금: 누구한테 얼마 받아야 하고, 받았는지 ─────────────

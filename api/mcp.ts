@@ -43,7 +43,7 @@ async function findOne(id8: string): Promise<Tx> {
 export const TOOLS = [
   { name: 'ledger_check', description: '가계부 이상 항목 점검(미분류·중복·금액0·미래날짜·결제수단 누락) + 이번 달 요약.',
     inputSchema: { type: 'object', properties: {} } },
-  { name: 'ledger_month', description: '월 지출 요약. 카테고리별·결제수단별 내역 포함.',
+  { name: 'ledger_month', description: '월 지출 요약: 생활고정·변동·부채상환·저축 묶음, 인사이트(수지·변동 비교·월말 페이스·최대 지출·미수 분담금), 카테고리별·결제수단별.',
     inputSchema: { type: 'object', properties: { month: { type: 'string', description: 'YYYY-MM (생략 시 이번 달)' } } } },
   { name: 'ledger_find', description: '거래 내역을 키워드로 검색(가맹점·메모).',
     inputSchema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } },
@@ -102,9 +102,8 @@ async function runTool(name: string, args: Record<string, unknown>): Promise<str
   }
 
   if (name === 'ledger_month') {
-    const m = typeof args.month === 'string' ? args.month : thisMonth(); const d = await rows()
-    const inMonth = d.filter((t) => t.date.startsWith(m))
-    return monthSummary(inMonth.filter((t) => t.type === 'expense'), inMonth.filter((t) => t.type === 'income'), m)
+    const m = typeof args.month === 'string' ? args.month : thisMonth()
+    return monthSummary(await rows(), m, today())
   }
 
   if (name === 'ledger_find') {
