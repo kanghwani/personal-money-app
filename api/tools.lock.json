@@ -49,6 +49,10 @@
     "ledger_month": [
       "month"
     ],
+    "ledger_settle": [
+      "all",
+      "query"
+    ],
     "ledger_split": [
       "month"
     ]

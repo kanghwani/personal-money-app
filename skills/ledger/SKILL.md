@@ -22,7 +22,7 @@ python3 /Users/hwan/dev/paused/money-app/.claude/skills/ledger/ledger.py <명령
 | "코스트코 얼마 썼지" | `find 코스트코` |
 | "식비 얼마야" | `cat 식비` |
 | "하나카드 내역" | `card 하나카드` |
-| "여친한테 얼마 받아야 해" | `split` |
+| "여친한테 얼마 받아야 해", "분담금 다 받았어?" | `split` |
 | "고정비 뭐 있지" | `fixed` |
 
 기본값은 `check`. 인자 없이 실행하면 점검 + 이번 달 요약을 낸다.
@@ -35,6 +35,7 @@ python3 /Users/hwan/dev/paused/money-app/.claude/skills/ledger/ledger.py <명령
 | "금액 15100으로 고쳐" | `edit <id8> amount=15100` |
 | "그거 반반 처리해줘" | `half <id8>` |
 | "삭제해줘" | `rm <id8>` |
+| "월세 받았어", "브리가 코스트코 정산했어" | `settle 월세` / `settle 코스트코 all` |
 
 - **`add`는 서버 빠른입력 파서를 그대로 쓴다** — 금액·결제수단·날짜(`어제`/`오늘`)·카테고리 자동, 같은 id 중복 방지. `+`를 앞에 붙이면 수입.
 - `edit` 항목: `amount memo payment date split cat sub type fixed`
@@ -54,5 +55,7 @@ python3 /Users/hwan/dev/paused/money-app/.claude/skills/ledger/ledger.py <명령
 
 - 인증정보는 `personal-money-app/.env`(gitignore됨)에서 읽는다. 토큰을 출력하거나 외부로 보내지 않는다.
 - 백엔드가 Google Apps Script라 가끔 302/404를 뱉는다 → 스크립트가 4회까지 자동 재시도한다. 그래도 실패하면 잠시 후 다시.
-- **분담금(`split`)** = 내가 결제했지만 남이 부담하는 몫(여친·형) + 자동 환급(넷플릭스·ChatGPT 피클플러스). 내 실지출 = 결제액 − 분담금.
+- **분담금(`split`)** = 내가 결제했지만 남이 부담하는 몫(여친·형·엄마) + 자동 환급(메모에 환급/피클). 내 실지출 = 결제액 − 분담금.
+- **받았는지**는 메모 끝의 `· 받음 MM-DD` 로 판단한다. `split`은 안 받은 것 전체(월 무관)와 그 달의 받을·받음·남음을 낸다. 2026-09-01 전 기록은 표시 없어도 정산된 것으로 본다.
+- 월 요약의 고정비는 생활고정 / 부채상환(금융/대출 카테고리 + 메모에 할부) / 저축(저축/투자) 으로 갈라 보인다.
 - **실적 제외 추정**: 관리비·4대보험·할부·보험·세금은 카드 전월실적에서 빠지는 게 일반적이라 `EXCL`로 따로 구분해둔다.

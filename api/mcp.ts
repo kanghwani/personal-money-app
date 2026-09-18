@@ -17,10 +17,7 @@ import { gasGet, gasPost } from './_gas.js'
  *   MCP_SECRET  이 엔드포인트 접근 키 (?k=... 또는 Authorization: Bearer ...)
  */
 
-type Tx = {
-  id: string; date: string; type: string; amount: number; memo: string
-  category: string; subCategory: string; payment: string; fixedType: string; split: number
-}
+import { monthSummary, splitReport, settleTargets, settledMemo, type Tx } from './_ledger.js'
 type FixedDef = {
   id: string; active: boolean; name: string; amount: number; category: string
   subCategory: string; payment: string; payDay: number; startMonth: string
@@ -50,8 +47,10 @@ export const TOOLS = [
     inputSchema: { type: 'object', properties: { month: { type: 'string', description: 'YYYY-MM (생략 시 이번 달)' } } } },
   { name: 'ledger_find', description: '거래 내역을 키워드로 검색(가맹점·메모).',
     inputSchema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } },
-  { name: 'ledger_split', description: '분담금 정산 — 정산해서 받을 돈(상대별)과 자동 환급을 나눠서 보여준다.',
+  { name: 'ledger_split', description: '분담금 정산 현황. 아직 안 받은 분담금 전체(월 무관, 상대별·건별)와 지정한 달의 받을·받음·남음, 자동 환급. "여친한테 얼마 받아야 해", "이번 달 분담금 다 받았어?" 같은 질문에. 받았다는 말이 나오면 ledger_settle 로 표시한다.',
     inputSchema: { type: 'object', properties: { month: { type: 'string', description: 'YYYY-MM (생략 시 이번 달)' } } } },
+  { name: 'ledger_settle', description: '분담금을 받았다고 표시한다(메모 끝에 "· 받음 MM-DD"). query 는 메모 일부("월세", "코스트코") 또는 id 앞자리. 안 받은 것 중에서만 찾고, 여러 건이면 목록만 돌려주므로 all=true 로 전부 표시하거나 id 로 하나씩. "월세 받았어", "브리가 코스트코 정산했어" 같은 말에 사용.',
+    inputSchema: { type: 'object', properties: { query: { type: 'string' }, all: { type: 'boolean', description: '여러 건 매칭 시 전부 표시' } }, required: ['query'] } },
   { name: 'ledger_fixed', description: '고정비·정기수입 목록과 월 합계.',
     inputSchema: { type: 'object', properties: {} } },
   { name: 'ledger_add', description: '거래 추가. 자연어 한 줄을 그대로 넘기면 서버가 금액·결제수단·날짜·카테고리를 자동 인식한다. 예: "5000 스타벅스 하나카드", "+600000 월급", "어제 12000 김밥천국 현금". 수입은 앞에 +.',
@@ -104,20 +103,8 @@ async function runTool(name: string, args: Record<string, unknown>): Promise<str
 
   if (name === 'ledger_month') {
     const m = typeof args.month === 'string' ? args.month : thisMonth(); const d = await rows()
-    const exp = d.filter((t) => t.date.startsWith(m) && t.type === 'expense')
-    const inc = d.filter((t) => t.date.startsWith(m) && t.type === 'income')
-    const tot = exp.reduce((s, t) => s + t.amount, 0)
-    const sp = exp.reduce((s, t) => s + (t.split || 0), 0)
-    const fix = exp.filter((t) => t.fixedType === 'fixed').reduce((s, t) => s + t.amount - (t.split || 0), 0)
-    const group = (key: 'category' | 'payment') => {
-      const c = new Map<string, number>()
-      exp.forEach((t) => c.set(t[key] || '-', (c.get(t[key] || '-') || 0) + t.amount - (t.split || 0)))
-      return [...c.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8)
-        .map(([k, v]) => `  ${k} ${won(v)}`).join('\n')
-    }
-    return `${m} · ${exp.length}건\n결제 ${won(tot)} · 분담/환급 ${won(sp)} · 내 실지출 ${won(tot - sp)}\n` +
-      `고정 ${won(fix)} · 변동 ${won(tot - sp - fix)} · 수입 ${won(inc.reduce((s, t) => s + t.amount, 0))}\n` +
-      `\n[카테고리별]\n${group('category')}\n\n[결제수단별]\n${group('payment')}`
+    const inMonth = d.filter((t) => t.date.startsWith(m))
+    return monthSummary(inMonth.filter((t) => t.type === 'expense'), inMonth.filter((t) => t.type === 'income'), m)
   }
 
   if (name === 'ledger_find') {
@@ -130,18 +117,18 @@ async function runTool(name: string, args: Record<string, unknown>): Promise<str
 
   if (name === 'ledger_split') {
     const m = typeof args.month === 'string' ? args.month : thisMonth()
-    const ts = (await rows()).filter((t) => t.date.startsWith(m) && (t.split || 0) > 0)
-    const isRefund = (t: Tx) => ['환급', '리워드'].some((w) => (t.memo || '').includes(w))
-    const refund = ts.filter(isRefund), settle = ts.filter((t) => !isRefund(t))
-    const people: Record<string, string[]> = { 여친: ['브리', '여친', '여자친구'], 형: ['형'] }
-    const by = new Map<string, number>()
-    settle.forEach((t) => {
-      const who = Object.keys(people).find((n) => people[n].some((w) => (t.memo || '').includes(w))) || '기타'
-      by.set(who, (by.get(who) || 0) + t.split)
-    })
-    return `${m} 분담금\n정산해서 받을 돈 ${won(settle.reduce((s, t) => s + t.split, 0))}\n` +
-      [...by.entries()].sort((a, b) => b[1] - a[1]).map(([k, v]) => `  ${k} ${won(v)}`).join('\n') +
-      `\n자동 환급 ${won(refund.reduce((s, t) => s + t.split, 0))}\n\n` + ts.map(line).join('\n')
+    return splitReport(await rows(), m)
+  }
+
+  if (name === 'ledger_settle') {
+    const hit = settleTargets(await rows(), String(args.query || ''))
+    if (!hit.length) return `'${args.query}' 에 해당하는 안 받은 분담금이 없습니다`
+    if (hit.length > 1 && args.all !== true) {
+      return `${hit.length}건이 걸립니다. id 로 하나씩 하거나 all=true 로 전부 표시하세요.\n` + hit.map(line).join('\n')
+    }
+    const d = today()
+    for (const t of hit) { t.memo = settledMemo(t.memo, d); await gasPost({ action: 'updateLedger', tx: t }) }
+    return `받음 표시 ${hit.length}건 (${d.slice(5)})\n` + hit.map(line).join('\n')
   }
 
   if (name === 'ledger_fixed') {

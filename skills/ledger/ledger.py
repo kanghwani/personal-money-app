@@ -7,7 +7,8 @@
   ledger.py find <키워드>     # 내역 검색
   ledger.py cat <대분류>      # 카테고리별 최근 내역
   ledger.py card <결제수단>   # 카드별 최근 내역
-  ledger.py split [YYYY-MM]  # 분담금(받을 돈) 정산
+  ledger.py split [YYYY-MM]  # 분담금: 안 받은 것 전체 + 그 달 받을·받음·남음
+  ledger.py settle <메모일부|id8> [all]  # 분담금 받음 표시
   ledger.py fixed            # 고정비 목록
 
 쓰기(수정):
@@ -111,19 +112,35 @@ def cmd_check():
         for k in dup[:10]: print(f'  {k} x{key[k]}')
     cmd_month(None, brief=True)
 
+# api/_ledger.ts 의 사본. 규칙을 바꾸면 양쪽을 같이 고친다.
+PEOPLE = {'여친': ['브리', '여친', '여자친구'], '형': ['형'], '엄마': ['엄마']}
+REFUND_WORDS = ['환급', '리워드', '피클']
+SETTLE_SINCE = '2026-09-01'   # ponytail: 이 날짜 전의 분담금은 '받음' 표시가 없어도 정산된 것으로 본다
+SETTLED = '받음'
+def has(t, ws): return any(w in (t.get('memo') or '') for w in ws)
+def net(t): return t['amount'] - t.get('split', 0)
+def bucket(t):
+    if t.get('fixedType') != 'fixed': return '변동'
+    if t.get('category') == '금융/대출' or '할부' in (t.get('memo') or ''): return '부채상환'
+    if t.get('category') == '저축/투자': return '저축'
+    return '생활고정'
+
 def cmd_month(m=None, brief=False):
     m = ym(m); d = rows()
     exp = [t for t in d if (t.get('date') or '').startswith(m) and t.get('type') == 'expense']
     inc = [t for t in d if (t.get('date') or '').startswith(m) and t.get('type') == 'income']
     tot = sum(t['amount'] for t in exp); sp = sum(t.get('split', 0) for t in exp)
-    fix = sum(t['amount'] - t.get('split', 0) for t in exp if t.get('fixedType') == 'fixed')
+    by = collections.Counter()
+    for t in exp: by[bucket(t)] += net(t)
+    loan = sum(net(t) for t in exp if bucket(t) == '부채상환' and t.get('category') == '금융/대출')
     print(f'\n=== {m} · {len(exp)}건 ===')
-    print(f'  결제 {won(tot)} · 분담/환급 {won(sp)} · 내 실지출 {won(tot - sp)}')
-    print(f'  고정 {won(fix)} · 변동 {won(tot - sp - fix)} · 수입 {won(sum(t["amount"] for t in inc))}')
+    print(f'  결제 {won(tot)} · 분담/환급 {won(sp)} · 내 실지출 {won(tot - sp)} · 수입 {won(sum(t["amount"] for t in inc))}')
+    print(f'  생활고정 {won(by["생활고정"])} · 변동 {won(by["변동"])}')
+    print(f'  부채상환 {won(by["부채상환"])} (대출 {won(loan)} · 할부 {won(by["부채상환"] - loan)}) · 저축 {won(by["저축"])}')
     if brief: return
     for label, keyf in [('카테고리', 'category'), ('결제수단', 'payment')]:
         c = collections.Counter()
-        for t in exp: c[t.get(keyf) or '-'] += t['amount'] - t.get('split', 0)
+        for t in exp: c[t.get(keyf) or '-'] += net(t)
         print(f'\n  [{label}별]')
         for k, v in c.most_common(8): print(f'    {k:12} {v:>10,} {v/max(1,tot-sp)*100:5.1f}%')
 
@@ -138,21 +155,47 @@ def cmd_by(field, val):
     print(f"=== {field}='{val}' 전체 {len(hit)}건 / 이번달 {len(this)}건 {won(sum(t['amount'] for t in this))} ===")
     show(hit)
 
+def is_refund(t): return has(t, REFUND_WORDS)
+def is_settled(t): return (t.get('date') or '') < SETTLE_SINCE or has(t, [SETTLED])
+def who(t): return next((n for n, ws in PEOPLE.items() if has(t, ws)), '기타')
+def is_split(t): return t.get('type') == 'expense' and t.get('split', 0) > 0
+def sline(t): return f"{t['id'][:8]} {t['date'][5:]} {t.get('memo')} {won(t['split'])}"
+def ssum(ts): return sum(t['split'] for t in ts)
+def by_who(ts):
+    g = collections.defaultdict(list)
+    for t in ts: g[who(t)].append(t)
+    return sorted(g.items(), key=lambda kv: -ssum(kv[1]))
+
 def cmd_split(m=None):
     m = ym(m); d = rows()
-    ts = [t for t in d if (t.get('date') or '').startswith(m) and t.get('split', 0) > 0]
-    refund = [t for t in ts if any(w in (t.get('memo') or '') for w in ('환급', '리워드'))]
-    settle = [t for t in ts if t not in refund]
-    people = {'여친': ['브리', '여친', '여자친구'], '형': ['형']}
-    by = collections.Counter()
-    for t in settle:
-        who = next((n for n, ws in people.items() if any(w in (t.get('memo') or '') for w in ws)), '기타')
-        by[who] += t['split']
-    print(f'=== {m} 분담금 ===')
-    print(f"  정산해서 받을 돈 {won(sum(t['split'] for t in settle))}")
-    for k, v in by.most_common(): print(f'    {k:6} {v:>10,}')
-    print(f"  자동 환급 {won(sum(t['split'] for t in refund))}")
-    show(ts, 20)
+    splits = [t for t in d if is_split(t) and not is_refund(t)]
+    open_ = sorted([t for t in splits if not is_settled(t)], key=lambda t: t['date'])
+    print(f"[안 받은 분담금] {won(ssum(open_))} · {len(open_)}건" if open_ else '[안 받은 분담금] 없음')
+    for w, ts in by_who(open_):
+        print(f'  {w} {won(ssum(ts))}')
+        for t in ts: print('    ' + sline(t))
+    mon = [t for t in splits if t['date'].startswith(m)]
+    print(f"\n[{m} 정산] 받을 {won(ssum(mon))} · 받음 {won(ssum([t for t in mon if is_settled(t)]))} · 남음 {won(ssum([t for t in mon if not is_settled(t)]))}")
+    for w, ts in by_who(mon): print(f"  {w} 받을 {won(ssum(ts))} · 받음 {won(ssum([t for t in ts if is_settled(t)]))}")
+    refund = [t for t in d if is_split(t) and is_refund(t) and t['date'].startswith(m)]
+    if refund:
+        print(f'\n[자동 환급] {won(ssum(refund))}')
+        for t in refund: print('  ' + sline(t))
+
+def cmd_settle(q, all_=False):
+    q = q.strip().lower()
+    hit = [t for t in rows() if is_split(t) and not is_refund(t) and not is_settled(t)
+           and (t['id'].startswith(q) or q in (t.get('memo') or '').lower())]
+    if not hit: sys.exit(f"'{q}' 에 해당하는 안 받은 분담금이 없습니다")
+    if len(hit) > 1 and not all_:
+        print(f'{len(hit)}건이 걸립니다. id 로 하나씩 하거나 뒤에 all 을 붙이세요.')
+        for t in hit: print('  ' + sline(t)); return
+    d = date.today().isoformat()
+    for t in hit:
+        t['memo'] = f"{t.get('memo') or ''} · {SETTLED} {d[5:]}"
+        post({'action': 'updateLedger', 'tx': t})
+    print(f'받음 표시 {len(hit)}건 ({d[5:]})')
+    for t in hit: print('  ' + sline(t))
 
 def cmd_fixed():
     fs = [f for f in defs() if f.get('active')]
@@ -215,6 +258,7 @@ def main():
     elif c == 'cat':   cmd_by('category', ' '.join(a[1:]))
     elif c == 'card':  cmd_by('payment', ' '.join(a[1:]))
     elif c == 'split': cmd_split(a[1] if len(a) > 1 else None)
+    elif c == 'settle': cmd_settle(' '.join(x for x in a[1:] if x != 'all'), 'all' in a[1:])
     elif c == 'fixed': cmd_fixed()
     elif c == 'add':   cmd_add(' '.join(a[1:]))
     elif c == 'edit':  cmd_edit(a[1], a[2:])
