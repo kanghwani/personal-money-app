@@ -9,7 +9,7 @@ import type { HealthRow } from './_health.js'
 import { gasGet, gasPost } from './_gas.js'
 import { logStamp } from './_log.js'
 
-export type Snippet = { videoId: string; title: string; description: string; publishedAt: string; channelTitle: string; channelId?: string; comments?: number }
+export type Snippet = { videoId: string; title: string; description: string; publishedAt: string; channelTitle: string; channelId?: string; comments?: number; live?: boolean }
 export type Status = 'new' | 'reminded' | 'applied' | 'won' | 'lost' | 'skipped'
 export type Event = {
   id: string; channel: string; title: string
@@ -17,6 +17,7 @@ export type Event = {
   excerpt: string; status: Status; note: string; found: string; updated: string
   comments?: number; subs?: number    // 스캔 시점 댓글 수·채널 구독자 수 (경쟁률). 옛 행엔 없다
   channelId?: string                  // 스캔 중에만 쓴다(구독자 수 조회). 시트엔 안 남긴다
+  fromSearch?: boolean                // 검색으로 온 것 — 구독자 하한을 건다. 시트엔 안 남긴다
 }
 export type Channel = { id: string; name: string; handle: string }
 
@@ -27,6 +28,13 @@ const ACTIVE: Status[] = ['new', 'reminded', 'applied']
 const EVENT_RE = /이벤트|증정|추첨|경품|나눔|선물/
 const APPLY_RE = /구독|댓글/
 export const isEvent = (title: string, desc: string) => EVENT_RE.test(title + '\n' + desc) && APPLY_RE.test(title + '\n' + desc)
+/**
+ * 검색 결과는 감시 채널보다 훨씬 지저분하다(첫 실검색 95건 중 쓸 만한 건 ~18건). 그래서 검색으로 온 것만 더 거른다:
+ * 경품이 실제로 언급되고, 라이브가 아니고, 결과 발표 영상이 아니고, 구독자 1천 이상(첫 실검색에서 1천 미만 36건은 전부 잡음).
+ */
+const PRIZE_RE = /증정|경품|선물|기프티콘|상품권|나눔|추첨|선정|뽑/
+export const SEARCH_MIN_SUBS = 1000
+export const isSearchWorthy = (s: Snippet) => !s.live && !/결과|당첨자/.test(s.title) && PRIZE_RE.test(s.title + '\n' + s.description)
 
 // ── 날짜 ────────────────────────────────────────────────────
 const DAY = 86400_000
@@ -233,7 +241,7 @@ async function yt<T>(path: string, params: Record<string, string>): Promise<T> {
 }
 type ApiSnippet = { title: string; description: string; publishedAt: string; channelTitle: string; resourceId?: { videoId: string } }
 
-type ApiVideo = { id: string; snippet: ApiSnippet & { channelId: string }; statistics?: { commentCount?: string } }
+type ApiVideo = { id: string; snippet: ApiSnippet & { channelId: string; liveBroadcastContent?: string }; statistics?: { commentCount?: string } }
 const chunk = <T,>(xs: T[], n: number): T[][] => xs.length ? [xs.slice(0, n), ...chunk(xs.slice(n), n)] : []
 
 /** 채널 업로드 재생목록(UC→UU)의 최근 10개. 할당량 1단위. */
@@ -249,6 +257,7 @@ export async function videoDetails(ids: string[]): Promise<Snippet[]> {
     for (const v of r.items ?? []) out.push({
       videoId: v.id, title: v.snippet.title, description: v.snippet.description, publishedAt: v.snippet.publishedAt,
       channelTitle: v.snippet.channelTitle, channelId: v.snippet.channelId, comments: +(v.statistics?.commentCount ?? 0),
+      live: !!v.snippet.liveBroadcastContent && v.snippet.liveBroadcastContent !== 'none',
     })
   }
   return out
@@ -324,20 +333,20 @@ export async function scan(channels: Channel[], known: Event[], lastSearch = '',
   if (!hasKey()) return { added: [], errors: ['YOUTUBE_API_KEY 없음 — 스캔 생략'], scanned: 0, searched: false }
   const seen = new Set(known.map((e) => e.id))
   const added: Event[] = []; const errors: string[] = []
-  const take = (s: Snippet) => {
-    if (!s.videoId || seen.has(s.videoId)) return
+  const take = (s: Snippet, fromSearch = false) => {
+    if (!s.videoId || seen.has(s.videoId) || s.live) return
     const e = detect(s)
-    if (e && e.deadline >= today) { seen.add(e.id); added.push(e) }
+    if (e && e.deadline >= today) { seen.add(e.id); added.push(fromSearch ? { ...e, fromSearch } : e) }
   }
   const searched = lastSearch.slice(0, 10) !== today
   await Promise.all([
     ...channels.map(async (ch) => {
-      try { (await recentUploads(ch)).forEach(take) }
+      try { (await recentUploads(ch)).forEach((s) => take(s)) }
       catch (err) { errors.push(`${ch.name || ch.id}: ${err instanceof Error ? err.message : err}`) }
     }),
     (async () => {
       if (!searched) return
-      try { (await videoDetails((await searchVideoIds(today)).filter((id) => !seen.has(id)))).forEach(take) }
+      try { (await videoDetails((await searchVideoIds(today)).filter((id) => !seen.has(id)))).filter(isSearchWorthy).forEach((s) => take(s, true)) }
       catch (err) { errors.push(`검색: ${err instanceof Error ? err.message : err}`) }
     })(),
   ])
@@ -349,7 +358,9 @@ export async function scan(channels: Channel[], known: Event[], lastSearch = '',
     const subs = await channelSubs(added.map((e) => e.channelId ?? '').filter(Boolean))
     for (const e of added) { const n = e.channelId ? subs.get(e.channelId) : undefined; if (n !== undefined) e.subs = n }
   } catch (err) { errors.push(`통계: ${err instanceof Error ? err.message : err}`) }
+  // 검색으로 온 건 구독자 1천 미만(또는 비공개)이면 버린다. 감시 채널은 사용자가 고른 것이라 그대로.
+  const kept = added.filter((e) => !e.fromSearch || (e.subs ?? 0) >= SEARCH_MIN_SUBS)
   const stamp = stampNow()
-  await saveRows('events', [...added.map((e) => newRow(e, stamp)), ...(searched ? [[stamp, SEARCH_MARK, 'scan', SEARCH_QUERIES.join(',')].join('|')] : [])])
-  return { added, errors, scanned: channels.length - errors.filter((x) => !/^(검색|통계):/.test(x)).length, searched }
+  await saveRows('events', [...kept.map((e) => newRow(e, stamp)), ...(searched ? [[stamp, SEARCH_MARK, 'scan', SEARCH_QUERIES.join(',')].join('|')] : [])])
+  return { added: kept, errors, scanned: channels.length - errors.filter((x) => !/^(검색|통계):/.test(x)).length, searched }
 }
