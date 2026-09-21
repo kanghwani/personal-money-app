@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   isEvent, extractDates, excerpt, detect, fold, group, newRow, reminderPayload, formatEvents,
-  parseEventLog, parseChannelInput, parseVideoInput, findEvents, mmddToYmd, foldChannels, type Snippet,
+  parseEventLog, parseChannelInput, parseVideoInput, findEvents, mmddToYmd, foldChannels, lastSearchOf, SEARCH_MARK, type Snippet,
 } from './_events'
 import type { HealthRow } from './_health'
 
@@ -90,6 +90,16 @@ describe('발췌·행', () => {
     const [start, end, value, ...extra] = row.split('|')
     expect(fold([{ start, end, value, extra: extra.join('|') }])[0]).toMatchObject({ deadline: '2026-09-28', deadlineGuessed: true, announceGuessed: true })
   })
+  it('댓글 수·구독자 수는 행 끝에 붙고, 옛 행(없음)도 그대로 읽힌다', () => {
+    const e = detect(snip({ comments: 42, channelId: 'UCx' }))!
+    e.subs = 32000
+    const row = newRow(e, '2026-09-21 09:00:00')
+    expect(row.endsWith('|42|32000')).toBe(true)
+    const [start, end, value, ...extra] = row.split('|')
+    expect(fold([{ start, end, value, extra: extra.join('|') }])[0]).toMatchObject({ comments: 42, subs: 32000, excerpt: e.excerpt })
+    const old = fold([{ start, end, value, extra: '십만양품|제목|2026-09-28|2026-09-30|발췌' }])[0]
+    expect(old.comments).toBeUndefined(); expect(old.excerpt).toBe('발췌')
+  })
   it('비이벤트는 null, force 면 통과', () => {
     expect(detect(snip({ title: '리뷰', description: '그냥 리뷰' }))).toBeNull()
     expect(detect(snip({ title: '리뷰', description: '그냥 리뷰' }), true)?.status).toBe('new')
@@ -123,6 +133,27 @@ describe('상태 접기·묶기', () => {
     expect(g.applied.map((e) => e.id)).toEqual(['v2'])
     expect(g.results.map((e) => e.id)).toEqual(['v4'])
     expect(g.missed.map((e) => e.id)).toEqual(['v1'])
+  })
+  it('지원 대기는 댓글 적은 순, 모르면 뒤로', () => {
+    const es = fold([
+      { start: '2026-09-20 09:00:00', end: 'a', value: 'new', extra: '큰채널|A|2026-09-30|2026-10-05|x|5200|900000' },
+      { start: '2026-09-20 09:00:00', end: 'b', value: 'new', extra: '작은채널|B|2026-09-25|2026-09-27|x|38|4100' },
+      { start: '2026-09-20 09:00:00', end: 'c', value: 'new', extra: '옛행|C|2026-09-23|2026-09-24|x' },
+    ])
+    const g = group(es, '2026-09-21')
+    expect(g.pending.map((e) => e.id)).toEqual(['b', 'a', 'c'])
+    const t = formatEvents(g, '2026-09-21')
+    expect(t).toContain('댓글 38 · 구독 4100'); expect(t).toContain('댓글 5200 · 구독 90만')
+  })
+  it('검색 마커: 마지막 검색 시각', () => {
+    expect(lastSearchOf([])).toBe('')
+    expect(lastSearchOf([
+      { start: '2026-09-20 09:00:00', end: SEARCH_MARK, value: 'scan', extra: '' },
+      { start: '2026-09-21 09:00:00', end: SEARCH_MARK, value: 'scan', extra: '' },
+      { start: '2026-09-21 10:00:00', end: 'v1', value: 'new', extra: 'a|b|2026-09-30|2026-10-01|x' },
+    ])).toBe('2026-09-21 09:00:00')
+    // 마커 행은 이벤트로 접히지 않는다
+    expect(fold([{ start: '2026-09-21 09:00:00', end: SEARCH_MARK, value: 'scan', extra: '' }])).toEqual([])
   })
   it('미리알림 페이로드: 마감 전날 09:00, 오늘보다 앞서지 않게', () => {
     const e = fold(rows).find((x) => x.id === 'v3')!

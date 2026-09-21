@@ -9,12 +9,14 @@ import type { HealthRow } from './_health.js'
 import { gasGet, gasPost } from './_gas.js'
 import { logStamp } from './_log.js'
 
-export type Snippet = { videoId: string; title: string; description: string; publishedAt: string; channelTitle: string }
+export type Snippet = { videoId: string; title: string; description: string; publishedAt: string; channelTitle: string; channelId?: string; comments?: number }
 export type Status = 'new' | 'reminded' | 'applied' | 'won' | 'lost' | 'skipped'
 export type Event = {
   id: string; channel: string; title: string
   deadline: string; announce: string; deadlineGuessed: boolean; announceGuessed: boolean
   excerpt: string; status: Status; note: string; found: string; updated: string
+  comments?: number; subs?: number    // 스캔 시점 댓글 수·채널 구독자 수 (경쟁률). 옛 행엔 없다
+  channelId?: string                  // 스캔 중에만 쓴다(구독자 수 조회). 시트엔 안 남긴다
 }
 export type Channel = { id: string; name: string; handle: string }
 
@@ -93,15 +95,16 @@ export function detect(s: Snippet, force = false): Event | null {
   return {
     id: s.videoId, channel: s.channelTitle, title: s.title, ...extractDates(s.description, published),
     excerpt: excerpt(s.description), status: 'new', note: '', found: published, updated: published,
+    ...(s.comments !== undefined ? { comments: s.comments } : {}), ...(s.channelId ? { channelId: s.channelId } : {}),
   }
 }
 
 // ── 시트 행 ↔ 이벤트 ────────────────────────────────────────
 const clean = (s: string) => s.replace(/[|\r\n]+/g, ' ').trim()
 const mark = (ymd: string, guessed: boolean) => ymd + (guessed ? '?' : '')
-/** "기록시각|videoId|new|채널|제목|마감|발표|발췌" */
+/** "기록시각|videoId|new|채널|제목|마감|발표|발췌|댓글수|구독자수" (뒤 두 칸은 나중에 붙어서 옛 행엔 없다) */
 export const newRow = (e: Event, stamp: string) =>
-  [stamp, e.id, 'new', clean(e.channel), clean(e.title), mark(e.deadline, e.deadlineGuessed), mark(e.announce, e.announceGuessed), e.excerpt].join('|')
+  [stamp, e.id, 'new', clean(e.channel), clean(e.title), mark(e.deadline, e.deadlineGuessed), mark(e.announce, e.announceGuessed), e.excerpt, e.comments ?? '', e.subs ?? ''].join('|')
 export const statusRow = (id: string, status: Status, note: string, stamp: string) => [stamp, id, status, clean(note)].join('|')
 
 /** 행들을 videoId 별로 접어 현재 상태만. new 행이 창(120일) 밖이면 그 이벤트는 사라진다 — 어차피 끝난 것. */
@@ -111,11 +114,12 @@ export function fold(rows: HealthRow[]): Event[] {
   for (const r of sorted) {
     const st = r.value as Status
     if (st === 'new') {
-      const [channel = '', title = '', dl = '', an = '', ...ex] = (r.extra ?? '').split('|')
+      const [channel = '', title = '', dl = '', an = '', ex = '', cm = '', sb = ''] = (r.extra ?? '').split('|')
       byId.set(r.end, {
         id: r.end, channel, title,
         deadline: dl.replace('?', ''), announce: an.replace('?', ''), deadlineGuessed: dl.endsWith('?'), announceGuessed: an.endsWith('?'),
-        excerpt: ex.join('|'), status: 'new', note: '', found: r.start.slice(0, 10), updated: r.start.slice(0, 10),
+        excerpt: ex, status: 'new', note: '', found: r.start.slice(0, 10), updated: r.start.slice(0, 10),
+        ...(cm !== '' ? { comments: +cm } : {}), ...(sb !== '' ? { subs: +sb } : {}),
       })
     } else if (STATUSES.includes(st)) {
       const e = byId.get(r.end)
@@ -130,7 +134,8 @@ export function group(events: Event[], today: string): Groups {
   const byDeadline = (a: Event, b: Event) => (a.deadline < b.deadline ? -1 : a.deadline > b.deadline ? 1 : 0)
   const open = events.filter((e) => e.status === 'new' || e.status === 'reminded')
   return {
-    pending: open.filter((e) => e.deadline >= today).sort(byDeadline),
+    // 경쟁률(댓글 수) 낮은 것부터. 모르는 건 뒤로, 같으면 마감순
+    pending: open.filter((e) => e.deadline >= today).sort((a, b) => (a.comments ?? 1e9) - (b.comments ?? 1e9) || byDeadline(a, b)),
     missed: open.filter((e) => e.deadline < today).sort(byDeadline),
     applied: events.filter((e) => e.status === 'applied').sort((a, b) => (a.announce < b.announce ? -1 : 1)),
     results: events.filter((e) => (e.status === 'won' || e.status === 'lost') && e.updated >= addDays(today, -30)),
@@ -144,17 +149,20 @@ export function reminderPayload(e: Event, today: string) {
   return {
     id: e.id, channel: e.channel, title: e.title, url: videoUrl(e.id),
     deadline: e.deadline, announce: e.announce, guessed: e.deadlineGuessed || e.announceGuessed,
-    remindAt: `${remind}T09:00:00+09:00`, announceAt: `${e.announce}T09:00:00+09:00`, excerpt: e.excerpt,
+    remindAt: `${remind}T09:00:00+09:00`, announceAt: `${e.announce}T09:00:00+09:00`, excerpt: e.excerpt, stats: stats(e),
   }
 }
 
 const md = (ymd: string, guessed = false) => ymd.slice(5) + (guessed ? '?' : '')
 const head = (e: Event) => `• ${e.channel} · ${e.title}`
+const fmtN = (n: number) => (n >= 10000 ? `${(n / 10000).toFixed(n >= 100000 ? 0 : 1)}만` : String(n))
+/** "댓글 42 · 구독 3.2만" — 스캔 시점 값 */
+const stats = (e: Event) => [e.comments !== undefined ? `댓글 ${fmtN(e.comments)}` : '', e.subs !== undefined ? `구독 ${fmtN(e.subs)}` : ''].filter(Boolean).join(' · ')
 export function formatEvents(g: Groups, today: string): string {
   const out: string[] = [`이벤트 (${today})`]
-  out.push(`\n[지원 대기 ${g.pending.length}]` + (g.pending.length ? '' : ' 없음'))
+  out.push(`\n[지원 대기 ${g.pending.length}]` + (g.pending.length ? ' — 댓글 적은(경쟁 낮은) 순' : ' 없음'))
   for (const e of g.pending) {
-    out.push(head(e), `  마감 ${md(e.deadline, e.deadlineGuessed)} · 발표 ${md(e.announce, e.announceGuessed)} · ${videoUrl(e.id)}`)
+    out.push(head(e), `  마감 ${md(e.deadline, e.deadlineGuessed)} · 발표 ${md(e.announce, e.announceGuessed)}${stats(e) ? ' · ' + stats(e) : ''} · ${videoUrl(e.id)}`)
     if (e.excerpt) out.push(`  ${e.excerpt}`)
   }
   if (g.applied.length) {
@@ -225,16 +233,50 @@ async function yt<T>(path: string, params: Record<string, string>): Promise<T> {
 }
 type ApiSnippet = { title: string; description: string; publishedAt: string; channelTitle: string; resourceId?: { videoId: string } }
 
+type ApiVideo = { id: string; snippet: ApiSnippet & { channelId: string }; statistics?: { commentCount?: string } }
+const chunk = <T,>(xs: T[], n: number): T[][] => xs.length ? [xs.slice(0, n), ...chunk(xs.slice(n), n)] : []
+
 /** 채널 업로드 재생목록(UC→UU)의 최근 10개. 할당량 1단위. */
 export async function recentUploads(ch: Channel): Promise<Snippet[]> {
   const r = await yt<{ items?: { snippet: ApiSnippet }[] }>('playlistItems', { part: 'snippet', maxResults: '10', playlistId: 'UU' + ch.id.slice(2) })
-  return (r.items ?? []).map((i) => ({ videoId: i.snippet.resourceId?.videoId ?? '', title: i.snippet.title, description: i.snippet.description, publishedAt: i.snippet.publishedAt, channelTitle: ch.name || i.snippet.channelTitle }))
+  return (r.items ?? []).map((i) => ({ videoId: i.snippet.resourceId?.videoId ?? '', title: i.snippet.title, description: i.snippet.description, publishedAt: i.snippet.publishedAt, channelTitle: ch.name || i.snippet.channelTitle, channelId: ch.id }))
+}
+/** 영상 여러 개의 설명 전문 + 댓글 수. 50개까지 한 호출(1단위). */
+export async function videoDetails(ids: string[]): Promise<Snippet[]> {
+  const out: Snippet[] = []
+  for (const part of chunk(ids, 50)) {
+    const r = await yt<{ items?: ApiVideo[] }>('videos', { part: 'snippet,statistics', id: part.join(',') })
+    for (const v of r.items ?? []) out.push({
+      videoId: v.id, title: v.snippet.title, description: v.snippet.description, publishedAt: v.snippet.publishedAt,
+      channelTitle: v.snippet.channelTitle, channelId: v.snippet.channelId, comments: +(v.statistics?.commentCount ?? 0),
+    })
+  }
+  return out
 }
 export async function videoSnippet(videoId: string): Promise<Snippet> {
-  const r = await yt<{ items?: { id: string; snippet: ApiSnippet }[] }>('videos', { part: 'snippet', id: videoId })
-  const v = r.items?.[0]
+  const v = (await videoDetails([videoId]))[0]
   if (!v) throw new Error(`영상을 찾을 수 없습니다: ${videoId}`)
-  return { videoId: v.id, title: v.snippet.title, description: v.snippet.description, publishedAt: v.snippet.publishedAt, channelTitle: v.snippet.channelTitle }
+  return v
+}
+/** 채널 구독자 수. 50개까지 한 호출(1단위). 비공개면 빠진다. */
+export async function channelSubs(ids: string[]): Promise<Map<string, number>> {
+  const m = new Map<string, number>()
+  for (const part of chunk([...new Set(ids)], 50)) {
+    const r = await yt<{ items?: { id: string; statistics?: { subscriberCount?: string; hiddenSubscriberCount?: boolean } }[] }>('channels', { part: 'statistics', id: part.join(',') })
+    for (const c of r.items ?? []) if (c.statistics?.subscriberCount && !c.statistics.hiddenSubscriberCount) m.set(c.id, +c.statistics.subscriberCount)
+  }
+  return m
+}
+/** 최근 7일 "댓글 이벤트"·"구독자 이벤트" 검색. 검색은 1회 100단위라 하루 한 번만 부른다(scan 이 마커로 막는다). */
+export const SEARCH_QUERIES = ['댓글 이벤트', '구독자 이벤트']
+export async function searchVideoIds(today: string): Promise<string[]> {
+  const after = `${addDays(today, -7)}T00:00:00Z`
+  const ids = new Set<string>()
+  await Promise.all(SEARCH_QUERIES.map(async (q) => {
+    const r = await yt<{ items?: { id?: { videoId?: string } }[] }>('search', { part: 'id', type: 'video', order: 'date', maxResults: '50', q, publishedAfter: after, regionCode: 'KR', relevanceLanguage: 'ko' })
+    for (const i of r.items ?? []) if (i.id?.videoId) ids.add(i.id.videoId)
+  }))
+  return [...ids]
 }
 export async function resolveChannel(input: string): Promise<Channel> {
   const p = parseChannelInput(input)
@@ -248,14 +290,17 @@ export async function resolveChannel(input: string): Promise<Channel> {
 // ── 시트 입출력 ─────────────────────────────────────────────
 export const EVENT_DAYS = 120
 export const stampNow = () => logStamp('').stamp
-/** 채널·이벤트를 동시에 읽는다(GAS 호출은 각 10초라 직렬이면 20초). */
-export async function loadState(): Promise<{ channels: Channel[]; events: Event[] }> {
+export const SEARCH_MARK = '_search'
+/** 채널·이벤트를 동시에 읽는다(GAS 호출은 각 10초라 직렬이면 20초). lastSearch 는 마지막 검색 스캔 시각(마커 행). */
+export async function loadState(): Promise<{ channels: Channel[]; events: Event[]; lastSearch: string }> {
   const [ev, ch] = await Promise.all([
     gasGet<{ rows?: HealthRow[] }>('healthRows', `&type=events&days=${EVENT_DAYS}`),
     gasGet<{ rows?: HealthRow[] }>('healthRows', '&type=event_channels&days=3650'),
   ])
-  return { events: fold(ev.rows ?? []), channels: foldChannels(ch.rows ?? []) }
+  const rows = ev.rows ?? []
+  return { events: fold(rows), channels: foldChannels(ch.rows ?? []), lastSearch: lastSearchOf(rows) }
 }
+export const lastSearchOf = (rows: HealthRow[]) => rows.filter((r) => r.end === SEARCH_MARK).map((r) => r.start).sort().pop() ?? ''
 /** 채널도 추가만 한다. value 가 '삭제' 인 행이 오면 그 채널을 뺀다(폰에서 "채널 삭제 @핸들"). 마지막 행이 이긴다. */
 export function foldChannels(rows: HealthRow[]): Channel[] {
   const byId = new Map<string, Channel>()
@@ -269,21 +314,42 @@ export function foldChannels(rows: HealthRow[]): Channel[] {
 export const saveRows = (type: 'events' | 'event_channels', rows: string[]) =>
   rows.length ? gasPost({ action: 'health', type, rows: rows.join('\n') }) : Promise.resolve(undefined)
 
-/** 채널마다 최근 10개를 보고 없던 이벤트를 new 로 저장. 채널 하나 실패는 건너뛰고 이름만 남긴다. */
-export async function scan(channels: Channel[], known: Event[]): Promise<{ added: Event[]; errors: string[]; scanned: number }> {
-  if (!hasKey()) return { added: [], errors: ['YOUTUBE_API_KEY 없음 — 스캔 생략'], scanned: 0 }
+/**
+ * 새 이벤트 수집 → new 로 저장.
+ *  ① 감시 채널마다 최근 10개(채널당 1단위)
+ *  ② 하루 한 번 검색(2회 200단위) → 설명 전문·댓글 수(50개당 1단위) — 채널 목록 밖의 소규모 채널이 여기서 들어온다
+ * 마감이 이미 지난 건 저장하지 않는다(놓침 목록만 늘린다). 채널 하나 실패는 건너뛰고 이름만 남긴다.
+ */
+export async function scan(channels: Channel[], known: Event[], lastSearch = '', today = kstDate(Date.now())): Promise<{ added: Event[]; errors: string[]; scanned: number; searched: boolean }> {
+  if (!hasKey()) return { added: [], errors: ['YOUTUBE_API_KEY 없음 — 스캔 생략'], scanned: 0, searched: false }
   const seen = new Set(known.map((e) => e.id))
   const added: Event[] = []; const errors: string[] = []
-  await Promise.all(channels.map(async (ch) => {
-    try {
-      for (const s of await recentUploads(ch)) {
-        if (!s.videoId || seen.has(s.videoId)) continue
-        const e = detect(s)
-        if (e) { seen.add(e.id); added.push(e) }
-      }
-    } catch (err) { errors.push(`${ch.name || ch.id}: ${err instanceof Error ? err.message : err}`) }
-  }))
+  const take = (s: Snippet) => {
+    if (!s.videoId || seen.has(s.videoId)) return
+    const e = detect(s)
+    if (e && e.deadline >= today) { seen.add(e.id); added.push(e) }
+  }
+  const searched = lastSearch.slice(0, 10) !== today
+  await Promise.all([
+    ...channels.map(async (ch) => {
+      try { (await recentUploads(ch)).forEach(take) }
+      catch (err) { errors.push(`${ch.name || ch.id}: ${err instanceof Error ? err.message : err}`) }
+    }),
+    (async () => {
+      if (!searched) return
+      try { (await videoDetails((await searchVideoIds(today)).filter((id) => !seen.has(id)))).forEach(take) }
+      catch (err) { errors.push(`검색: ${err instanceof Error ? err.message : err}`) }
+    })(),
+  ])
+  // 경쟁률: 채널 스캔에서 온 건 댓글 수가 없으니 채워 넣고(50개당 1단위), 구독자 수는 전부(50채널당 1단위)
+  try {
+    const noStats = added.filter((e) => e.comments === undefined)
+    const details = new Map((await videoDetails(noStats.map((e) => e.id))).map((s) => [s.videoId, s]))
+    for (const e of noStats) { const d = details.get(e.id); if (d) e.comments = d.comments }
+    const subs = await channelSubs(added.map((e) => e.channelId ?? '').filter(Boolean))
+    for (const e of added) { const n = e.channelId ? subs.get(e.channelId) : undefined; if (n !== undefined) e.subs = n }
+  } catch (err) { errors.push(`통계: ${err instanceof Error ? err.message : err}`) }
   const stamp = stampNow()
-  await saveRows('events', added.map((e) => newRow(e, stamp)))
-  return { added, errors, scanned: channels.length - errors.length }
+  await saveRows('events', [...added.map((e) => newRow(e, stamp)), ...(searched ? [[stamp, SEARCH_MARK, 'scan', SEARCH_QUERIES.join(',')].join('|')] : [])])
+  return { added, errors, scanned: channels.length - errors.filter((x) => !/^(검색|통계):/.test(x)).length, searched }
 }

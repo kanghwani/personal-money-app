@@ -17,15 +17,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const text = req.query.format === 'text'
   try {
     const today = kstDate(Date.now())
-    const { channels, events } = await loadState()
-    const r = await scan(channels, events)
+    const { channels, events, lastSearch } = await loadState()
+    const r = await scan(channels, events, lastSearch, today)
     const all = [...events, ...r.added]
     const fresh = all.filter((e) => e.status === 'new')
     if (!peek) {
       const stamp = stampNow()
       await saveRows('events', fresh.map((e) => statusRow(e.id, 'reminded', '', stamp)))
     }
-    const scanLine = `채널 ${r.scanned}개 스캔 · 새 이벤트 ${r.added.length}건` + (r.errors.length ? ` · 실패: ${r.errors.join(', ')}` : '')
+    const scanLine = `채널 ${r.scanned}개 스캔${r.searched ? ' + 검색' : ''} · 새 이벤트 ${r.added.length}건` + (r.errors.length ? ` · 실패: ${r.errors.join(', ')}` : '')
     if (text) {
       return res.status(200).setHeader('Content-Type', 'text/plain; charset=utf-8')
         .send(formatEvents(group(all, today), today) + `\n\n${scanLine}` + (peek ? '' : `\n미리알림 큐 ${fresh.length}건 전달`))

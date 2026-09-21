@@ -81,7 +81,7 @@ export const TOOLS = [
     inputSchema: { type: 'object', properties: {} } },
   { name: 'health_trend', description: '한 지표의 월별 추세(장기). metric: sleep(총수면 h), resting_hr, hrv, vo2max, steps, active_kcal, exercise_min, respiratory_rate, wrist_temp, spo2, workout(전 종목), running/수영/swimming/yoga(종목별 횟수·시간·거리·러닝 페이스·평균심박), pullups/턱걸이(총 개수·최대 세트). "체력 늘고 있어?", "러닝 페이스 빨라졌어?", "턱걸이 늘었어?" 같은 질문에.',
     inputSchema: { type: 'object', properties: { metric: { type: 'string' }, months: { type: 'number', description: '최근 몇 달 (기본 12)' } }, required: ['metric'] } },
-  { name: 'event_list', description: '유튜브 구독자 이벤트 현황(시트 events 탭). 등록된 채널의 최근 영상을 스캔해 새 이벤트를 저장한 뒤, 지원 대기(마감순, 영상 링크·조건 발췌 포함)·지원함(발표 대기)·결과(최근 30일)·놓침을 보여준다. "이벤트 뭐 있어", "지원할 거 있어", "이벤트 마감 언제야" 같은 질문에. 지원 대기 항목의 발췌를 보고 댓글 초안을 써 주면 좋다(댓글은 사용자가 직접 단다). 마감·발표 뒤의 ? 는 설명에서 날짜를 못 찾아 추정한 값이니 영상에서 확인하라고 알려줄 것.',
+  { name: 'event_list', description: '유튜브 구독자 이벤트 현황(시트 events 탭). 등록된 채널의 최근 영상 스캔 + 하루 한 번 유튜브 검색("댓글 이벤트"·"구독자 이벤트", 최근 7일)으로 새 이벤트를 저장한 뒤, 지원 대기(댓글 적은 순 = 경쟁 낮은 순, 댓글 수·구독자 수·영상 링크·조건 발췌 포함)·지원함(발표 대기)·결과(최근 30일)·놓침을 보여준다. "이벤트 뭐 있어", "지원할 거 있어", "이벤트 마감 언제야" 같은 질문에. 지원 대기 항목의 발췌를 보고 댓글 초안을 써 주면 좋다(댓글은 사용자가 직접 단다). 마감·발표 뒤의 ? 는 설명에서 날짜를 못 찾아 추정한 값이니 영상에서 확인하라고 알려줄 것.',
     inputSchema: { type: 'object', properties: {} } },
   { name: 'event_log', description: '유튜브 이벤트 한 줄 기록. "지원 십만양품"(댓글 달았음), "당첨 십만양품 에어프라이어 15만"(당첨, 뒤는 메모), "탈락 키보드", "패스 이어폰"(안 할 것). 키워드는 채널명이나 제목 일부. "채널 추가 https://www.youtube.com/@100k-smyp"(감시 채널 등록, @핸들만 줘도 됨), "채널 삭제 @핸들"(감시 목록에서 제외), "이벤트 추가 https://youtu.be/xxx 마감 10-05 발표 10-07"(목록 밖 채널에서 직접 본 이벤트, 날짜는 생략 가능). 당첨 경품을 가계부에 넣고 싶다고 하면 ledger_add 로 "+금액 이벤트 당첨 채널명" 을 따로 기록한다.',
     inputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } },
@@ -182,10 +182,9 @@ async function runTool(name: string, args: Record<string, unknown>): Promise<str
 
   if (name === 'event_list') {
     const t0 = today()
-    const { channels, events } = await loadState()
-    const r = await scan(channels, events)
-    const tail = channels.length ? `\n\n채널 ${r.scanned}개 스캔 · 새 이벤트 ${r.added.length}건` + (r.errors.length ? ` · 실패: ${r.errors.join(', ')}` : '')
-      : '\n\n감시 채널이 없어요. "채널 추가 @핸들" 로 등록하세요.'
+    const { channels, events, lastSearch } = await loadState()
+    const r = await scan(channels, events, lastSearch, t0)
+    const tail = `\n\n채널 ${r.scanned}개 스캔${r.searched ? ' + 오늘 첫 검색' : ''} · 새 이벤트 ${r.added.length}건` + (r.errors.length ? ` · 실패: ${r.errors.join(', ')}` : '')
     return formatEvents(group([...events, ...r.added], t0), t0) + tail
   }
 
