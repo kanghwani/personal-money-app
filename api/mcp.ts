@@ -83,7 +83,7 @@ export const TOOLS = [
     inputSchema: { type: 'object', properties: { metric: { type: 'string' }, months: { type: 'number', description: '최근 몇 달 (기본 12)' } }, required: ['metric'] } },
   { name: 'event_list', description: '유튜브 구독자 이벤트 현황(시트 events 탭). 등록된 채널의 최근 영상을 스캔해 새 이벤트를 저장한 뒤, 지원 대기(마감순, 영상 링크·조건 발췌 포함)·지원함(발표 대기)·결과(최근 30일)·놓침을 보여준다. "이벤트 뭐 있어", "지원할 거 있어", "이벤트 마감 언제야" 같은 질문에. 지원 대기 항목의 발췌를 보고 댓글 초안을 써 주면 좋다(댓글은 사용자가 직접 단다). 마감·발표 뒤의 ? 는 설명에서 날짜를 못 찾아 추정한 값이니 영상에서 확인하라고 알려줄 것.',
     inputSchema: { type: 'object', properties: {} } },
-  { name: 'event_log', description: '유튜브 이벤트 한 줄 기록. "지원 십만양품"(댓글 달았음), "당첨 십만양품 에어프라이어 15만"(당첨, 뒤는 메모), "탈락 키보드", "패스 이어폰"(안 할 것). 키워드는 채널명이나 제목 일부. "채널 추가 https://www.youtube.com/@100k-smyp"(감시 채널 등록, @핸들만 줘도 됨), "이벤트 추가 https://youtu.be/xxx 마감 10-05 발표 10-07"(목록 밖 채널에서 직접 본 이벤트, 날짜는 생략 가능). 당첨 경품을 가계부에 넣고 싶다고 하면 ledger_add 로 "+금액 이벤트 당첨 채널명" 을 따로 기록한다.',
+  { name: 'event_log', description: '유튜브 이벤트 한 줄 기록. "지원 십만양품"(댓글 달았음), "당첨 십만양품 에어프라이어 15만"(당첨, 뒤는 메모), "탈락 키보드", "패스 이어폰"(안 할 것). 키워드는 채널명이나 제목 일부. "채널 추가 https://www.youtube.com/@100k-smyp"(감시 채널 등록, @핸들만 줘도 됨), "채널 삭제 @핸들"(감시 목록에서 제외), "이벤트 추가 https://youtu.be/xxx 마감 10-05 발표 10-07"(목록 밖 채널에서 직접 본 이벤트, 날짜는 생략 가능). 당첨 경품을 가계부에 넣고 싶다고 하면 ledger_add 로 "+금액 이벤트 당첨 채널명" 을 따로 기록한다.',
     inputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } },
 ]
 
@@ -193,8 +193,16 @@ async function runTool(name: string, args: Record<string, unknown>): Promise<str
     const cmd = parseEventLog(String(args.text || ''))
     const stamp = stampNow()
     if (cmd.kind === 'channel') {
-      const ch = await resolveChannel(cmd.input)
       const { channels } = await loadState()
+      if (cmd.remove) {
+        // 등록된 것 중에서 핸들·이름·ID 로 찾는다. API 호출 없이 끝난다.
+        const q = cmd.input.replace(/^.*@/, '@').toLowerCase()
+        const hit = channels.filter((c) => c.handle.toLowerCase() === q || c.name.toLowerCase() === cmd.input.toLowerCase() || c.id === cmd.input)
+        if (!hit.length) return `등록된 채널 중 '${cmd.input}' 이 없어요.\n` + channels.map((c) => `• ${c.name} (${c.handle})`).join('\n')
+        await saveRows('event_channels', hit.map((c) => [stamp, c.id, '삭제', ''].join('|')))
+        return `채널 삭제: ${hit.map((c) => c.name).join(', ')} — 남은 채널 ${channels.length - hit.length}개`
+      }
+      const ch = await resolveChannel(cmd.input)
       if (channels.some((c) => c.id === ch.id)) return `이미 등록된 채널: ${ch.name} (${ch.handle})`
       await saveRows('event_channels', [[stamp, ch.id, ch.name, ch.handle].join('|')])
       return `채널 등록: ${ch.name} (${ch.handle}) — 총 ${channels.length + 1}개. 다음 스캔부터 최근 영상을 봅니다.`

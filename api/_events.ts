@@ -168,14 +168,14 @@ export function formatEvents(g: Groups, today: string): string {
 // ── 한 줄 문법 ──────────────────────────────────────────────
 export type LogCmd =
   | { kind: 'status'; status: Status; query: string; note: string }
-  | { kind: 'channel'; input: string }
+  | { kind: 'channel'; input: string; remove?: boolean }
   | { kind: 'video'; url: string; deadline?: string; announce?: string }
 const STATUS_WORD: Record<string, Status> = { 지원: 'applied', 당첨: 'won', 탈락: 'lost', 패스: 'skipped', 스킵: 'skipped' }
-const USAGE = '"지원 십만양품", "당첨 십만양품 에어프라이어", "탈락 키보드", "패스 이어폰", "채널 추가 @핸들", "이벤트 추가 <영상URL> [마감 MM-DD] [발표 MM-DD]" 중 하나'
+const USAGE = '"지원 십만양품", "당첨 십만양품 에어프라이어", "탈락 키보드", "패스 이어폰", "채널 추가 @핸들", "채널 삭제 @핸들", "이벤트 추가 <영상URL> [마감 MM-DD] [발표 MM-DD]" 중 하나'
 
 export function parseEventLog(text: string): LogCmd {
   const [h, ...rest] = text.trim().replace(/\s+/g, ' ').split(' ')
-  if (h === '채널' && rest[0] === '추가' && rest[1]) return { kind: 'channel', input: rest[1] }
+  if (h === '채널' && (rest[0] === '추가' || rest[0] === '삭제') && rest[1]) return { kind: 'channel', input: rest[1], ...(rest[0] === '삭제' ? { remove: true } : {}) }
   if (h === '이벤트' && rest[0] === '추가' && rest[1]) {
     const cmd: LogCmd = { kind: 'video', url: rest[1] }
     const opts = rest.slice(2).join(' ')
@@ -247,10 +247,17 @@ export async function loadState(): Promise<{ channels: Channel[]; events: Event[
     gasGet<{ rows?: HealthRow[] }>('healthRows', `&type=events&days=${EVENT_DAYS}`),
     gasGet<{ rows?: HealthRow[] }>('healthRows', '&type=event_channels&days=3650'),
   ])
-  return {
-    events: fold(ev.rows ?? []),
-    channels: (ch.rows ?? []).filter((r) => r.end).map((r) => ({ id: r.end, name: r.value, handle: r.extra ?? '' })),
+  return { events: fold(ev.rows ?? []), channels: foldChannels(ch.rows ?? []) }
+}
+/** 채널도 추가만 한다. value 가 '삭제' 인 행이 오면 그 채널을 뺀다(폰에서 "채널 삭제 @핸들"). 마지막 행이 이긴다. */
+export function foldChannels(rows: HealthRow[]): Channel[] {
+  const byId = new Map<string, Channel>()
+  for (const r of [...rows].sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0))) {
+    if (!r.end) continue
+    if (r.value === '삭제') byId.delete(r.end)
+    else byId.set(r.end, { id: r.end, name: r.value, handle: r.extra ?? '' })
   }
+  return [...byId.values()]
 }
 export const saveRows = (type: 'events' | 'event_channels', rows: string[]) =>
   rows.length ? gasPost({ action: 'health', type, rows: rows.join('\n') }) : Promise.resolve(undefined)

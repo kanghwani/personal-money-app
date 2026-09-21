@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   isEvent, extractDates, excerpt, detect, fold, group, newRow, reminderPayload, formatEvents,
-  parseEventLog, parseChannelInput, parseVideoInput, findEvents, mmddToYmd, type Snippet,
+  parseEventLog, parseChannelInput, parseVideoInput, findEvents, mmddToYmd, foldChannels, type Snippet,
 } from './_events'
 import type { HealthRow } from './_health'
 
@@ -136,8 +136,18 @@ describe('한 줄 문법', () => {
     expect(() => parseEventLog('지원')).toThrow()
     expect(() => parseEventLog('먹었다 김밥')).toThrow()
   })
+  it('채널 삭제 행은 무덤돌: 마지막 행이 이긴다', () => {
+    const ch = foldChannels([
+      { start: '2026-09-21 10:00:00', end: 'UC1', value: '십만양품', extra: '@100k-smyp' },
+      { start: '2026-09-21 10:00:00', end: 'UC2', value: '엉뚱', extra: '@theedit' },
+      { start: '2026-09-21 11:00:00', end: 'UC2', value: '삭제', extra: '' },
+      { start: '2026-09-21 12:00:00', end: 'UC3', value: '디에디트', extra: '@the-edit' },
+    ])
+    expect(ch.map((c) => c.name)).toEqual(['십만양품', '디에디트'])
+  })
   it('채널·이벤트 추가', () => {
     expect(parseEventLog('채널 추가 https://www.youtube.com/@100k-smyp')).toEqual({ kind: 'channel', input: 'https://www.youtube.com/@100k-smyp' })
+    expect(parseEventLog('채널 삭제 @theedit')).toEqual({ kind: 'channel', input: '@theedit', remove: true })
     expect(parseEventLog('이벤트 추가 https://youtu.be/abc123DEF45 마감 10-05 발표 10-07'))
       .toEqual({ kind: 'video', url: 'https://youtu.be/abc123DEF45', deadline: '10-05', announce: '10-07' })
     expect(parseEventLog('이벤트 추가 https://youtu.be/abc123DEF45')).toEqual({ kind: 'video', url: 'https://youtu.be/abc123DEF45' })
