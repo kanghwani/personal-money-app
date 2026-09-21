@@ -54,6 +54,13 @@ function candidates(desc: string, published: string): Cand[] {
   for (const m of desc.matchAll(/(?<!\d)(\d{1,2})\s*월\s*(\d{1,2})\s*일/g)) push(m, null, +m[1], +m[2])
   // 9/30, 9.30 — 전화번호(하이픈)·시각(콜론)·가격(9.900)은 안 걸린다
   for (const m of desc.matchAll(/(?<![\d.])(\d{1,2})\s?[/.]\s?(\d{1,2})(?![\d.])/g)) push(m, null, +m[1], +m[2])
+  out.sort((a, b) => a.at - b.at)
+  // "9월 18일부터 30일까지" — 월 없는 "30일"은 앞(40자 안)에 나온 날짜의 월을 물려받는다
+  for (const m of desc.matchAll(/(?<!월\s*)(?<!\d)(\d{1,2})\s*일(?!\d)/g)) {
+    const at = m.index ?? 0
+    const prev = out.filter((c) => c.end <= at && at - c.end <= 40).pop()
+    if (prev) push(m, +prev.ymd.slice(0, 4), +prev.ymd.slice(5, 7), +m[1])
+  }
   return out.sort((a, b) => a.at - b.at)
 }
 
@@ -64,7 +71,7 @@ export function extractDates(desc: string, published: string) {
   const after = (x: Cand, n: number) => desc.slice(x.end, x.end + n).split('\n')[0]
   const dlKw = c.find((x) => /까지|마감/.test(after(x, 6)) || /마감/.test(before(x, 15)))
   const ann = c.find((x) => x !== dlKw && /발표|추첨|당첨/.test(before(x, 15) + '\u0000' + after(x, 10)))
-  const rest = c.filter((x) => x !== ann)
+  const rest = c.filter((x) => x !== ann && !/^\s*부터/.test(after(x, 3)))   // "부터"가 붙은 건 시작일
   const dl = dlKw
     ?? rest.find((x) => /[~∼〜-]\s*$/.test(before(x, 3)))                 // 범위의 뒤쪽
     ?? rest.slice().sort((a, b) => (a.ymd < b.ymd ? -1 : a.ymd > b.ymd ? 1 : 0))[0]

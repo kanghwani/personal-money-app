@@ -52,6 +52,16 @@ describe('날짜', () => {
     const d = extractDates('9월 25일까지 댓글 남겨주세요', '2026-09-21')
     expect(d).toMatchObject({ deadline: '2026-09-25', announce: '2026-10-02', deadlineGuessed: false, announceGuessed: true })
   })
+  it('"부터 … 일까지": 시작일은 제외, 월 없는 날은 앞 날짜의 월 (실제 디에디트 공지)', () => {
+    const d = extractDates('😎9월 18일부터 30일까지 사전예약으로 구매하시면 특별한 혜택이 있어요!', '2026-09-17')
+    expect(d).toMatchObject({ deadline: '2026-09-30', deadlineGuessed: false, announceGuessed: true })
+    // 앞에 날짜가 없으면 "30일" 만으로는 후보가 안 된다
+    expect(extractDates('30일 무이자 할부', '2026-09-17').deadlineGuessed).toBe(true)
+  })
+  it('실제 십만양품 공지: 게시일보다 앞선 날짜(옛 공지 복붙)는 버리고 추정 표시', () => {
+    const d = extractDates('기간 : 2026.05.26(화) PM 11:59 까지 당첨자 발표 : 2026.05.27(수)', '2026-09-06')
+    expect(d).toMatchObject({ deadline: '2026-09-13', deadlineGuessed: true, announceGuessed: true })
+  })
   it('mmdd → 올해, 지났으면 내년', () => {
     expect(mmddToYmd('10-05', '2026-09-21')).toBe('2026-10-05')
     expect(mmddToYmd('01-05', '2026-12-20')).toBe('2027-01-05')
