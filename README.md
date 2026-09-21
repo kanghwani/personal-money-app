@@ -57,6 +57,24 @@ cd gas && clasp push -f && clasp deploy --deploymentId AKfycby2so1RyMqyuEaKEfOtS
 **GAS 호출은 창 크기와 무관하게 10초 넘게 걸린다.** 시작 오버헤드가 병목이라 9년치를 통째로 받는 편이
 75일치를 받는 것과 비용이 같다. `api/health.ts` 는 전체를 받아 5분간 캐시하고, 저장 시 캐시를 버린다.
 
+## 유튜브 구독자 이벤트
+
+설계: `docs/superpowers/specs/2026-09-21-youtube-events-design.md`. 가계부와 데이터를 섞지 않고 인프라만 빌린다.
+
+| 조각 | 위치 |
+|---|---|
+| 판정·날짜·상태·한 줄 문법 | `api/_events.ts` (순수 함수, `api/_events.test.ts`) |
+| 스캔 + 미리알림 큐 | `api/events.ts` — 단축어 `eventsync` 가 매일 09:00 GET. cron 없음 |
+| 폰 입력·조회 | MCP `event_list`, `event_log` |
+| 저장 | 건강 데이터 스프레드시트 탭 `events`·`event_channels` (GAS 수정 없음, 추가만) |
+| 단축어 생성 | `python3 gas/build_event_shortcut.py <out_dir>` → `shortcuts sign` |
+
+**채널 RSS 는 못 쓴다.** 십만양품·디에디트·기즈모가 404, ITSub 이 500 을 돌려준다(채널마다 다르고 채널 페이지는 RSS 링크를 광고한다).
+그래서 `YOUTUBE_API_KEY`(Vercel 환경변수, 키만·OAuth 없음)로 `playlistItems` 를 읽는다. 채널당 하루 1단위, 한도 1만.
+키가 없으면 스캔만 건너뛰고 큐·기록은 동작한다.
+
+확인: `/api/events?t=<SYNC_TOKEN>&peek=1&format=text` (peek 는 reminded 를 안 찍는다).
+
 ## 작업 로그
 
 `docs/devlog/` 에 날짜별로 남긴다. 무엇을 만들었는지보다 **왜 그렇게 정했는지와 어디서 헛디뎠는지**를 적는다.

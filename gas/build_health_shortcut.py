@@ -6,39 +6,13 @@
 
 단축어 POST는 GAS 302에서 깨지므로 GET. 같은 행은 서버가 버리므로 여러 번 돌아도 무해.
 """
-import plistlib, sys, uuid, pathlib
+import sys, pathlib
+from shortcut_lib import U, token_string, out_ref, out_text, item_prop, act, comment, read_env, write
 
-env = dict(l.split('=', 1) for l in pathlib.Path(__file__).with_name('..').joinpath('.env').resolve().read_text().splitlines() if '=' in l)
-GAS_URL, TOKEN = env['VITE_SYNC_URL'].strip(), env['VITE_SYNC_TOKEN'].strip()
-OBJ = '￼'
+GAS_URL, TOKEN = read_env()
 # 업로드 단축어 이름은 영문이어야 한다. 앱의 "워치에서 가져오기" 가 shortcuts:// 로 부르는데
 # URL 경로에서 한글 이름은 매칭이 깨진다(단축어 안에서 한글 이름으로 부르는 것은 정상).
 UPLOAD_NAME = 'healthsync'
-U = lambda: str(uuid.uuid4()).upper()
-
-def token_string(parts):
-    """parts: 문자열 또는 attachment dict 의 리스트 → WFTextTokenString."""
-    s, att = '', {}
-    for p in parts:
-        if isinstance(p, str): s += p
-        else: att[f'{{{len(s)}, 1}}'] = p; s += OBJ
-    return {'Value': {'string': s, 'attachmentsByRange': att}, 'WFSerializationType': 'WFTextTokenString'}
-
-def out_ref(uid, name):
-    return {'Value': {'OutputUUID': uid, 'OutputName': name, 'Type': 'ActionOutput'}, 'WFSerializationType': 'WFTextTokenAttachment'}
-
-def out_text(uid, name):
-    """텍스트형(Text) 파라미터용 — 첨부 형식이면 실행 시 빈 값이 되므로 문자열 토큰으로 감싼다."""
-    return token_string([{'OutputUUID': uid, 'OutputName': name, 'Type': 'ActionOutput'}])
-
-def item_prop(prop, date_fmt=None):
-    ag = [{'PropertyName': prop, 'Type': 'WFPropertyVariableAggrandizement'}]
-    if date_fmt:
-        ag.append({'Type': 'WFDateFormatVariableAggrandizement', 'WFDateFormatStyle': 'Custom', 'WFDateFormat': date_fmt, 'WFISO8601IncludeTime': False})
-    return {'Type': 'Variable', 'VariableName': 'Repeat Item', 'Aggrandizements': ag}
-
-def act(ident, **params):
-    return {'WFWorkflowActionIdentifier': f'is.workflow.actions.{ident}', 'WFWorkflowActionParameters': params}
 
 def upload_block(health_type, sheet_type, days, group_by=None, props=('Start Date', 'End Date', 'Value')):
     """Find Health Samples → 반복(시작|종료|값) → 결합 → URL인코딩 → GET. 마지막 액션 UUID 반환."""
@@ -65,7 +39,6 @@ def upload_block(health_type, sheet_type, days, group_by=None, props=('Start Dat
             f'{GAS_URL}?action=health&type={sheet_type}&token={TOKEN}&rows=', {'OutputUUID': enc, 'OutputName': 'URL Encoded Text', 'Type': 'ActionOutput'}])),
     ], {'get': get, 'cnt': cnt}
 
-comment = lambda t: act('comment', WFCommentActionText=t)
 # Actions 앱(https://sindresorhus.com/actions, 무료, iOS 전용)의 "Find Workout". 애플 기본 액션엔 운동 세션 읽기가 없다.
 # 식별자·속성명은 /Applications/Actions.app/Contents/Resources/Metadata.appintents/extract.actionsdata 에서 확인.
 WORKOUT_PROPS = ('startDate', 'endDate', 'workoutType', 'duration', 'activeCalories', 'totalDistance', 'averageHeartRate')
@@ -206,18 +179,6 @@ checkin = [
     act('conditional', GroupingIdentifier=cond_if, WFControlFlowMode=2, UUID=U()),
 ]
 
-def document(name, acts, glyph, color):
-    return {
-        'WFWorkflowName': name, 'WFWorkflowActions': acts,
-        'WFWorkflowClientVersion': '2700.0.4', 'WFWorkflowClientRelease': '26A0000a',
-        'WFWorkflowMinimumClientVersion': 900, 'WFWorkflowMinimumClientVersionString': '900',
-        'WFWorkflowIcon': {'WFWorkflowIconGlyphNumber': glyph, 'WFWorkflowIconStartColor': color},
-        'WFWorkflowHasOutputFallback': False, 'WFWorkflowImportQuestions': [], 'WFWorkflowOutputContentItemClasses': [],
-        'WFWorkflowTypes': ['Watch'], 'WFWorkflowHasShortcutInputVariables': True,
-        'WFWorkflowInputContentItemClasses': ['WFStringContentItem'],
-    }
-
 out_dir = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else '.')
 for name, acts, glyph, color in [(UPLOAD_NAME, actions, 61440, 4282601983), ('컨디션', checkin, 61440, 463140863)]:
-    (out_dir / f'{name}.xml').write_bytes(plistlib.dumps(document(name, acts, glyph, color), fmt=plistlib.FMT_XML))
-    print(out_dir / f'{name}.xml', len(acts), 'actions')
+    write(out_dir, name, acts, glyph, color)

@@ -10,6 +10,10 @@
     "coach_week": [
       "week"
     ],
+    "event_list": [],
+    "event_log": [
+      "text"
+    ],
     "health_insight": [],
     "health_log": [
       "text"
