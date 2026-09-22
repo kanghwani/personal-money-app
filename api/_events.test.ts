@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   isEvent, extractDates, excerpt, detect, fold, group, newRow, reminderPayload, formatEvents,
-  parseEventLog, parseChannelInput, parseVideoInput, findEvents, mmddToYmd, foldChannels, lastSearchOf, SEARCH_MARK, isSearchWorthy, type Snippet,
+  parseEventLog, parseChannelInput, parseVideoInput, findEvents, mmddToYmd, foldChannels, lastSearchOf, SEARCH_MARK, isSearchWorthy, isTrustedEvent, type Snippet,
 } from './_events'
 import type { HealthRow } from './_health'
 
@@ -105,6 +105,13 @@ describe('발췌·행', () => {
     expect(isSearchWorthy(snip({ title: '구독자 200명 되면 친추 이벤트 하겠습니다', description: '댓글에 닉네임' }))).toBe(false)  // 경품 없음
     expect(isSearchWorthy(snip({ title: '✨ 구독자 이벤트 선정 결과 ✨', description: '선물 발송' }))).toBe(false)                 // 결과 영상
     expect(isSearchWorthy(snip({ title: '구독자 나눔 이벤트 라이브 경품 추첨', description: '', live: true }))).toBe(false)     // 라이브
+  })
+  it('감시 채널은 제목에 "이벤트"만 있어도 잡는다 (정가거부 이벤트 #14: 설명에 참여 방법 없음)', () => {
+    const s = snip({ title: '정가거부 이벤트 #14', description: 'https://www.moyoplan.com/s/x\n\n오늘의핫딜\nhttps://link' })
+    expect(isTrustedEvent(s.title, s.description)).toBe(true)
+    expect(detect(s)).toBeNull()
+    expect(detect(s, false, true)).toMatchObject({ status: 'new', deadlineGuessed: true })
+    expect(isTrustedEvent('반값 할인 시작', '구독 좋아요')).toBe(false)
   })
   it('비이벤트는 null, force 면 통과', () => {
     expect(detect(snip({ title: '리뷰', description: '그냥 리뷰' }))).toBeNull()

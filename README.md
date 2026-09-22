@@ -67,14 +67,16 @@ cd gas && clasp push -f && clasp deploy --deploymentId AKfycby2so1RyMqyuEaKEfOtS
 | 스캔 + 미리알림 큐 | `api/events.ts` — 감시 채널 최근 10개 + 하루 한 번 검색("댓글 이벤트"·"구독자 이벤트", 7일). 단축어나 `event_list` 가 부른다. cron 없음 |
 | 폰 입력·조회 | MCP `event_list`, `event_log` |
 | 저장 | 건강 데이터 스프레드시트 탭 `events`·`event_channels` (GAS 수정 없음, 추가만) |
-| 단축어 생성 | `python3 gas/build_event_shortcut.py <out_dir>` → `shortcuts sign` |
+| 맥 알림 | `scripts/eventsync.sh`(+`eventsync.js`) — launchd(`scripts/com.hwan.eventsync.plist`)가 매일 09:00·로그인 시 실행, 미리알림 "이벤트" 목록에 [지원]/[결과] 생성. `ALL=1` 이면 남은 이벤트 전부 다시 |
+| 폰 단축어(미검증) | `python3 gas/build_event_shortcut.py <out_dir>` → `shortcuts sign`. 미리알림 기한이 안 들어가는 문제 있음 |
 
 **채널 RSS 는 못 쓴다.** 십만양품·디에디트·기즈모가 404, ITSub 이 500 을 돌려준다(채널마다 다르고 채널 페이지는 RSS 링크를 광고한다).
 그래서 `YOUTUBE_API_KEY`(Vercel 환경변수, 키만·OAuth 없음)로 `playlistItems` 를 읽는다. 채널당 하루 1단위, 한도 1만.
 키가 없으면 스캔만 건너뛰고 큐·기록은 동작한다. 검색은 1회 100단위라 시트의 `_search` 마커 행으로 하루 한 번만 돈다(하루 ≈ 210단위).
 검색 결과는 잡음이 많아(첫 실검색 95건 중 77건) 경품 언급·라이브 제외·구독자 1천 이상만 남긴다. 감시 채널은 안 거른다.
 
-확인: `/api/events?t=<SYNC_TOKEN>&peek=1&format=text` (peek 는 reminded 를 안 찍는다).
+확인: `/api/events?t=<SYNC_TOKEN>&peek=1&format=text` (peek 는 reminded 를 안 찍는다). `&all=1` 은 reminded 까지 전부(미리알림 재생성용).
+감시 채널은 제목에 "이벤트"만 있어도 잡는다(정가거부 "이벤트 #14" 는 설명에 참여 방법이 없다). 검색 결과는 엄격하게.
 
 ## 작업 로그
 

@@ -8,19 +8,21 @@ import { loadState, scan, group, formatEvents, reminderPayload, saveRows, status
  *
  * 인증: ?t=<SYNC_TOKEN> (/api/today 와 같은 통로)
  *   &peek=1       reminded 를 안 찍는다(테스트)
+ *   &all=1        new 뿐 아니라 reminded 까지, 마감 안 지난 것 전부 (미리알림을 다시 만들 때). 저장 없음
  *   &format=text  사람이 읽는 목록
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store')
   if ((req.query.t as string) !== process.env.SYNC_TOKEN) return res.status(401).send('unauthorized')
-  const peek = req.query.peek === '1'
+  const all = req.query.all === '1'
+  const peek = req.query.peek === '1' || all
   const text = req.query.format === 'text'
   try {
     const today = kstDate(Date.now())
     const { channels, events, lastSearch } = await loadState()
     const r = await scan(channels, events, lastSearch, today)
-    const all = [...events, ...r.added]
-    const fresh = all.filter((e) => e.status === 'new')
+    const everything = [...events, ...r.added]
+    const fresh = everything.filter((e) => e.status === 'new' || (all && e.status === 'reminded'))
     if (!peek) {
       const stamp = stampNow()
       await saveRows('events', fresh.map((e) => statusRow(e.id, 'reminded', '', stamp)))
@@ -28,7 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const scanLine = `채널 ${r.scanned}개 스캔${r.searched ? ' + 검색' : ''} · 새 이벤트 ${r.added.length}건` + (r.errors.length ? ` · 실패: ${r.errors.join(', ')}` : '')
     if (text) {
       return res.status(200).setHeader('Content-Type', 'text/plain; charset=utf-8')
-        .send(formatEvents(group(all, today), today) + `\n\n${scanLine}` + (peek ? '' : `\n미리알림 큐 ${fresh.length}건 전달`))
+        .send(formatEvents(group(everything, today), today) + `\n\n${scanLine}` + (peek ? '' : `\n미리알림 큐 ${fresh.length}건 전달`))
     }
     return res.status(200).json({
       events: fresh.filter((e) => e.deadline >= today).map((e) => reminderPayload(e, today)),

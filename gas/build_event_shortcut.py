@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""iOS 단축어 'eventsync' 생성기 — /api/events 를 GET 해 새 구독자 이벤트마다 미리알림 2개(지원·결과)를 만든다.
+"""iOS 단축어 'eventsync' 생성기 (폰용, 미검증 — 맥은 scripts/eventsync.sh 를 쓴다) — /api/events 를 GET 해 새 구독자 이벤트마다 미리알림 2개(지원·결과)를 만든다.
 
     python3 gas/build_event_shortcut.py <out_dir>
     cp <out_dir>/eventsync.xml /tmp/eventsync.shortcut && shortcuts sign --mode anyone --input /tmp/eventsync.shortcut --output ~/Downloads/eventsync.shortcut
@@ -7,6 +7,9 @@
 설치 후: 미리알림 앱에 목록 "이벤트" 를 만들고, 자동화 "매일 09:00 → eventsync 실행"(실행 전에 묻기 끄기).
 서버가 스캔·큐 관리를 다 하므로(같은 이벤트는 두 번 안 나온다) 여러 번 돌아도 무해.
 이벤트가 0건이면 반복이 안 돌아 알림도 없다 — 조건문 없이 조용하다.
+
+알려진 문제(2026-09-22, 맥 단축어 앱에서 실행): 미리알림에 기한·알림이 안 들어가고 반복 중 일부가 조용히 빠졌다(80개 중 59개).
+WFAlertCustomTime 키가 틀렸거나 텍스트→날짜 변환이 안 되는 것으로 보인다. 폰에서 쓰려면 이걸 먼저 고쳐야 한다.
 """
 import sys
 from shortcut_lib import U, token_string, out_ref, item_key, act, comment, read_env, write

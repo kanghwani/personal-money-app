@@ -96,9 +96,11 @@ export function excerpt(desc: string): string {
   return p.replace(/\|/g, '/').slice(0, 300)
 }
 
-/** 영상 하나 → 이벤트(아니면 null). force 는 사용자가 "이벤트 추가"로 직접 넣을 때. */
-export function detect(s: Snippet, force = false): Event | null {
-  if (!force && !isEvent(s.title, s.description)) return null
+/** 감시 채널(사용자가 고른 채널)은 제목에 "이벤트"만 있어도 믿는다. 정가거부 "이벤트 #14" 는 설명에 참여 방법이 없었다. */
+export const isTrustedEvent = (title: string, desc: string) => /이벤트/.test(title) || isEvent(title, desc)
+/** 영상 하나 → 이벤트(아니면 null). force 는 사용자가 "이벤트 추가"로 직접 넣을 때, trusted 는 감시 채널 스캔. */
+export function detect(s: Snippet, force = false, trusted = false): Event | null {
+  if (!force && !(trusted ? isTrustedEvent : isEvent)(s.title, s.description)) return null
   const published = kstDate(Date.parse(s.publishedAt))
   return {
     id: s.videoId, channel: s.channelTitle, title: s.title, ...extractDates(s.description, published),
@@ -335,7 +337,7 @@ export async function scan(channels: Channel[], known: Event[], lastSearch = '',
   const added: Event[] = []; const errors: string[] = []
   const take = (s: Snippet, fromSearch = false) => {
     if (!s.videoId || seen.has(s.videoId) || s.live) return
-    const e = detect(s)
+    const e = detect(s, false, !fromSearch)
     if (e && e.deadline >= today) { seen.add(e.id); added.push(fromSearch ? { ...e, fromSearch } : e) }
   }
   const searched = lastSearch.slice(0, 10) !== today

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- 유튜브 구독자 이벤트: 매일 09:00 + 로그인 시 한 번 scripts/eventsync.sh 실행(서버 스캔 → 맥 미리알림).
+       설치: cp scripts/com.hwan.eventsync.plist ~/Library/LaunchAgents/ && launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.hwan.eventsync.plist
+       잠자기였으면 깨어날 때 밀린 실행이 돌고, 꺼져 있었으면 로그인 때 돈다. 서버가 같은 이벤트를 두 번 안 주므로 중복 무해.
+       단축어 대신 스크립트: 단축어의 미리알림 액션이 기한을 못 넣고 일부를 빠뜨렸다(2026-09-22). -->
+  <key>Label</key><string>com.hwan.eventsync</string>
+  <key>ProgramArguments</key>
+  <array><string>/bin/zsh</string><string>/Users/hwan/dev/paused/money-app/personal-money-app/scripts/eventsync.sh</string></array>
+  <key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
+  <key>RunAtLoad</key><true/>
+  <key>StandardOutPath</key><string>/Users/hwan/Library/Logs/eventsync.log</string>
+  <key>StandardErrorPath</key><string>/Users/hwan/Library/Logs/eventsync.log</string>
+</dict>
+</plist>
