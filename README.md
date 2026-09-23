@@ -67,6 +67,7 @@ cd gas && clasp push -f && clasp deploy --deploymentId AKfycby2so1RyMqyuEaKEfOtS
 | 스캔 + 미리알림 큐 | `api/events.ts` — 감시 채널 최근 10개 + 하루 한 번 검색("댓글 이벤트"·"구독자 이벤트", 7일). 단축어나 `event_list` 가 부른다. cron 없음 |
 | 폰 입력·조회 | MCP `event_list`, `event_log` |
 | 저장 | 건강 데이터 스프레드시트 탭 `events`·`event_channels` (GAS 수정 없음, 추가만) |
+| 당첨 검사 | `checkResults` — 발표일 지난 지원 건마다 영상 설명·상단 댓글·채널의 내 댓글 답글·채널 새 영상에서 `YT_HANDLE` 을 찾아 `hint` 행. 확정은 사람이 "당첨/탈락". 커뮤니티 게시글은 못 본다 |
 | 맥 알림 | `scripts/eventsync.sh`(+`eventsync.js`) — launchd(`scripts/com.hwan.eventsync.plist`)가 매일 09:00·로그인 시 실행, 미리알림 "이벤트" 목록에 [지원]/[결과] 생성. `ALL=1` 이면 남은 이벤트 전부 다시 |
 | 폰 단축어(미검증) | `python3 gas/build_event_shortcut.py <out_dir>` → `shortcuts sign`. 미리알림 기한이 안 들어가는 문제 있음 |
 
