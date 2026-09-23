@@ -344,23 +344,24 @@ export async function commentThreads(videoId: string): Promise<Thread[]> {
 }
 export const HANDLE = () => process.env.YT_HANDLE ?? ''
 /** 발표일 지난 지원 이벤트마다 3곳을 보고 hint 행을 남긴다. 이벤트당 3단위. */
-export async function checkResults(events: Event[], today: string): Promise<{ hints: { e: Event; hint: string }[]; errors: string[] }> {
+export async function checkResults(events: Event[], today: string): Promise<{ hints: { e: Event; hint: string }[]; errors: string[]; checked: string[] }> {
   const targets = events.filter((e) => needsResultCheck(e, today))
-  if (!targets.length || !hasKey() || !HANDLE()) return { hints: [], errors: [] }
-  const hints: { e: Event; hint: string }[] = []; const errors: string[] = []
+  if (!targets.length || !hasKey() || !HANDLE()) return { hints: [], errors: [], checked: [] }
+  const hints: { e: Event; hint: string }[] = []; const errors: string[] = []; const checked: string[] = []   // checked: "채널(댓글 N·새영상 M)" — 403 으로 빈 건지 구분용
   const details = new Map((await videoDetails(targets.map((e) => e.id))).map((v) => [v.videoId, v]))
   await Promise.all(targets.map(async (e) => {
     try {
       const v = details.get(e.id)
       if (!v) return
       const [threads, recent] = await Promise.all([commentThreads(e.id), v.channelId ? recentUploads({ id: v.channelId, name: e.channel, handle: '' }) : Promise.resolve([])])
+      checked.push(`${e.channel}(댓글 ${threads.length}·새영상 ${recent.length})`)
       const found = winnerHints(HANDLE(), v.channelId ?? '', v, threads, recent.filter((x) => x.videoId !== e.id).slice(0, 5))
       if (found.length) { e.hint = found.join(' / '); hints.push({ e, hint: e.hint }) }
     } catch (err) { errors.push(`결과 ${e.channel}: ${err instanceof Error ? err.message : err}`) }
   }))
   const stamp = stampNow()
   await saveRows('events', hints.map((h) => [stamp, h.e.id, 'hint', clean(h.hint)].join('|')))
-  return { hints, errors }
+  return { hints, errors, checked }
 }
 
 // ── 시트 입출력 ─────────────────────────────────────────────

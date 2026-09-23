@@ -29,7 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await saveRows('events', fresh.map((e) => statusRow(e.id, 'reminded', '', stamp)))
     }
     const errors = [...r.errors, ...rc.errors]
-    const scanLine = `채널 ${r.scanned}개 스캔${r.searched ? ' + 검색' : ''} · 새 이벤트 ${r.added.length}건 · 당첨 후보 ${rc.hints.length}건` + (errors.length ? ` · 실패: ${errors.join(', ')}` : '')
+    const scanLine = `채널 ${r.scanned}개 스캔${r.searched ? ' + 검색' : ''} · 새 이벤트 ${r.added.length}건 · 당첨 후보 ${rc.hints.length}건` + (rc.checked.length ? ` · 결과 검사: ${rc.checked.join(', ')}` : '') + (errors.length ? ` · 실패: ${errors.join(', ')}` : '')
     if (text) {
       return res.status(200).setHeader('Content-Type', 'text/plain; charset=utf-8')
         .send(formatEvents(group(everything, today), today) + `\n\n${scanLine}` + (peek ? '' : `\n미리알림 큐 ${fresh.length}건 전달`))
