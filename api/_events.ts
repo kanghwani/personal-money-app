@@ -18,6 +18,7 @@ export type Event = {
   comments?: number; subs?: number    // 스캔 시점 댓글 수·채널 구독자 수 (경쟁률). 옛 행엔 없다
   channelId?: string                  // 스캔 중에만 쓴다(구독자 수 조회). 시트엔 안 남긴다
   fromSearch?: boolean                // 검색으로 온 것 — 구독자 하한을 건다. 시트엔 안 남긴다
+  hint?: string                       // 당첨 후보 근거 ("채널이 내 댓글에 답글: …"). 사람이 "당첨/탈락"으로 확정한다
 }
 export type Channel = { id: string; name: string; handle: string }
 
@@ -134,6 +135,9 @@ export function fold(rows: HealthRow[]): Event[] {
     } else if (STATUSES.includes(st)) {
       const e = byId.get(r.end)
       if (e) { e.status = st; e.note = r.extra ?? ''; e.updated = r.start.slice(0, 10) }
+    } else if (r.value === 'hint') {
+      const e = byId.get(r.end)
+      if (e) e.hint = r.extra ?? ''
     }
   }
   return [...byId.values()]
@@ -177,7 +181,10 @@ export function formatEvents(g: Groups, today: string): string {
   }
   if (g.applied.length) {
     out.push(`\n[지원함 · 발표 대기 ${g.applied.length}]`)
-    for (const e of g.applied) out.push(`${head(e)} — 발표 ${md(e.announce, e.announceGuessed)} · ${videoUrl(e.id)}`)
+    for (const e of g.applied) {
+      out.push(`${head(e)} — 발표 ${md(e.announce, e.announceGuessed)} · ${videoUrl(e.id)}`)
+      if (e.hint) out.push(`  🎉 당첨 후보 — ${e.hint} → 확인 후 "당첨 ${e.channel}" 또는 "탈락 ${e.channel}"`)
+    }
   }
   if (g.results.length) {
     out.push(`\n[결과 · 최근 30일 ${g.results.length}]`)
@@ -296,6 +303,64 @@ export async function resolveChannel(input: string): Promise<Channel> {
   const c = r.items?.[0]
   if (!c) throw new Error(`채널을 찾을 수 없습니다: ${input}`)
   return { id: c.id, name: c.snippet.title, handle: c.snippet.customUrl ?? (p.handle ? '@' + p.handle : '') }
+}
+
+// ── 당첨자 자동 검사 ────────────────────────────────────────
+/**
+ * 발표일이 지난 "지원함" 이벤트에서 내 핸들을 찾는다. 커뮤니티 게시글은 API 가 없어 못 본다.
+ * 찾아도 won 으로 확정하지 않는다 — hint 행만 남기고 사람이 "당첨/탈락"으로 닫는다(오탐: 같은 이름의 다른 사람, 단순 감사 답글).
+ */
+export type Thread = { author: string; authorId: string; text: string; replies: { authorId: string; text: string }[] }
+export const handleNeedle = (handle: string) => handle.replace(/^@/, '').trim()
+const short = (t: string) => t.replace(/\s+/g, ' ').trim().slice(0, 80)
+export function winnerHints(handle: string, channelId: string, video: { description: string }, threads: Thread[], newVideos: { title: string; description: string }[]): string[] {
+  const n = handleNeedle(handle)
+  if (!n) return []
+  const out: string[] = []
+  if (video.description.includes(n)) out.push('영상 설명에 내 핸들')
+  for (const t of threads) {
+    if (t.text.includes(n) && t.authorId !== '' && t.authorId === channelId) out.push(`채널 댓글에 내 핸들: ${short(t.text)}`)
+    else if (t.text.includes(n) && t.author !== handle) out.push(`댓글에 내 핸들: ${short(t.text)}`)
+    if (t.author === handle) for (const r of t.replies) if (r.authorId === channelId) out.push(`채널이 내 댓글에 답글: ${short(r.text)}`)
+  }
+  for (const v of newVideos) if (v.description.includes(n) || v.title.includes(n)) out.push(`새 영상에 내 핸들: ${short(v.title)}`)
+  return [...new Set(out)]
+}
+/** 결과 확인 대상: 지원함 · 발표일 지남 · 발표일 +30일 이내 · 아직 후보 없음 */
+export const needsResultCheck = (e: Event, today: string) =>
+  e.status === 'applied' && !e.hint && e.announce <= today && e.announce >= addDays(today, -30)
+
+type ApiThread = { snippet: { topLevelComment: { snippet: { authorDisplayName: string; authorChannelId?: { value: string }; textOriginal: string } } }; replies?: { comments: { snippet: { authorChannelId?: { value: string }; textOriginal: string } }[] } }
+/** 영상의 상단 댓글 100개(고정 댓글이 맨 앞). 댓글 막힌 영상은 403 → 빈 배열. 1단위. */
+export async function commentThreads(videoId: string): Promise<Thread[]> {
+  try {
+    const r = await yt<{ items?: ApiThread[] }>('commentThreads', { part: 'snippet,replies', videoId, order: 'relevance', maxResults: '100', textFormat: 'plainText' })
+    return (r.items ?? []).map((t) => ({
+      author: t.snippet.topLevelComment.snippet.authorDisplayName, authorId: t.snippet.topLevelComment.snippet.authorChannelId?.value ?? '',
+      text: t.snippet.topLevelComment.snippet.textOriginal,
+      replies: (t.replies?.comments ?? []).map((c) => ({ authorId: c.snippet.authorChannelId?.value ?? '', text: c.snippet.textOriginal })),
+    }))
+  } catch (err) { if (String(err).includes('403')) return []; throw err }
+}
+export const HANDLE = () => process.env.YT_HANDLE ?? ''
+/** 발표일 지난 지원 이벤트마다 3곳을 보고 hint 행을 남긴다. 이벤트당 3단위. */
+export async function checkResults(events: Event[], today: string): Promise<{ hints: { e: Event; hint: string }[]; errors: string[] }> {
+  const targets = events.filter((e) => needsResultCheck(e, today))
+  if (!targets.length || !hasKey() || !HANDLE()) return { hints: [], errors: [] }
+  const hints: { e: Event; hint: string }[] = []; const errors: string[] = []
+  const details = new Map((await videoDetails(targets.map((e) => e.id))).map((v) => [v.videoId, v]))
+  await Promise.all(targets.map(async (e) => {
+    try {
+      const v = details.get(e.id)
+      if (!v) return
+      const [threads, recent] = await Promise.all([commentThreads(e.id), v.channelId ? recentUploads({ id: v.channelId, name: e.channel, handle: '' }) : Promise.resolve([])])
+      const found = winnerHints(HANDLE(), v.channelId ?? '', v, threads, recent.filter((x) => x.videoId !== e.id).slice(0, 5))
+      if (found.length) { e.hint = found.join(' / '); hints.push({ e, hint: e.hint }) }
+    } catch (err) { errors.push(`결과 ${e.channel}: ${err instanceof Error ? err.message : err}`) }
+  }))
+  const stamp = stampNow()
+  await saveRows('events', hints.map((h) => [stamp, h.e.id, 'hint', clean(h.hint)].join('|')))
+  return { hints, errors }
 }
 
 // ── 시트 입출력 ─────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { loadState, scan, group, formatEvents, reminderPayload, saveRows, statusRow, stampNow, kstDate } from './_events.js'
+import { loadState, scan, checkResults, group, formatEvents, reminderPayload, saveRows, statusRow, stampNow, kstDate, videoUrl } from './_events.js'
 
 /**
  * 구독자 이벤트 스캔 + 미리알림 큐 — iOS 단축어(eventsync)가 매일 09:00 에 GET 한다.
@@ -22,19 +22,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { channels, events, lastSearch } = await loadState()
     const r = await scan(channels, events, lastSearch, today)
     const everything = [...events, ...r.added]
+    const rc = await checkResults(everything, today)   // 발표일 지난 지원 건에서 내 핸들 찾기 → hint 행
     const fresh = everything.filter((e) => e.status === 'new' || (all && e.status === 'reminded'))
     if (!peek) {
       const stamp = stampNow()
       await saveRows('events', fresh.map((e) => statusRow(e.id, 'reminded', '', stamp)))
     }
-    const scanLine = `채널 ${r.scanned}개 스캔${r.searched ? ' + 검색' : ''} · 새 이벤트 ${r.added.length}건` + (r.errors.length ? ` · 실패: ${r.errors.join(', ')}` : '')
+    const errors = [...r.errors, ...rc.errors]
+    const scanLine = `채널 ${r.scanned}개 스캔${r.searched ? ' + 검색' : ''} · 새 이벤트 ${r.added.length}건 · 당첨 후보 ${rc.hints.length}건` + (errors.length ? ` · 실패: ${errors.join(', ')}` : '')
     if (text) {
       return res.status(200).setHeader('Content-Type', 'text/plain; charset=utf-8')
         .send(formatEvents(group(everything, today), today) + `\n\n${scanLine}` + (peek ? '' : `\n미리알림 큐 ${fresh.length}건 전달`))
     }
     return res.status(200).json({
       events: fresh.filter((e) => e.deadline >= today).map((e) => reminderPayload(e, today)),
-      scanned: r.scanned, added: r.added.length, errors: r.errors, peek,
+      hints: rc.hints.map((h) => ({ id: h.e.id, channel: h.e.channel, title: h.e.title, url: videoUrl(h.e.id), hint: h.hint })),
+      scanned: r.scanned, added: r.added.length, errors, peek,
     })
   } catch (e) {
     return res.status(500).setHeader('Content-Type', 'text/plain; charset=utf-8').send(`이벤트 처리 실패: ${e instanceof Error ? e.message : e}`)

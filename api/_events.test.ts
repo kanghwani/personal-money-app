@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   isEvent, extractDates, excerpt, detect, fold, group, newRow, reminderPayload, formatEvents,
-  parseEventLog, parseChannelInput, parseVideoInput, findEvents, mmddToYmd, foldChannels, lastSearchOf, SEARCH_MARK, isSearchWorthy, isTrustedEvent, type Snippet,
+  parseEventLog, parseChannelInput, parseVideoInput, findEvents, mmddToYmd, foldChannels, lastSearchOf, SEARCH_MARK, isSearchWorthy, isTrustedEvent, winnerHints, needsResultCheck, type Snippet,
 } from './_events'
 import type { HealthRow } from './_health'
 
@@ -224,5 +224,38 @@ describe('한 줄 문법', () => {
     expect(findEvents(es, '십만양품').map((e) => e.id)).toEqual(['v1'])   // v4 는 끝남, v5 는 패스
     expect(findEvents(es, '키보드').map((e) => e.id)).toEqual(['v2'])
     expect(findEvents(es, '없음')).toEqual([])
+  })
+})
+
+describe('당첨자 자동 검사', () => {
+  const H = '@김강환-b1q', CH = 'UCchannel'
+  const mine = (replies: { authorId: string; text: string }[] = []) => ({ author: H, authorId: 'UCme', text: '참여합니다!', replies })
+  it('영상 설명·채널 댓글·내 댓글에 채널 답글·새 영상 — 네 곳', () => {
+    expect(winnerHints(H, CH, { description: '당첨자: @김강환-b1q, @홍길동-xx' }, [], [])).toEqual(['영상 설명에 내 핸들'])
+    expect(winnerHints(H, CH, { description: '' }, [{ author: '@채널', authorId: CH, text: '🎉 당첨자 발표\n@김강환-b1q 님 축하드립니다', replies: [] }], [])[0]).toMatch(/^채널 댓글에 내 핸들/)
+    expect(winnerHints(H, CH, { description: '' }, [mine([{ authorId: CH, text: '당첨되셨어요! 주소 보내주세요' }])], [])).toEqual(['채널이 내 댓글에 답글: 당첨되셨어요! 주소 보내주세요'])
+    expect(winnerHints(H, CH, { description: '' }, [], [{ title: '이벤트 당첨자 발표', description: '@김강환-b1q 님' }])).toEqual(['새 영상에 내 핸들: 이벤트 당첨자 발표'])
+  })
+  it('오탐 방지: 내 댓글 자체, 다른 사람의 답글, 핸들 없음', () => {
+    expect(winnerHints(H, CH, { description: '' }, [mine([{ authorId: 'UCother', text: '저도요' }])], [])).toEqual([])
+    expect(winnerHints(H, CH, { description: '' }, [{ author: H, authorId: 'UCme', text: '@김강환-b1q 입니다', replies: [] }], [])).toEqual([])
+    expect(winnerHints('', CH, { description: '김강환-b1q' }, [], [])).toEqual([])
+  })
+  it('검사 대상: 지원함 · 발표일 지남 · 30일 이내 · 후보 없음', () => {
+    const base = fold([{ start: '2026-09-01 09:00:00', end: 'v', value: 'new', extra: 'c|t|2026-09-10|2026-09-12|x' }, { start: '2026-09-05 09:00:00', end: 'v', value: 'applied', extra: '' }])[0]
+    expect(needsResultCheck(base, '2026-09-11')).toBe(false)
+    expect(needsResultCheck(base, '2026-09-12')).toBe(true)
+    expect(needsResultCheck(base, '2026-10-13')).toBe(false)
+    expect(needsResultCheck({ ...base, hint: '이미' }, '2026-09-12')).toBe(false)
+    expect(needsResultCheck({ ...base, status: 'reminded' }, '2026-09-12')).toBe(false)
+  })
+  it('hint 행은 상태를 바꾸지 않고 붙는다', () => {
+    const e = fold([
+      { start: '2026-09-01 09:00:00', end: 'v', value: 'new', extra: 'c|t|2026-09-10|2026-09-12|x' },
+      { start: '2026-09-05 09:00:00', end: 'v', value: 'applied', extra: '' },
+      { start: '2026-09-12 09:00:00', end: 'v', value: 'hint', extra: '채널이 내 댓글에 답글: 축하' },
+    ])[0]
+    expect(e).toMatchObject({ status: 'applied', hint: '채널이 내 댓글에 답글: 축하' })
+    expect(formatEvents(group([e], '2026-09-13'), '2026-09-13')).toContain('당첨 후보 — 채널이 내 댓글에 답글')
   })
 })
