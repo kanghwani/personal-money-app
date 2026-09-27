@@ -42,7 +42,7 @@ export function monthSummary(all: Tx[], m: string, todayStr: string): string {
     return [...c.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => `  ${k} ${won(v)}`).join('\n')
   }
   return `${m} · ${exp.length}건\n결제 ${won(tot)} · 분담/환급 ${won(sp)} · 내 실지출 ${won(tot - sp)} · 수입 ${won(inc.reduce((s, t) => s + t.amount, 0))}\n` +
-    `생활고정 ${b('생활고정')} · 변동 ${b('변동')}\n부채상환 ${b('부채상환')} (대출 ${won(loan)} · 할부 ${won(inst)}) · 저축 ${b('저축')}\n` +
+    `생활비 ${won((by.get('생활고정') || 0) + (by.get('변동') || 0))} = 생활고정 ${b('생활고정')} · 변동 ${b('변동')}  (빚·할부·저축 제외)\n부채상환 ${b('부채상환')} (대출 ${won(loan)} · 할부 ${won(inst)}) · 저축 ${b('저축')}\n` +
     `\n[인사이트]\n${monthInsights(all, m, todayStr).map((l) => '  ' + l).join('\n')}` +
     `\n\n[카테고리별]\n${group('category')}\n\n[결제수단별]\n${group('payment')}`
 }

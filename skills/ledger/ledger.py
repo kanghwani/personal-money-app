@@ -161,7 +161,7 @@ def cmd_month(m=None, brief=False):
     loan = sum(net(t) for t in exp if bucket(t) == '부채상환' and (t.get('category') or '').startswith('금융'))
     print(f'\n=== {m} · {len(exp)}건 ===')
     print(f'  결제 {won(tot)} · 분담/환급 {won(sp)} · 내 실지출 {won(tot - sp)} · 수입 {won(sum(t["amount"] for t in inc))}')
-    print(f'  생활고정 {won(by["생활고정"])} · 변동 {won(by["변동"])}')
+    print(f'  생활비 {won(by["생활고정"] + by["변동"])} = 생활고정 {won(by["생활고정"])} · 변동 {won(by["변동"])}  (빚·할부·저축 제외)')
     print(f'  부채상환 {won(by["부채상환"])} (대출 {won(loan)} · 할부 {won(by["부채상환"] - loan)}) · 저축 {won(by["저축"])}')
     if brief: return
     print('\n  [인사이트]')

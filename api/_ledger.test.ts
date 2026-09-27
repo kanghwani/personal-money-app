@@ -25,7 +25,7 @@ describe('월 요약 묶음', () => {
       tx({ id: 'e', amount: 5000 }),
     ]
     const s = monthSummary([...exp, tx({ id: 'i', type: 'income', amount: 100 })], '2026-09', '2026-09-18')
-    expect(s).toContain('생활고정 347,500원 · 변동 5,000원')
+    expect(s).toContain('생활비 352,500원 = 생활고정 347,500원 · 변동 5,000원')
     expect(s).toContain('부채상환 609,612원 (대출 430,258원 · 할부 179,354원) · 저축 22,000원')
     expect(s).toContain('수입 100원')
   })
