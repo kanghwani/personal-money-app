@@ -61,7 +61,7 @@ import {
   type FixedDef,
   CARD_SPECS,
   missedBenefits,
-  installmentCharges,
+  withInstallmentCharges,
   type CardSpec,
   unusedBenefits,
   benefitBalances,
@@ -850,7 +850,7 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit, o
 
   const cardRows = useMemo(() => {
     // 할부는 결제한 달에 총액이 실적으로 잡힌다 - 인사이트 탭과 같은 기준으로 맞춘다.
-    return [...transactions, ...installmentCharges(fixedDefs)]
+    return withInstallmentCharges(transactions, fixedDefs)
   }, [transactions, fixedDefs])
   const benefitDataStatus: LedgerLoadStatus = ledgerStatus === 'error' || fixedDefsStatus === 'error'
     ? 'error'
@@ -1343,7 +1343,7 @@ function CardGuide({ transactions, monthKey }: { transactions: Transaction[]; mo
   const rows = useMemo(() => {
     // 할부는 결제한 달에 총액이 실적으로 잡힌다 - 고정비의 월 납입액만으론 그게 안 보인다.
     const defs = readFixedDefsCache()
-    return [...transactions, ...installmentCharges(defs)]
+    return withInstallmentCharges(transactions, defs)
   }, [transactions])
   const perf = useMemo(() => cardPerformance(rows as never, monthKey), [rows, monthKey])
   const missed = useMemo(() => missedBenefits(rows as never, monthKey), [rows, monthKey])
@@ -1489,7 +1489,7 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
   const colors = RING_COLORS.slice(0, 6)
   const places = placeTotals(transactions, summary.monthKey, 7)
   // 소액(1만원 미만) 카드는 노이즈라 상세에서도 뺀다. 주요 카드는 금액과 무관하게 유지.
-  const cardPerf = cardPerformance([...transactions, ...installmentCharges(readFixedDefsCache())] as never, summary.monthKey)
+  const cardPerf = cardPerformance(withInstallmentCharges(transactions, readFixedDefsCache()) as never, summary.monthKey)
     .filter((c) => c.charged >= 10000 || PRIMARY_CARDS.includes(c.name))
   const deltas = categoryDeltas(transactions, summary.monthKey, summary.previousMonth?.month).slice(0, 5)
   const maxDelta = Math.max(1, ...deltas.map((d) => Math.abs(d.delta)))

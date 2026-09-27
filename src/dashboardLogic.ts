@@ -681,6 +681,17 @@ export function installmentCharges(defs: FixedDef[]): (SplitTxLike & { payment?:
   return out
 }
 
+/**
+ * 카드 실적용 행: 원장 + 할부 총액. 총액을 결제한 달에 넣었으면 매달 자동입력되는
+ * 회차 행("스위치2 할부 (1/5)")은 빼야 한다 - 안 빼면 같은 할부가 실적에 두 번 잡힌다.
+ */
+export function withInstallmentCharges<T extends { memo?: string; payment?: string }>(transactions: T[], defs: FixedDef[]) {
+  const inst = installmentCharges(defs)
+  const injected = defs.filter((d) => d.installmentTotal && d.kind === 'expense')
+  const isMonthly = (t: T) => injected.some((d) => (t.memo || '').startsWith(d.name) && (t.payment || '').trim() === d.payment.trim())
+  return [...transactions.filter((t) => !isMonthly(t)), ...inst]
+}
+
 export type BenefitUse = {
   date: string; memo: string; amount: number; discount: number; area: string
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, benefitBalances, unusedBenefits, paymentPlaybook, previousMonthKey, isSaving, isLoanRepay, isNonSpend, isCardPayment, parseBankDeposits } from './dashboardLogic'
+import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, withInstallmentCharges, benefitBalances, unusedBenefits, paymentPlaybook, previousMonthKey, isSaving, isLoanRepay, isNonSpend, isCardPayment, parseBankDeposits } from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
   ({ date, type: 'expense', amount, category, subCategory, payment, fixedType: 'variable' })
@@ -459,6 +459,16 @@ describe('installmentCharges', () => {
 
   it('1월 시작이면 전년 12월로 넘어간다', () => {
     expect(installmentCharges([def({ startMonth: '2026-01' })])[0].date).toBe('2025-12-01')
+  })
+
+  it('총액을 넣으면 매달 자동입력된 회차 행은 실적에서 뺀다', () => {
+    const rows = withInstallmentCharges([
+      { date: '2026-09-01', type: 'expense', amount: 147200, split: 0, memo: '닌텐도 할부 (1/5)', payment: '하나카드' },
+      { date: '2026-09-02', type: 'expense', amount: 10000, split: 0, memo: '식당', payment: '하나카드' },
+    ], [def({})])
+    const perf = (m: string) => cardPerformance(rows as never, m)[0].qualified
+    expect(perf('2026-08')).toBe(736000)
+    expect(perf('2026-09')).toBe(10000)
   })
 
   it('할부가 아닌 고정비는 무시한다', () => {
