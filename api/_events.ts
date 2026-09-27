@@ -19,7 +19,9 @@ export type Event = {
   channelId?: string                  // 스캔 중에만 쓴다(구독자 수 조회). 시트엔 안 남긴다
   fromSearch?: boolean                // 검색으로 온 것 — 구독자 하한을 건다. 시트엔 안 남긴다
   hint?: string                       // 당첨 후보 근거 ("채널이 내 댓글에 답글: …"). 사람이 "당첨/탈락"으로 확정한다
+  grade?: Grade                       // 맥의 claude CLI 가 매긴 경품 가치·응모 가치(1~5). 규칙으로는 못 읽는다(경품이 이름뿐)
 }
+export type Grade = { prize: string; value: number; winners: number; worth: number }
 export type Channel = { id: string; name: string; handle: string }
 
 const STATUSES: Status[] = ['new', 'reminded', 'applied', 'won', 'lost', 'skipped']
@@ -117,6 +119,8 @@ const mark = (ymd: string, guessed: boolean) => ymd + (guessed ? '?' : '')
 export const newRow = (e: Event, stamp: string) =>
   [stamp, e.id, 'new', clean(e.channel), clean(e.title), mark(e.deadline, e.deadlineGuessed), mark(e.announce, e.announceGuessed), e.excerpt, e.comments ?? '', e.subs ?? ''].join('|')
 export const statusRow = (id: string, status: Status, note: string, stamp: string) => [stamp, id, status, clean(note)].join('|')
+/** "기록시각|videoId|grade|가치|당첨자수|응모가치|경품" */
+export const gradeRow = (id: string, g: Grade, stamp: string) => [stamp, id, 'grade', g.value, g.winners, g.worth, clean(g.prize)].join('|')
 
 /** 행들을 videoId 별로 접어 현재 상태만. new 행이 창(120일) 밖이면 그 이벤트는 사라진다 — 어차피 끝난 것. */
 export function fold(rows: HealthRow[]): Event[] {
@@ -138,18 +142,25 @@ export function fold(rows: HealthRow[]): Event[] {
     } else if (r.value === 'hint') {
       const e = byId.get(r.end)
       if (e) e.hint = r.extra ?? ''
+    } else if (r.value === 'grade') {
+      const e = byId.get(r.end)
+      const [value = '', winners = '', worth = '', ...prize] = (r.extra ?? '').split('|')
+      if (e) e.grade = { value: +value || 0, winners: +winners || 1, worth: +worth || 0, prize: prize.join('|') }
     }
   }
   return [...byId.values()]
 }
 
 export type Groups = { pending: Event[]; applied: Event[]; results: Event[]; missed: Event[] }
+export const worthOf = (e: Event) => e.grade?.worth ?? 2.5
+/** 미리알림·목록 상단에 올릴 기준. 5=꼭, 4=좋음, 3=보통 */
+export const WORTH_MIN = 4
 export function group(events: Event[], today: string): Groups {
   const byDeadline = (a: Event, b: Event) => (a.deadline < b.deadline ? -1 : a.deadline > b.deadline ? 1 : 0)
   const open = events.filter((e) => e.status === 'new' || e.status === 'reminded')
   return {
-    // 경쟁률(댓글 수) 낮은 것부터. 모르는 건 뒤로, 같으면 마감순
-    pending: open.filter((e) => e.deadline >= today).sort((a, b) => (a.comments ?? 1e9) - (b.comments ?? 1e9) || byDeadline(a, b)),
+    // 응모 가치(채점) 높은 것부터, 미채점은 중간, 같으면 댓글 적은 순, 마감순
+    pending: open.filter((e) => e.deadline >= today).sort((a, b) => worthOf(b) - worthOf(a) || (a.comments ?? 1e9) - (b.comments ?? 1e9) || byDeadline(a, b)),
     missed: open.filter((e) => e.deadline < today).sort(byDeadline),
     applied: events.filter((e) => e.status === 'applied').sort((a, b) => (a.announce < b.announce ? -1 : 1)),
     results: events.filter((e) => (e.status === 'won' || e.status === 'lost') && e.updated >= addDays(today, -30)),
@@ -164,6 +175,7 @@ export function reminderPayload(e: Event, today: string) {
     id: e.id, channel: e.channel, title: e.title, url: videoUrl(e.id),
     deadline: e.deadline, announce: e.announce, guessed: e.deadlineGuessed || e.announceGuessed,
     remindAt: `${remind}T09:00:00+09:00`, announceAt: `${e.announce}T09:00:00+09:00`, excerpt: e.excerpt, stats: stats(e),
+    grade: e.grade ?? null, status: e.status,
   }
 }
 
@@ -172,13 +184,16 @@ const head = (e: Event) => `• ${e.channel} · ${e.title}`
 const fmtN = (n: number) => (n >= 10000 ? `${(n / 10000).toFixed(n >= 100000 ? 0 : 1)}만` : String(n))
 /** "댓글 42 · 구독 3.2만" — 스캔 시점 값 */
 const stats = (e: Event) => [e.comments !== undefined ? `댓글 ${fmtN(e.comments)}` : '', e.subs !== undefined ? `구독 ${fmtN(e.subs)}` : ''].filter(Boolean).join(' · ')
+const gradeLine = (e: Event) => e.grade ? `경품 ${e.grade.prize}${e.grade.value ? ` ~${fmtN(e.grade.value)}원` : ''} ×${e.grade.winners} · 응모가치 ${e.grade.worth}/5` : '미채점'
 export function formatEvents(g: Groups, today: string): string {
   const out: string[] = [`이벤트 (${today})`]
-  out.push(`\n[지원 대기 ${g.pending.length}]` + (g.pending.length ? ' — 댓글 적은(경쟁 낮은) 순' : ' 없음'))
-  for (const e of g.pending) {
-    out.push(head(e), `  마감 ${md(e.deadline, e.deadlineGuessed)} · 발표 ${md(e.announce, e.announceGuessed)}${stats(e) ? ' · ' + stats(e) : ''} · ${videoUrl(e.id)}`)
+  const top = g.pending.filter((e) => !e.grade || e.grade.worth >= 3)   // 응모가치 3 이상(또는 미채점)만 자세히. 나머지는 수만 센다
+  out.push(`\n[지원 대기 ${g.pending.length}]` + (g.pending.length ? ` — 응모가치 순, ${top.length}건 표시` : ' 없음'))
+  for (const e of top) {
+    out.push(head(e), `  마감 ${md(e.deadline, e.deadlineGuessed)} · 발표 ${md(e.announce, e.announceGuessed)}${stats(e) ? ' · ' + stats(e) : ''} · ${gradeLine(e)} · ${videoUrl(e.id)}`)
     if (e.excerpt) out.push(`  ${e.excerpt}`)
   }
+  if (g.pending.length > top.length) out.push(`  … 응모가치 2 이하 ${g.pending.length - top.length}건 생략`)
   if (g.applied.length) {
     out.push(`\n[지원함 · 발표 대기 ${g.applied.length}]`)
     for (const e of g.applied) {

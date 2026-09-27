@@ -9,6 +9,7 @@ import { loadState, scan, checkResults, group, formatEvents, reminderPayload, sa
  * 인증: ?t=<SYNC_TOKEN> (/api/today 와 같은 통로)
  *   &peek=1       reminded 를 안 찍는다(테스트)
  *   &all=1        new 뿐 아니라 reminded 까지, 마감 안 지난 것 전부 (미리알림을 다시 만들 때). 저장 없음
+ * 응답의 events 에는 채점(grade)이 실린다. 채점은 맥 스크립트(scripts/eventsync.py)가 claude CLI 로 하고 grade 행으로 저장한다.
  *   &format=text  사람이 읽는 목록
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -36,6 +37,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     return res.status(200).json({
       events: fresh.filter((e) => e.deadline >= today).map((e) => reminderPayload(e, today)),
+      // [결과] 미리알림은 응모한 것만. 발표일이 어제 이후인 지원 건
+      applied: everything.filter((e) => e.status === 'applied' && e.announce >= kstDate(Date.now() - 86400_000)).map((e) => reminderPayload(e, today)),
       hints: rc.hints.map((h) => ({ id: h.e.id, channel: h.e.channel, title: h.e.title, url: videoUrl(h.e.id), hint: h.hint })),
       scanned: r.scanned, added: r.added.length, errors, peek,
     })

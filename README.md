@@ -68,7 +68,8 @@ cd gas && clasp push -f && clasp deploy --deploymentId AKfycby2so1RyMqyuEaKEfOtS
 | 폰 입력·조회 | MCP `event_list`, `event_log` |
 | 저장 | 건강 데이터 스프레드시트 탭 `events`·`event_channels` (GAS 수정 없음, 추가만) |
 | 당첨 검사 | `checkResults` — 발표일 지난 지원 건마다 영상 설명·상단 댓글·채널의 내 댓글 답글·채널 새 영상에서 `YT_HANDLE` 을 찾아 `hint` 행. 확정은 사람이 "당첨/탈락". 커뮤니티 게시글은 못 본다 |
-| 맥 알림 | `scripts/eventsync.sh`(+`eventsync.js`) — launchd(`scripts/com.hwan.eventsync.plist`)가 매일 09:00·로그인 시 실행, 미리알림 "이벤트" 목록에 [지원]/[결과] 생성. `ALL=1` 이면 남은 이벤트 전부 다시 |
+| 채점 | `scripts/eventsync.py` 가 미채점 이벤트를 `claude -p --model haiku` 로 채점(경품·1인분 가치·당첨자수·응모가치 1~5) → `grade` 행. 규칙으로는 못 한다 — 경품이 이름뿐이라 금액 정규식은 91건 중 14건만, 그마저 영상 속 가격을 집었다 |
+| 맥 알림 | `scripts/eventsync.sh`(+`eventsync.js`) — launchd(`scripts/com.hwan.eventsync.plist`)가 매일 09:00·로그인 시 실행, 미리알림 "이벤트" 목록에 **응모가치 4 이상**만 [지원], **응모한 것만** [결과], 당첨 후보는 [당첨확인]. `ALL=1` 이면 남은 이벤트 전부 다시, `WORTH_MIN=3` 으로 기준 조정 |
 | 폰 단축어(미검증) | `python3 gas/build_event_shortcut.py <out_dir>` → `shortcuts sign`. 미리알림 기한이 안 들어가는 문제 있음 |
 
 **채널 RSS 는 못 쓴다.** 십만양품·디에디트·기즈모가 404, ITSub 이 500 을 돌려준다(채널마다 다르고 채널 페이지는 RSS 링크를 광고한다).

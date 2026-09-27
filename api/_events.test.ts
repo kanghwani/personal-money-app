@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   isEvent, extractDates, excerpt, detect, fold, group, newRow, reminderPayload, formatEvents,
-  parseEventLog, parseChannelInput, parseVideoInput, findEvents, mmddToYmd, foldChannels, lastSearchOf, SEARCH_MARK, isSearchWorthy, isTrustedEvent, winnerHints, needsResultCheck, type Snippet,
+  parseEventLog, parseChannelInput, parseVideoInput, findEvents, mmddToYmd, foldChannels, lastSearchOf, SEARCH_MARK, isSearchWorthy, isTrustedEvent, winnerHints, needsResultCheck, gradeRow, worthOf, type Snippet,
 } from './_events'
 import type { HealthRow } from './_health'
 
@@ -257,5 +257,28 @@ describe('당첨자 자동 검사', () => {
     ])[0]
     expect(e).toMatchObject({ status: 'applied', hint: '채널이 내 댓글에 답글: 축하' })
     expect(formatEvents(group([e], '2026-09-13'), '2026-09-13')).toContain('당첨 후보 — 채널이 내 댓글에 답글')
+  })
+})
+
+describe('채점(grade)', () => {
+  const base = (id: string, comments: number) => ({ start: '2026-09-20 09:00:00', end: id, value: 'new', extra: `c|${id}|2026-09-30|2026-10-05|x|${comments}|1000` })
+  it('grade 행이 붙고 왕복한다', () => {
+    const row = gradeRow('a', { prize: '피규어|굿즈 50만원', value: 500000, winners: 1, worth: 4 }, '2026-09-21 09:00:00')
+    expect(row).toBe('2026-09-21 09:00:00|a|grade|500000|1|4|피규어 굿즈 50만원')
+    const [start, end, value, ...extra] = row.split('|')
+    const e = fold([base('a', 10), { start, end, value, extra: extra.join('|') }])[0]
+    expect(e.grade).toEqual({ prize: '피규어 굿즈 50만원', value: 500000, winners: 1, worth: 4 })
+  })
+  it('지원 대기는 응모가치 순, 미채점은 중간(2.5), 낮은 건 목록에서 생략', () => {
+    const es = fold([
+      base('low', 0), { start: '2026-09-21 09:00:00', end: 'low', value: 'grade', extra: '3000|5|2|상품권 3천원' },
+      base('none', 5),
+      base('high', 300), { start: '2026-09-21 09:00:00', end: 'high', value: 'grade', extra: '500000|1|4|피규어' },
+    ])
+    const g = group(es, '2026-09-21')
+    expect(g.pending.map((e) => e.id)).toEqual(['high', 'none', 'low'])
+    expect(worthOf(es.find((e) => e.id === 'none')!)).toBe(2.5)
+    const t = formatEvents(g, '2026-09-21')
+    expect(t).toContain('응모가치 4/5'); expect(t).toContain('미채점'); expect(t).toContain('응모가치 2 이하 1건 생략'); expect(t).not.toContain('상품권 3천원')
   })
 })

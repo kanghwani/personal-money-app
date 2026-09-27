@@ -8,7 +8,7 @@
        단축어 대신 스크립트: 단축어의 미리알림 액션이 기한을 못 넣고 일부를 빠뜨렸다(2026-09-22). -->
   <key>Label</key><string>com.hwan.eventsync</string>
   <key>ProgramArguments</key>
-  <array><string>/bin/zsh</string><string>/Users/hwan/dev/paused/money-app/personal-money-app/scripts/eventsync.sh</string></array>
+  <array><string>/usr/bin/python3</string><string>/Users/hwan/dev/paused/money-app/personal-money-app/scripts/eventsync.py</string></array>
   <key>StartCalendarInterval</key>
   <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
   <key>RunAtLoad</key><true/>
