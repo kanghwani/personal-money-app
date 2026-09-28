@@ -698,7 +698,7 @@ describe('isCardPayment', () => {
     for (const n of ['하나카드', 'NH카드', '국민카드', '삼성카드']) expect(isCardPayment(n)).toBe(true)
   })
   it('계좌·현금·페이·뱅크는 실적이 안 쌓인다', () => {
-    for (const n of ['현금', '계좌이체', '미상', '국민계좌', '네이버페이', '토스뱅크'])
+    for (const n of ['현금', '계좌이체', '미상', '국민계좌', '네이버페이', '토스뱅크', '이음카드'])
       expect(isCardPayment(n)).toBe(false)
   })
   it('국민계좌가 국민카드로 섞이지 않는다', () => {
@@ -775,8 +775,8 @@ describe('isCardPayment', () => {
   // 제외 목록 방식일 때는 원장에 새 표기가 하나 들어올 때마다 유령 카드가 생겼다.
   // '온라인결제'·'알리'·'온누리상품권' 이 각각 카드 한 장으로 실적에 잡히고 있었다.
   it('카드처럼 보이는 것만 카드로 본다', () => {
-    for (const n of ['하나카드', 'NH카드', '이음카드', '여친카드', '토스체크']) expect(isCardPayment(n)).toBe(true)
-    for (const n of ['현금', '계좌이체', '미상', '카드/현금', '국민계좌', '네이버페이', '토스뱅크',
+    for (const n of ['하나카드', 'NH카드', '여친카드', '토스체크']) expect(isCardPayment(n)).toBe(true)
+    for (const n of ['현금', '이음카드', '계좌이체', '미상', '카드/현금', '국민계좌', '네이버페이', '토스뱅크',
       '온라인결제', '알리', '온누리상품권', '토스', '카드/이체', '현금/이체', '페이']) expect(isCardPayment(n)).toBe(false)
   })
 })

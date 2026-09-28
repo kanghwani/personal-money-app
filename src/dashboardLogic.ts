@@ -339,6 +339,7 @@ const KNOWN_CARDS = ['토스체크', '아멕스']
 export const isCardPayment = (name: string) => {
   const n = (name || '').trim()
   if (n === '카드/현금') return false     // 어느 쪽인지 모르는 기록
+  if (n === '이음카드') return false       // 지역화폐(선불). 충전·결제 모두 신용카드 실적과 무관
   return n.endsWith('카드') || KNOWN_CARDS.includes(n)
 }
 

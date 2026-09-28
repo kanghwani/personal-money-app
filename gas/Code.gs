@@ -967,6 +967,24 @@ function batchReclassify_(ss, items) {
   return { ok: true, updated: n, missed: miss };
 }
 
+// 인천e음 캐시백 10%를 '환급' 분담금으로 기록한다 → 실지출은 결제액의 90%, 분담금 목록엔 안 뜬다.
+// ponytail: 정책이 자주 바뀐다(한도·지급률). 바뀌면 여기와 api/_ledger.ts·ledger.py 의 EUM 을 같이 고친다.
+var EUM = { payment: '이음카드', rate: 0.1, limit: 500000, limitByMonth: { '2026-09': 1000000 }, tag: ' · e음 캐시백 환급' };
+function eumCashback_(ss, date, amount) {
+  var month = String(date).slice(0, 7);
+  var values = ledgerSheet_(ss).getDataRange().getValues();
+  var idx = makeIndex_(values[0]), used = 0;
+  for (var r = 1; r < values.length; r++) {
+    var d = values[r][idx['날짜']];
+    var ds = (d instanceof Date) ? formatDate_(d) : String(d);
+    if (ds.slice(0, 7) === month && String(values[r][idx['결제수단']]) === EUM.payment && values[r][idx['구분']] === '지출') {
+      used += Number(values[r][idx['금액']]) || 0;
+    }
+  }
+  var limit = EUM.limitByMonth[month] || EUM.limit;
+  return Math.floor(Math.min(amount, Math.max(0, limit - used)) * EUM.rate);
+}
+
 // 앱 거래를 원장에 추가. 앱의 id를 그대로 써서 중복 병합 가능. 같은 id 있으면 추가 안 함.
 function appendLedgerRow_(ss, tx) {
   var id = String(tx.id || '') || Utilities.getUuid();
@@ -980,9 +998,14 @@ function appendLedgerRow_(ss, tx) {
   var amount = Number(tx.amount) || 0;
   var split = Number(tx.split) || 0;
   var date = String(tx.date || formatDate_(new Date()));
+  var memo = String(tx.memo || '');
+  if (type === '지출' && !split && String(tx.payment || '') === EUM.payment) {
+    split = eumCashback_(ss, date, amount);
+    if (split) memo += EUM.tag;
+  }
   sheet.appendRow([
     id, new Date(), date, date.slice(0, 7), type, tx.fixedType === 'fixed' ? '고정' : '변동',
-    String(tx.category || '미분류'), String(tx.subCategory || ''), String(tx.memo || ''), amount,
+    String(tx.category || '미분류'), String(tx.subCategory || ''), memo, amount,
     String(tx.payment || ''), String(tx.tags || ''), split || '', type === '지출' ? amount - split : amount,
     'app', '', '', String(tx.raw || '')
   ]);
@@ -1020,7 +1043,11 @@ function handleQuickText_(ss, body) {
   const status = parsed.amount && parsed.memo ? '완료' : '확인필요';
   const now = new Date();
   const month = parsed.date.slice(0, 7);
-  const split = Number(body.split || body.share || parsed.split || 0) || 0;
+  let split = Number(body.split || body.share || parsed.split || 0) || 0;
+  if (parsed.type === '지출' && !split && parsed.payment === EUM.payment && parsed.amount) {
+    split = eumCashback_(ss, parsed.date, parsed.amount);
+    if (split) parsed.memo += EUM.tag;
+  }
   const realSpend = parsed.type === '지출' ? parsed.amount - split : parsed.amount;
 
   fastSheet_(ss).appendRow([

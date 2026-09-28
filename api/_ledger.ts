@@ -12,6 +12,8 @@ export const REFUND_WORDS = ['환급', '리워드', '피클']
 // ponytail: 이 날짜 전의 분담금은 '받음' 표시가 없어도 정산된 것으로 본다(옛 기록 40여 건에 표시가 없다).
 export const SETTLE_SINCE = '2026-09-01'
 export const SETTLED = '받음'
+// 인천e음: gas/Code.gs 의 EUM 과 같은 값. 정책이 바뀌면 셋(gas·여기·ledger.py)을 같이 고친다.
+export const EUM = { payment: '이음카드', limit: 500000, limitByMonth: { '2026-09': 1000000 } as Record<string, number> }
 
 const won = (n: number) => `${n.toLocaleString('ko-KR')}원`
 const net = (t: Tx) => t.amount - (t.split || 0)
@@ -43,8 +45,16 @@ export function monthSummary(all: Tx[], m: string, todayStr: string): string {
   }
   return `${m} · ${exp.length}건\n결제 ${won(tot)} · 분담/환급 ${won(sp)} · 내 실지출 ${won(tot - sp)} · 수입 ${won(inc.reduce((s, t) => s + t.amount, 0))}\n` +
     `생활비 ${won((by.get('생활고정') || 0) + (by.get('변동') || 0))} = 생활고정 ${b('생활고정')} · 변동 ${b('변동')}  (빚·할부·저축 제외)\n부채상환 ${b('부채상환')} (대출 ${won(loan)} · 할부 ${won(inst)}) · 저축 ${b('저축')}\n` +
+    eumLine(exp, m) +
     `\n[인사이트]\n${monthInsights(all, m, todayStr).map((l) => '  ' + l).join('\n')}` +
     `\n\n[카테고리별]\n${group('category')}\n\n[결제수단별]\n${group('payment')}`
+}
+
+function eumLine(exp: Tx[], m: string): string {
+  const e = exp.filter((t) => t.payment === EUM.payment)
+  if (!e.length) return ''
+  const used = e.reduce((s, t) => s + t.amount, 0), limit = EUM.limitByMonth[m] || EUM.limit
+  return `이음카드 ${won(used)} / 한도 ${won(limit)} · 캐시백 ${won(e.reduce((s, t) => s + (t.split || 0), 0))} · 남은 한도 ${won(Math.max(0, limit - used))}\n`
 }
 
 const prevMonth = (m: string) => { const d = new Date(m + '-01T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 7) }

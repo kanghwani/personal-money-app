@@ -117,6 +117,7 @@ PEOPLE = {'여친': ['브리', '여친', '여자친구'], '형': ['형'], '엄�
 REFUND_WORDS = ['환급', '리워드', '피클']
 SETTLE_SINCE = '2026-09-01'   # ponytail: 이 날짜 전의 분담금은 '받음' 표시가 없어도 정산된 것으로 본다
 SETTLED = '받음'
+EUM = {'payment': '이음카드', 'limit': 500000, 'by_month': {'2026-09': 1000000}}   # gas·_ledger.ts 와 같은 값
 def has(t, ws): return any(w in (t.get('memo') or '') for w in ws)
 def net(t): return t['amount'] - t.get('split', 0)
 def bucket(t):
@@ -163,6 +164,10 @@ def cmd_month(m=None, brief=False):
     print(f'  결제 {won(tot)} · 분담/환급 {won(sp)} · 내 실지출 {won(tot - sp)} · 수입 {won(sum(t["amount"] for t in inc))}')
     print(f'  생활비 {won(by["생활고정"] + by["변동"])} = 생활고정 {won(by["생활고정"])} · 변동 {won(by["변동"])}  (빚·할부·저축 제외)')
     print(f'  부채상환 {won(by["부채상환"])} (대출 {won(loan)} · 할부 {won(by["부채상환"] - loan)}) · 저축 {won(by["저축"])}')
+    e = [t for t in exp if t.get('payment') == EUM['payment']]
+    if e:
+        used = sum(t['amount'] for t in e); lim = EUM['by_month'].get(m, EUM['limit'])
+        print(f"  이음카드 {won(used)} / 한도 {won(lim)} · 캐시백 {won(sum(t.get('split', 0) for t in e))} · 남은 한도 {won(max(0, lim - used))}")
     if brief: return
     print('\n  [인사이트]')
     for l in month_insights(d, m): print('    ' + l)
