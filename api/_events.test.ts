@@ -102,6 +102,7 @@ describe('발췌·행', () => {
   })
   it('검색 결과 거르기: 경품 언급·라이브 아님·결과 영상 아님 (실검색 사례)', () => {
     expect(isSearchWorthy(snip({ title: '[#EVENT] 에어다운 압축 파우치 "신제품 증정" 이벤트🎁', description: '구독과 좋아요 후 댓글' }))).toBe(true)
+    expect(isSearchWorthy(snip({ title: '[💜구독이벤트] APEX 6 PRO 출시! 나오자마자 20000대 순삭', description: '0:00 인트로\n10:54 구독이벤트' }))).toBe(true)  // 경품은 영상 안에서만
     expect(isSearchWorthy(snip({ title: '구독자 200명 되면 친추 이벤트 하겠습니다', description: '댓글에 닉네임' }))).toBe(false)  // 경품 없음
     expect(isSearchWorthy(snip({ title: '✨ 구독자 이벤트 선정 결과 ✨', description: '선물 발송' }))).toBe(false)                 // 결과 영상
     expect(isSearchWorthy(snip({ title: '구독자 나눔 이벤트 라이브 경품 추첨', description: '', live: true }))).toBe(false)     // 라이브

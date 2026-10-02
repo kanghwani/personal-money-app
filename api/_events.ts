@@ -37,7 +37,9 @@ export const isEvent = (title: string, desc: string) => EVENT_RE.test(title + '\
  */
 const PRIZE_RE = /증정|경품|선물|기프티콘|상품권|나눔|추첨|선정|뽑/
 export const SEARCH_MIN_SUBS = 1000
-export const isSearchWorthy = (s: Snippet) => !s.live && !/결과|당첨자/.test(s.title) && PRIZE_RE.test(s.title + '\n' + s.description)
+// 제목에 "구독이벤트"·"댓글 이벤트"를 박은 영상은 경품을 영상 안에서만 말해도 이벤트다(예: [💜구독이벤트] APEX 6 PRO — 설명란에 경품 단어 없음)
+const TITLE_EVENT_RE = /(구독자?|댓글)\s?이벤트/
+export const isSearchWorthy = (s: Snippet) => !s.live && !/결과|당첨자/.test(s.title) && (TITLE_EVENT_RE.test(s.title) || PRIZE_RE.test(s.title + '\n' + s.description))
 
 // ── 날짜 ────────────────────────────────────────────────────
 const DAY = 86400_000
