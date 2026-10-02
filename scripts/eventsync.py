@@ -7,7 +7,7 @@
   3. 미리알림 "이벤트" 목록에 [지원]은 응모가치 >= WORTH_MIN 만, [결과]는 응모한 것만, [당첨확인]은 후보가 나오면.
   ALL=1 → 서버에 남은 이벤트 전부 다시(미리알림을 지웠을 때). 같은 제목은 다시 만들지 않는다.
 """
-import json, os, pathlib, re, subprocess, sys, tempfile, urllib.parse, urllib.request
+import json, os, pathlib, re, subprocess, sys, tempfile, time, urllib.parse, urllib.request
 from datetime import datetime
 
 DIR = pathlib.Path(__file__).resolve().parent
@@ -61,7 +61,13 @@ def main():
     keep = [e for e in data['events'] if e.get('grade') and int(e['grade'].get('worth') or 0) >= WORTH_MIN]
     payload = {'events': keep, 'applied': data.get('applied', []), 'hints': data.get('hints', [])}
     tmp = tempfile.NamedTemporaryFile('w', suffix='.json', delete=False, encoding='utf-8'); json.dump(payload, tmp, ensure_ascii=False); tmp.close()
-    r = subprocess.run(['/usr/bin/osascript', '-l', 'JavaScript', str(DIR / 'eventsync.js'), tmp.name], capture_output=True, text=True)
+    # 맥이 잠겨 있으면 미리알림이 AppleEvent 시간 초과(-1712)로 실패한다. 서버는 이벤트를 하루 한 번만 주니
+    # 다음 날로 미루면 그날 알림이 사라진다 → 같은 payload 로 1시간 뒤 한 번 더.
+    for attempt in (1, 2):
+        r = subprocess.run(['/usr/bin/osascript', '-l', 'JavaScript', str(DIR / 'eventsync.js'), tmp.name], capture_output=True, text=True)
+        if r.returncode == 0 or attempt == 2: break
+        log('미리알림 실패, 1시간 뒤 재시도:', r.stderr.strip()[:200])
+        time.sleep(3600)
     os.unlink(tmp.name)
     log(f"이벤트 {len(data['events'])}건(채점 {len(graded)}) · 알림 대상 {len(keep)}건(가치≥{WORTH_MIN}) · 응모중 {len(payload['applied'])} · 당첨후보 {len(payload['hints'])} · 스캔 {data.get('scanned')}채널 +{data.get('added')}"
         + (f" · 실패 {', '.join(data['errors'])}" if data.get('errors') else '') + ' · ' + (r.stdout.strip() or r.stderr.strip()))
