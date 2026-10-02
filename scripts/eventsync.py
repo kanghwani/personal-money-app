@@ -53,6 +53,13 @@ def grade(events):
 VIP = {'이마트24': 10000}
 vip = lambda e: any(k in e['channel'] and int(e['grade'].get('value') or 0) >= v for k, v in VIP.items())
 
+# 큰 회사의 큰 이벤트는 댓글이 많아 응모가치(기대값)가 낮게 나오지만 놓치기 싫다 → 구독 10만↑ 채널이고
+# 1인 경품 10만원↑ 또는 총 경품 50만원↑ 이면 알린다. 구독 수는 서버가 stats 에 "구독 38만" 꼴로 준다.
+def subs(e):
+    m = re.search(r'구독 ([\d.]+)(만)?', e.get('stats') or '')
+    return int(float(m.group(1)) * (10000 if m.group(2) else 1)) if m else 0
+big = lambda e: subs(e) >= 100000 and (int(e['grade'].get('value') or 0) >= 100000 or int(e['grade'].get('value') or 0) * int(e['grade'].get('winners') or 1) >= 500000)
+
 stamp = lambda: datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 def main():
@@ -62,7 +69,7 @@ def main():
     graded = grade(fresh)
     for e in data['events']:
         if e['id'] in graded: e['grade'] = graded[e['id']]
-    keep = [e for e in data['events'] if e.get('grade') and (int(e['grade'].get('worth') or 0) >= WORTH_MIN or vip(e))]
+    keep = [e for e in data['events'] if e.get('grade') and (int(e['grade'].get('worth') or 0) >= WORTH_MIN or vip(e) or big(e))]
     payload = {'events': keep, 'applied': data.get('applied', []), 'hints': data.get('hints', [])}
     tmp = tempfile.NamedTemporaryFile('w', suffix='.json', delete=False, encoding='utf-8'); json.dump(payload, tmp, ensure_ascii=False); tmp.close()
     # 맥이 잠겨 있으면 미리알림이 AppleEvent 시간 초과(-1712)로 실패한다. 서버는 이벤트를 하루 한 번만 주니
