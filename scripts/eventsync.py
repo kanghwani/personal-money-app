@@ -49,6 +49,10 @@ def grade(events):
     if rows: gas_post({'action': 'health', 'type': 'events', 'rows': '\n'.join(rows)})
     return graded
 
+# 당첨 경험이 있는 채널은 응모가치와 무관하게 경품이 이 금액 이상이면 알린다 (이마트24: 3천원권 당첨, 1만원↑만 원함)
+VIP = {'이마트24': 10000}
+vip = lambda e: any(k in e['channel'] and int(e['grade'].get('value') or 0) >= v for k, v in VIP.items())
+
 stamp = lambda: datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 def main():
@@ -58,7 +62,7 @@ def main():
     graded = grade(fresh)
     for e in data['events']:
         if e['id'] in graded: e['grade'] = graded[e['id']]
-    keep = [e for e in data['events'] if e.get('grade') and int(e['grade'].get('worth') or 0) >= WORTH_MIN]
+    keep = [e for e in data['events'] if e.get('grade') and (int(e['grade'].get('worth') or 0) >= WORTH_MIN or vip(e))]
     payload = {'events': keep, 'applied': data.get('applied', []), 'hints': data.get('hints', [])}
     tmp = tempfile.NamedTemporaryFile('w', suffix='.json', delete=False, encoding='utf-8'); json.dump(payload, tmp, ensure_ascii=False); tmp.close()
     # 맥이 잠겨 있으면 미리알림이 AppleEvent 시간 초과(-1712)로 실패한다. 서버는 이벤트를 하루 한 번만 주니
