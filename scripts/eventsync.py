@@ -15,7 +15,7 @@ ENV = dict(l.split('=', 1) for l in (DIR / '../.env').read_text().splitlines() i
 TOKEN, GAS = ENV['VITE_SYNC_TOKEN'].strip(), ENV['VITE_SYNC_URL'].strip()
 BASE = 'https://personal-money-app-seven.vercel.app'
 WORTH_MIN = int(os.environ.get('WORTH_MIN', '4'))
-CLAUDE = next((p for p in [os.path.expanduser('~/.local/node-current/bin/claude'), '/opt/homebrew/bin/claude', '/usr/local/bin/claude'] if os.path.exists(p)), 'claude')
+CLAUDE = next((p for p in [os.path.expanduser('~/.local/bin/claude'), os.path.expanduser('~/.local/node-current/bin/claude'), '/opt/homebrew/bin/claude', '/usr/local/bin/claude'] if os.path.exists(p)), 'claude')
 log = lambda *a: print(datetime.now().strftime('%Y-%m-%dT%H:%M:%S'), *a, flush=True)
 
 PROMPT = """아래는 유튜브 구독자 이벤트 목록이다. 각각 응모할 가치를 채점해 JSON 배열만 출력해라(설명·코드펜스 없이).
