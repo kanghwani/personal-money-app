@@ -276,7 +276,7 @@ def cmd_edit(id8, pairs):
         if k == 'cat': t['category'] = v
         elif k == 'sub': t['subCategory'] = v
         elif k == 'fixed': t['fixedType'] = 'fixed' if v in ('1', 'fixed', '고정') else 'variable'
-        else: t[k] = FIELDS[k](v)
+        else: t[k] = FIELDS[k](v.strip() if k == 'payment' else v)
     post({'action': 'updateLedger', 'tx': t})
     chg = [f"{k}: {before.get(k)} → {t.get(k)}" for k in t if before.get(k) != t.get(k)]
     print(f"수정 {t['id'][:8]} {t.get('memo')}\n  " + '\n  '.join(chg))
