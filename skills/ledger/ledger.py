@@ -150,7 +150,16 @@ def month_insights(d, m):
         k, val = cur.most_common(1)[0]; out.append(f'변동 1위 {k} {won(val)} (지난달 {won(prv.get(k, 0))})')
     open_ = [t for t in d if is_split(t) and not is_refund(t) and not is_settled(t)]
     if open_: out.append(f'안 받은 분담금 {won(ssum(open_))}: ' + ' · '.join(f'{w} {won(ssum(ts))} {len(ts)}건' for w, ts in by_who(open_)))
+    gap = side_income_gap(d, m, today)
+    if gap: out.append(gap)
     return out
+
+def side_income_gap(d, m, today):
+    """_ledger.ts sideIncomeGap 사본 — 끝난 달에 부수입이 0이면 플랫폼 정산을 빠뜨린 것. 이번 달을 보면 지난달을 본다."""
+    target = prev_month(m) if today.startswith(m) else m
+    if today[:7] <= target: return ''
+    has_ = any(t.get('type') == 'income' and (t.get('date') or '').startswith(target) and t.get('subCategory') == '부수입' for t in d)
+    return '' if has_ else f'{target} 부수입 0건 ⚠ 배민·쿠팡이츠·펫택시·퀵 정산 넣었어?'
 
 def cmd_month(m=None, brief=False):
     m = ym(m); d = rows()
@@ -282,6 +291,84 @@ def cmd_rm(id8):
     post({'action': 'deleteLedger', 'id': t['id']})
     print(f"삭제 {t['id'][:8]} {t.get('date')} {t.get('memo')} {t.get('amount', 0):,}원")
 
+# ── 카드 내역 대조 ─────────────────────────────────────────
+# 카드사 이용내역(붙여넣은 텍스트)을 원장·형 가게 장부와 금액 일치 + 날짜 ±7일로 맞춘다.
+# 2026-10 현대카드 48건을 손으로 대조했다 — 매달 하는 일이라 명령으로 둔다. 가게 장부는 읽기만 한다(원장에 안 넣음).
+DATE_RE = re.compile(r'(20\d\d)[.\-/](\d\d)[.\-/](\d\d)')
+AMT_RE = re.compile(r'^₩?-?[\d,]+$')
+def _fields(line): return [f.strip() for f in re.split(r'\t|\s{2,}', line) if f.strip()]
+def _amt(f): return int(f.replace('₩', '').replace(',', ''))
+
+def parse_statement(text):
+    """카드사 이용내역 → [(날짜, 가맹점, 금액)]. 날짜로 시작하는 줄만, 카드번호는 건너뛰고 첫 글자 필드가 가맹점, 그다음 숫자가 금액."""
+    out = []
+    for line in text.splitlines():
+        f = _fields(line); m = DATE_RE.match(f[0]) if f else None
+        if not m: continue
+        rest = [x for x in f[1:] if not re.match(r'^\d{4}-\d{4}', x)]
+        i = next((k for k, x in enumerate(rest) if not AMT_RE.match(x)), None)
+        amt = next((x for x in rest[i + 1:] if AMT_RE.match(x)), None) if i is not None else None
+        if amt: out.append(('-'.join(m.groups()), rest[i], _amt(amt)))
+    return out
+
+def parse_shop(text, card, owner):
+    """형 가게 장부(시트 복사) → 내 카드·내 명의 결제분 [(날짜, 품목, 금액, 결제수단)]."""
+    out = []
+    for line in text.splitlines():
+        f = _fields(line); m = next((DATE_RE.match(x) for x in f if DATE_RE.match(x)), None)
+        k = next((j for j, x in enumerate(f) if x.startswith('₩')), None)
+        if not m or k is None: continue
+        pay = f[k + 1] if k + 1 < len(f) else ''
+        if pay == card or (owner and owner in f[k + 1:]):
+            out.append(('-'.join(m.groups()), f[k - 2] if k >= 2 else '', _amt(f[k]), pay))
+    return out
+
+def match(a, b, days=7):
+    """a·b 는 (날짜, …, 금액, …) 목록. 금액 같고 날짜 가장 가까운 것끼리 짝. 남은 a, 남은 b 의 인덱스를 돌려준다."""
+    from datetime import date as D
+    used = set(); left = []
+    for i, x in enumerate(a):
+        c = [(abs((D.fromisoformat(x[0]) - D.fromisoformat(y[0])).days), j) for j, y in enumerate(b)
+             if j not in used and y[2] == x[2] and abs((D.fromisoformat(x[0]) - D.fromisoformat(y[0])).days) <= days]
+        if c: used.add(min(c)[1])
+        else: left.append(i)
+    return left, [j for j in range(len(b)) if j not in used]
+
+def cmd_recon(card, stmt_path, shop_path=None, owner='', prepaid=0):
+    st = parse_statement(open(stmt_path).read())
+    if not st: sys.exit('이용내역에서 날짜로 시작하는 줄을 못 찾았습니다')
+    lo, hi = min(x[0] for x in st), max(x[0] for x in st)
+    mine = [(t['date'], t.get('memo'), t['amount'], t['id'][:8]) for t in rows()
+            if (t.get('payment') or '').strip() == card and t.get('type') == 'expense' and lo <= t['date'] <= hi]
+    shop = parse_shop(open(shop_path).read(), card, owner) if shop_path else []
+    shop_card = [x for x in shop if x[3] == card]
+    st_left, _ = match(st, mine)                                   # 카드엔 있는데 내 원장에 없음
+    rest = [st[i] for i in st_left]
+    rest_left, shop_unused = match(rest, shop_card)                # 그중 형 장부에도 없음
+    mine_left, _ = match(mine, st)                                 # 원장엔 있는데 카드에 없음
+    print(f'=== {card} 대조 {lo} ~ {hi} · 카드 {len(st)}건 {won(sum(x[2] for x in st))} · 원장 {len(mine)}건 · 형 장부 {len(shop_card)}건 ===')
+    print(f'\n[카드에만 있음 — 내 것/형 것 확인] {len(rest_left)}건')
+    for i in rest_left: d, n, a = rest[i]; print(f'  {d[5:]} {n} {a:,}' + ('  (취소)' if a < 0 else ''))
+    print(f'\n[원장엔 {card}인데 카드 내역에 없음 — 결제수단·금액 확인] {len(mine_left)}건')
+    for j in mine_left: d, n, a, i8 = mine[j]; print(f'  {i8} {d[5:]} {n} {a:,}')
+    if shop_path:
+        print(f'\n[형 장부엔 {card}인데 카드 내역에 없음 — 형 장부 오타·다른 달] {len(shop_unused)}건')
+        for j in shop_unused: d, n, a, _ = shop_card[j]; print(f'  {d[5:]} {n} {a:,}')
+        other = [x for x in shop if x[3] != card]
+        mon = lo[:7]
+        ins = sum(t['split'] for t in rows() if t['date'].startswith(mon) and is_split(t) and who(t) == '형' and not is_refund(t))
+        tot = sum(x[2] for x in shop) + ins - prepaid
+        print(f'\n[형 정산 {mon}] 장부의 내 카드·명의 결제 {won(sum(x[2] for x in shop))} (그중 다른 카드 {won(sum(x[2] for x in other))})'
+              f' + 4대보험 형 몫 {won(ins)} − 선결제 {won(prepaid)} = {won(tot)}')
+        print('  ※ 카드에만 있는 것 중 형 것이 있으면 더하고, 형 장부 오타는 고친 뒤 다시 돌린다')
+
+def _recon_selfcheck():
+    st = parse_statement('2026.09.29\t4689-1300-0301-6610\t한국정보통신 - 쿠팡\t52,100\t52,100\t4,736\t본인\n2026.09.19    4689-1300-0301-6610    쿠팡 취소    -18,300    -18,300    0\n합 계\t48건')
+    assert st == [('2026-09-29', '한국정보통신 - 쿠팡', 52100), ('2026-09-19', '쿠팡 취소', -18300)], st
+    sh = parse_shop('2026-09-01\t지출\t고정비\t공과금\t한국전력\t8월 전기요금\t매장운영\t₩179,510\t우리카드\t김강환\n2026-09-29\t지출\t식재료\t야채\t럭키마트\t새송이\t식재료\t₩13,170\t현대카드\t\n2026-09-13\t지출\t매장운영\t공산\t네이버\t포장용기\t매장운영\t₩34,300\t현금\t기환', '현대카드', '김강환')
+    assert [x[2] for x in sh] == [179510, 13170], sh
+    assert match([('2026-09-01', '', 5940)], [('2026-09-24', '', 5940), ('2026-09-02', '', 5940)]) == ([], [0])
+
 def main():
     a = sys.argv[1:] or ['check']
     c = a[0]
@@ -297,6 +384,10 @@ def main():
     elif c == 'edit':  cmd_edit(a[1], a[2:])
     elif c == 'half':  cmd_half(a[1])
     elif c == 'rm':    cmd_rm(a[1])
+    elif c == 'recon':  # recon <카드> <이용내역파일> [형장부파일] [owner=김강환] [prepaid=1000000]
+        kv = dict(x.split('=', 1) for x in a[2:] if '=' in x); files = [x for x in a[2:] if '=' not in x]
+        cmd_recon(a[1], files[0], files[1] if len(files) > 1 else None, kv.get('owner', ''), int(kv.get('prepaid', 0)))
+    elif c == 'selftest': _recon_selfcheck(); print('ok')
     else: print(__doc__)
 
 if __name__ == '__main__':

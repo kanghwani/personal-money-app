@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bucketOf, monthSummary, monthInsights, splitReport, settleTargets, settledMemo, type Tx } from './_ledger.js'
+import { bucketOf, monthSummary, monthInsights, sideIncomeGap, splitReport, settleTargets, settledMemo, type Tx } from './_ledger.js'
 
 const tx = (p: Partial<Tx>): Tx => ({
   id: 'aaaaaaaa-1', date: '2026-09-05', type: 'expense', amount: 1000, memo: '', category: '', subCategory: '',
@@ -44,7 +44,8 @@ describe('월 요약 묶음', () => {
     expect(r[0]).toBe('수지: 수입 500,000원 − 실지출 220,000원 = +280,000원')
     expect(r[1]).toBe('변동 220,000원 · 지난달 100,000원 대비 +120% ⚠')
     expect(r[2]).toBe('지금 페이스면 월말 변동 ≈ 440,000원 (15/30일)')
-    expect(r[r.length - 1]).toBe('안 받은 분담금 100,000원: 여친 100,000원 1건')
+    expect(r).toContain('안 받은 분담금 100,000원: 여친 100,000원 1건')
+    expect(r[r.length - 1]).toContain('2026-08 부수입 0건')   // 지난달 플랫폼 정산 누락 경고는 맨 끝
   })
 })
 
@@ -73,5 +74,17 @@ describe('분담금 정산', () => {
     expect(settleTargets(all, '월세')).toEqual([])  // 이미 받음
     expect(settleTargets(all, 'd1').map((t) => t.id)).toEqual(['d1'])
     expect(settledMemo('코스트코', '2026-09-18')).toBe('코스트코 · 받음 09-18')
+  })
+})
+
+describe('sideIncomeGap', () => {
+  const inc = (date: string, subCategory: string) => ({ id: date, date, type: 'income', amount: 1, split: 0, memo: '', category: '수입', subCategory, payment: '', fixedType: 'variable' }) as unknown as Tx
+  it('끝난 달에 부수입이 없으면 경고, 있으면 조용', () => {
+    expect(sideIncomeGap([inc('2026-09-30', '양도대금')], '2026-09', '2026-10-01')).toContain('2026-09 부수입 0건')
+    expect(sideIncomeGap([inc('2026-09-30', '부수입')], '2026-09', '2026-10-01')).toBe('')
+  })
+  it('이번 달을 보면 지난달을 검사하고, 아직 안 끝난 달은 경고하지 않는다', () => {
+    expect(sideIncomeGap([], '2026-10', '2026-10-03')).toContain('2026-09')
+    expect(sideIncomeGap([], '2026-11', '2026-10-03')).toBe('')
   })
 })

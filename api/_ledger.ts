@@ -84,7 +84,18 @@ export function monthInsights(all: Tx[], m: string, todayStr: string): string[] 
   if (first) out.push(`변동 1위 ${first[0]} ${won(first[1])} (지난달 ${won(prv.get(first[0]) || 0)})`)
   const open = all.filter(isSplit).filter((t) => !isRefund(t) && !isSettled(t))
   if (open.length) out.push(`안 받은 분담금 ${won(sum(open))}: ` + byWho(open).map(([w, ts]) => `${w} ${won(sum(ts))} ${ts.length}건`).join(' · '))
+  const gap = sideIncomeGap(all, m, todayStr)
+  if (gap) out.push(gap)
   return out
+}
+
+// 플랫폼 정산(배민·쿠팡이츠·펫택시·퀵)은 월말에 몰아서 넣는다 → 끝난 달에 부수입이 0이면 빠뜨린 것.
+// 2026-09 수입을 한 줄도 안 넣은 걸 10월에야 알았다. 이번 달을 볼 때는 지난달을 대신 본다.
+export function sideIncomeGap(all: Tx[], m: string, todayStr: string): string {
+  const target = todayStr.startsWith(m) ? prevMonth(m) : m
+  if (todayStr.slice(0, 7) <= target) return ''
+  const has = all.some((t) => t.type === 'income' && t.date.startsWith(target) && t.subCategory === '부수입')
+  return has ? '' : `${target} 부수입 0건 ⚠ 배민·쿠팡이츠·펫택시·퀵 정산 넣었어?`
 }
 
 // ── 분담금: 누구한테 얼마 받아야 하고, 받았는지 ─────────────

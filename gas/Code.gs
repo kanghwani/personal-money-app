@@ -1033,7 +1033,9 @@ function handleQuickText_(ss, body) {
   }
 
   const parsed = parseQuickText_(raw, body);
-  const rule = classify_(ss, parsed.memo);
+  let rule = classify_(ss, parsed.memo);
+  // 수입에 지출 규칙이 걸리면(배민→식비/배달, 지원금→건강) 버린다. 수입 규칙만 쓰고 없으면 부수입.
+  if (parsed.type === '수입' && rule.mainCategory !== '수입') rule = { mainCategory: '수입', subCategory: '부수입', fixedType: '변동', tags: '' };
 
   parsed.mainCategory = body.mainCategory || parsed.mainCategory || rule.mainCategory || '미분류';
   parsed.subCategory = body.subCategory || parsed.subCategory || rule.subCategory || '';
@@ -2149,12 +2151,14 @@ function autoPostFixed_() {
   var li = makeIndex_(lvals[0]);
   var existing = {};
   var existingByCatAmt = {};   // 대분류|금액|월 → 중복 자동입력 방지(수동/시리로 같은 항목 넣은 경우)
+  var existingByDef = {};      // fixed:<정의id>|월 → 자동입력한 행의 금액·내역을 고쳐도 다시 넣지 않는다
   for (var r = 1; r < lvals.length; r++) {
     var d = lvals[r][li['날짜']];
     var ds = (d instanceof Date) ? formatDate_(d) : String(d);
     var mon = ds.slice(0, 7);
     existing[String(lvals[r][li['내역']]).trim() + '|' + mon] = true;
     existingByCatAmt[String(lvals[r][li['대분류']]).trim() + '|' + (Number(lvals[r][li['금액']]) || 0) + '|' + mon] = true;
+    if (li['원본탭'] !== undefined) existingByDef[String(lvals[r][li['원본탭']]) + '|' + mon] = true;
   }
   var posted = 0;
   var skipped = [];   // 왜 안 들어갔는지 알아야 트리거가 조용히 죽은 건지 구분이 된다
@@ -2173,6 +2177,8 @@ function autoPostFixed_() {
     var round = thisIdx - startIdx + 1;
     var postName = isInst ? (def.name + ' (' + round + '/' + def.installmentTotal + ')') : def.name;
 
+    // 2026-10: 관리비 금액·내역을 고쳤더니 이름·금액 대조가 둘 다 빗나가 다음 날 또 들어갔다
+    if (existingByDef['fixed:' + def.id + '|' + thisMonth]) { skipped.push(def.name + ': 이미 등록됨(정의)'); continue; }
     // 회차 표기 전/후 이름을 모두 확인해야 수동으로 먼저 넣은 건과 겹치지 않는다
     if (existing[postName.trim() + '|' + thisMonth] || existing[def.name.trim() + '|' + thisMonth]) {
       skipped.push(def.name + ': 이미 등록됨'); continue;
@@ -2187,7 +2193,7 @@ function autoPostFixed_() {
     ledger.appendRow([
       Utilities.getUuid(), new Date(), date, thisMonth, isIncome ? '수입' : '지출', '고정',
       def.category, def.subCategory, postName, def.amount,
-      def.payment, def.variable ? '#확인필요' : '', split || '', isIncome ? def.amount : (def.amount - split), 'auto', '', '',
+      def.payment, def.variable ? '#확인필요' : '', split || '', isIncome ? def.amount : (def.amount - split), 'auto', 'fixed:' + def.id, '',
       isInst ? '할부자동' : '고정비자동',
     ]);
     posted++;
