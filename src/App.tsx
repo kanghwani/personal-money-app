@@ -709,6 +709,27 @@ const RING_COLORS = [
   'var(--ring-6)', 'var(--ring-7)', 'var(--ring-8)', 'var(--ring-3)', 'var(--ring-5)',
 ]
 
+// 홈 도넛 가운데 금액을 이전 값에서 목표까지 올린다. 도넛 쓸기(.8s)와 같이 멈춘다. 동작 줄이기면 바로 최종값.
+const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+function useCountUp(target: number, ms = 800) {
+  const [shown, setShown] = useState(() => (reducedMotion() ? target : 0))
+  const from = useRef(shown)
+  useEffect(() => {
+    if (reducedMotion()) { from.current = target; setShown(target); return }
+    const start = from.current, t0 = performance.now()
+    let raf = 0
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - t0) / ms)
+      const v = Math.round(start + (target - start) * (1 - (1 - p) ** 3))
+      from.current = v; setShown(v)
+      if (p < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [target, ms])
+  return shown
+}
+
 function CategoryRing({ total, subtitle, data }: { total: string; subtitle: string | null; data: NameValue[] }) {
   const sum = data.reduce((s, d) => s + d.value, 0) || 1
   const stops = data.reduce<{ total: number; values: string[] }>((state, d, i) => {
@@ -830,6 +851,7 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit, o
   ledgerStatus: LedgerLoadStatus
 }) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const variableShown = useCountUp(summary.thisMonth.variable)
   const [fixedDefs, setFixedDefs] = useState<FixedDef[]>(() => readFixedDefsCache())
   const [fixedDefsStatus, setFixedDefsStatus] = useState<LedgerLoadStatus>(() => readFixedDefsCache().length ? 'ready' : 'loading')
 
@@ -861,7 +883,7 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit, o
   const ringSubtitle = rate === null ? null : t('vs_prev_month', { sign: rate >= 0 ? '+' : '−', pct: Math.abs(Math.round(rate * 100)) })
 
   return (
-    <section className="view-stack">
+    <section className="view-stack home-motion">
       <CardBenefitOverview
         rows={cardRows}
         monthKey={summary.monthKey}
@@ -871,7 +893,7 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit, o
 
       <article className="ring-card">
         <CategoryRing
-          total={formatMoney(summary.thisMonth.variable)}
+          total={formatMoney(variableShown)}
           subtitle={ringSubtitle}
           data={topNWithOther(summary.variableTotals, 7, t('sub_other'))}
         />
@@ -881,6 +903,7 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit, o
               type="button"
               className="cat-rank-row"
               key={c.name}
+              style={{ '--i': i } as React.CSSProperties}
               onClick={() => setSelectedCategory(c.name)}
             >
               <span className="cat-ic" style={{ background: RING_COLORS[i % RING_COLORS.length] }}>
