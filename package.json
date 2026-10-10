@@ -11,7 +11,7 @@
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
     "test": "vitest run",
-    "deploy:prod": "vercel --prod --yes"
+    "deploy:prod": "npx -y vercel --prod --yes"
   },
   "dependencies": {
     "clsx": "^2.1.1",

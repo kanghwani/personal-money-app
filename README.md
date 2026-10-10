@@ -17,7 +17,7 @@
 
 ```bash
 npm test                 # vitest (네트워크 안 탐)
-npm run deploy:prod      # vercel --prod
+npm run deploy:prod      # npx vercel --prod
 ```
 
 Apps Script 배포는 따로:
