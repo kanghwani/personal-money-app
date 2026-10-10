@@ -1,14 +1,17 @@
 # personal-money-app
 
-가계부와 건강 시스템. React 앱(가계부) + 정적 페이지(건강) + Vercel 서버리스 API + Google Apps Script 백엔드.
+돈에 관한 것은 전부 여기서 처리한다. 가계부(React 앱 + MCP 툴)와 유튜브 구독자 이벤트(경품 → 돈), 둘 다 같은 Vercel 서버리스 API와 Google Apps Script 시트 백엔드를 쓴다.
 
-| 구성 | 위치 |
-|---|---|
-| 가계부 앱 | `src/` (React, Vite) |
-| 건강 앱 | `public/health.html` + `health.css` + `health.js` (빌드 없음, 정적) |
-| 서버 API | `api/` (Vercel 서버리스). `_` 로 시작하는 파일은 함수가 아니라 모듈·테스트 |
-| MCP 서버 | `api/mcp.ts` (클로드 앱 커스텀 커넥터가 붙는 곳) |
-| 시트 백엔드 | `gas/Code.gs` (clasp 로 배포) |
+| 시스템 | 상태 | 위치 |
+|---|---|---|
+| 가계부 | 유지 | `src/` (React, Vite), MCP `ledger_*` 11개, `gas/Code.gs` |
+| 유튜브 구독자 이벤트 | 개발 중 | `api/_events.ts`·`api/events.ts`, MCP `event_list`·`event_log`, `scripts/eventsync.*` (맥 launchd) |
+| 서버 API | 공용 | `api/` (Vercel 서버리스). `_` 로 시작하는 파일은 함수가 아니라 모듈·테스트 |
+| MCP 서버 | 공용 | `api/mcp.ts` (클로드 앱 커스텀 커넥터가 붙는 곳) |
+| 시트 백엔드 | 공용 | `gas/Code.gs` (clasp 로 배포). `health*` 함수는 이름만 남은 범용 탭 저장소로, 이벤트 탭이 쓴다 |
+| 클로드 스킬 | 공용 | `skills/ledger`(시트 CLI), `skills/money-coach`(월 결산·노션). `~/.claude/skills` 가 여기로 심볼릭 링크 |
+
+2026-10-10 에 건강 코치·약속 코치·스페인어 인스턴스를 제거했다(iOS 기본 기능으로 대체, 미사용). 필요하면 `git log` 의 그 이전 커밋에 있다.
 
 ## 명령
 
@@ -52,10 +55,9 @@ cd gas && clasp push -f && clasp deploy --deploymentId AKfycby2so1RyMqyuEaKEfOtS
 배포 전 확인: `npx tsc --noEmit --ignoreConfig --strict --skipLibCheck --module nodenext --moduleResolution nodenext --target es2021 api/*.ts`
 
 **`APP_SECRET`·`MCP_SECRET` 은 Vercel Secret 이라 `vercel env pull` 로 못 꺼낸다.**
-쿠키·MCP 인증이 필요한 검증은 앱에서 하거나, `SYNC_TOKEN` 을 쓰는 통로(`/api/today`, `/api/toolcheck`)로 한다.
+쿠키·MCP 인증이 필요한 검증은 앱에서 하거나, `SYNC_TOKEN` 을 쓰는 통로(`/api/events`, `/api/toolcheck`)로 한다.
 
-**GAS 호출은 창 크기와 무관하게 10초 넘게 걸린다.** 시작 오버헤드가 병목이라 9년치를 통째로 받는 편이
-75일치를 받는 것과 비용이 같다. `api/health.ts` 는 전체를 받아 5분간 캐시하고, 저장 시 캐시를 버린다.
+**GAS 호출은 창 크기와 무관하게 10초 넘게 걸린다.** 시작 오버헤드가 병목이라 한 번에 많이 받는 편이 호출 수를 줄이는 것보다 낫다.
 
 ## 유튜브 구독자 이벤트
 
@@ -85,13 +87,8 @@ cd gas && clasp push -f && clasp deploy --deploymentId AKfycby2so1RyMqyuEaKEfOtS
 `docs/devlog/` 에 날짜별로 남긴다. 무엇을 만들었는지보다 **왜 그렇게 정했는지와 어디서 헛디뎠는지**를 적는다.
 git log 가 이미 무엇을 바꿨는지 알려주므로, 여기에는 코드에서 읽을 수 없는 것만 남긴다.
 
-**앱이 URL 스킴으로 부르는 단축어는 이름을 영문으로 둔다.**
-`shortcuts://run-shortcut?name=` 에 한글 이름을 넘기면 매칭이 깨진다(단축어 안에서 한글 이름으로 부르는 것은 정상).
-업로드 단축어 이름은 `healthsync` 다. 바꾸면 `public/health.js` 의 `SHORTCUT_NAME`,
-`gas/build_health_shortcut.py` 의 `UPLOAD_NAME`, 컨디션 단축어의 Run Shortcut 참조를 함께 고쳐야 한다.
-
 ## 인증
 
-- 가계부·건강 화면: `/api/login?k=<APP_SECRET>` 로 한 번 접속하면 1년짜리 쿠키가 심긴다
+- 가계부 화면: `/api/login?k=<APP_SECRET>` 로 한 번 접속하면 1년짜리 쿠키가 심긴다
 - MCP: `?k=<MCP_SECRET>` 또는 `Authorization: Bearer`
-- 단축어·검증용 통로: `?t=<SYNC_TOKEN>` (`/api/today`, `/api/log`, `/api/toolcheck`)
+- 단축어·검증용 통로: `?t=<SYNC_TOKEN>` (`/api/events`, `/api/toolcheck`)

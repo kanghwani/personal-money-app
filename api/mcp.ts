@@ -1,15 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { summarizeSleep, summarizeDaily, summarizeWorkouts, summarizeTrend, type HealthRow, type Tabs } from './_health.js'
-import { parseLog, logStamp, summarizeManual, capRefusal, todayCommitments, COMMITMENT_DAYS } from './_log.js'
-import { readiness, formatReadiness } from './_readiness.js'
-import { morningBrief, briefTail } from './_brief.js'
-import { dailyLoad, fitnessPayload, insights } from './_analysis.js'
-import { weekReview, formatWeek, monthReview, formatMonth, adviceHistory, formatHistory, adviceToExtra, mondayOf, monthOf } from './_coach.js'
 import { gasGet, gasPost } from './_gas.js'
 import { loadState, scan, checkResults, group, formatEvents, parseEventLog, findEvents, resolveChannel, videoSnippet, detect, parseVideoInput, mmddToYmd, newRow, statusRow, saveRows, stampNow, videoUrl } from './_events.js'
 
 /**
- * 가계부 + 건강 원격 MCP 서버 (Streamable HTTP).
+ * 가계부 + 유튜브 이벤트 원격 MCP 서버 (Streamable HTTP).
  * 폰의 Claude 앱 등 어느 대화에서든 커스텀 커넥터로 붙여 쓴다.
  *
  * 환경변수(모두 서버 전용 — VITE_ 접두어 금지):
@@ -65,22 +59,6 @@ export const TOOLS = [
     inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } },
   { name: 'ledger_delete', description: '거래 삭제. 되돌릴 수 없으니 대상(날짜·금액·메모)을 확인하고 실행할 것.',
     inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } },
-  { name: 'health_week', description: '애플워치 건강 리포트(구글시트 자동 수집). 수면(밤별 취침→기상·총수면·깊은/REM/코어·각성), 일별 지표(안정심박·HRV·호흡수·손목온도·SpO2·걸음·활동kcal·운동분)와 이전 30일 대비, 운동 세션 목록. 수면·컨디션·피로·회복·운동량·"오늘 몸 상태" 질문은 이 툴로 답한다.',
-    inputSchema: { type: 'object', properties: { days: { type: 'number', description: '최근 며칠 (기본 7, 최대 60)' } } } },
-  { name: 'health_today', description: '오늘 준비도(0~100)와 사유. 60일 개인 기준선 대비 HRV 7일 평균·어젯밤 HRV·안정심박·어젯밤 수면·수면 부채·손목온도·호흡수·전날 부하로 계산, 질병 패턴이면 상한. 밴드: 75+ 강하게, 50~74 계획대로, 30~49 가볍게, 30 미만 휴식. "오늘 컨디션 어때", "오늘 운동해도 돼", "에너지 레벨" 질문에 사용. 숫자와 사유만 전달하고 원인을 지어내지 말 것.',
-    inputSchema: { type: 'object', properties: {} } },
-  { name: 'health_log', description: '건강·훈련 한 줄 기록(시트 manual 탭). 형식: "컨디션 4 3 2 3"(수면질 피로 스트레스 근육통 1~5, 아침), "sRPE 수영 55 6 [메모]"(종목 분 RPE1~10, 훈련 직후), "턱걸이 밴드 3x5" / "턱걸이 네거티브 4x8초" / "턱걸이 5 5 4", "태그 술 늦은식사 카페인 출장 아픔", "통증 무릎 3"(0~10), "인바디 72.3 33.1 18.5"(체중 골격근량 체지방률), "계획 월 수영 턱걸이"/"계획 토 휴식"(요일별 훈련 계획, 주간 리포트의 계획 대비 실행에 사용), "근력"(종목명 한 단어로 운동 기록 — 근력·코어는 단독으로 치면 최소판 5분으로, "근력 15"/"요가 40"처럼 분을 붙여도 된다. RPE 는 4로 자동), "약속 09-13 카제나 QA 제출"(날짜형 MM-DD, 1회성), "약속 목 병원" 또는 "약속 화아침 지원서 3곳"(요일형, 매주 반복 — 시간대 아침·점심·저녁·밤은 생략 가능). 둘 다 운동이 아닌 할 일이고, 언제 할지가 없으면 등록되지 않으며, 한 번에 5개까지. "했다 카제나"(약속 이행, 부분 문자열로 매칭), 그 외는 메모. 앞에 "어제 "를 붙이면 어제로 기록. 사용자가 컨디션·훈련·통증·술 같은 걸 한 줄로 말하면 이 툴로 저장한다.',
-    inputSchema: { type: 'object', properties: { text: { type: 'string', description: '예: 컨디션 4 3 2 3' } }, required: ['text'] } },
-  { name: 'coach_week', description: '주간 코치 리뷰. week 에 날짜(YYYY-MM-DD)를 주면 그 날짜가 속한 과거 주를 다시 계산해 보여준다(지난 리뷰는 저장하지 않고 원본에서 다시 만든다). 지난주 계획 이행·세션·수면·자가평가·통증, 회복 지표가 30일 평균에서 벗어난 것, 지난주 제안을 지켰는지, 그리고 **다음 주에 바꿀 것 하나**를 낸다. 변경 후보는 서버가 규칙으로 고르므로 다른 제안을 지어내지 말고 그대로 전하라. 호출하면 그 제안이 기록으로 저장돼 다음 주에 이행 여부를 평가한다. 주간 회고 예약 작업에서 쓴다.',
-    inputSchema: { type: 'object', properties: { week: { type: 'string', description: '과거 주를 볼 때 그 주의 아무 날짜 (YYYY-MM-DD)' } } } },
-  { name: 'coach_history', description: '지금까지 코치가 낸 제안과 각각을 지켰는지. "예전에 뭐라고 했었지", "내가 제안을 잘 지키고 있나" 같은 질문에. 리뷰 본문은 저장하지 않지만 원본 데이터에서 언제든 다시 계산되므로, 특정 주를 다시 보려면 coach_week 에 week 를 넘긴다.',
-    inputSchema: { type: 'object', properties: { limit: { type: 'number', description: '최근 몇 개 (기본 8)' } } } },
-  { name: 'coach_month', description: '월간 코치 리뷰. 세션·종목 분포·수면, VO2max와 안정심박의 1년 대비 변화, 태그가 다음 날에 남긴 흔적(표본이 적으면 판단하지 않음), 진급 판정, 지난달 결정 되짚기, 그리고 **이번 달 결정 하나**. "계획 자체를 바꿔야 하나"에 답한다. 호출하면 그 결정이 기록으로 저장돼 다음 달에 되짚는다. month 에 날짜를 주면 그 달을 다시 계산한다(과거 달은 저장하지 않음). 서버가 고른 결정을 바꾸지 말 것.',
-    inputSchema: { type: 'object', properties: { month: { type: 'string', description: '과거 달을 볼 때 그 달의 아무 날짜 (YYYY-MM-DD)' } } } },
-  { name: 'health_insight', description: '9년치 기록에서 찾은 관계와 훈련 부하·체력 장기 추세. 표본 30 이상·효과크기 0.3 이상만 통과시킨 발견만 나온다. "내 몸에서 발견된 패턴 있어?", "훈련 부하 어때?", "체력 늘고 있어?" 같은 질문에. 결과 문장을 인과처럼 바꿔 쓰지 말 것.',
-    inputSchema: { type: 'object', properties: {} } },
-  { name: 'health_trend', description: '한 지표의 월별 추세(장기). metric: sleep(총수면 h), resting_hr, hrv, vo2max, steps, active_kcal, exercise_min, respiratory_rate, wrist_temp, spo2, workout(전 종목), running/수영/swimming/yoga(종목별 횟수·시간·거리·러닝 페이스·평균심박), pullups/턱걸이(총 개수·최대 세트). "체력 늘고 있어?", "러닝 페이스 빨라졌어?", "턱걸이 늘었어?" 같은 질문에.',
-    inputSchema: { type: 'object', properties: { metric: { type: 'string' }, months: { type: 'number', description: '최근 몇 달 (기본 12)' } }, required: ['metric'] } },
   { name: 'event_list', description: '유튜브 구독자 이벤트 현황(시트 events 탭). 등록된 채널의 최근 영상 스캔 + 하루 한 번 유튜브 검색("댓글 이벤트"·"구독자 이벤트", 최근 7일)으로 새 이벤트를 저장한 뒤, 지원 대기(댓글 적은 순 = 경쟁 낮은 순, 댓글 수·구독자 수·영상 링크·조건 발췌 포함)·지원함(발표 대기 — 발표일이 지나면 영상 설명·댓글·채널 새 영상에서 사용자 핸들을 찾아 "당첨 후보"로 표시하니 사용자에게 확인을 권한다)·결과(최근 30일)·놓침을 보여준다. "이벤트 뭐 있어", "지원할 거 있어", "이벤트 마감 언제야" 같은 질문에. 지원 대기 항목의 발췌를 보고 댓글 초안을 써 주면 좋다(댓글은 사용자가 직접 단다). 마감·발표 뒤의 ? 는 설명에서 날짜를 못 찾아 추정한 값이니 영상에서 확인하라고 알려줄 것.',
     inputSchema: { type: 'object', properties: {} } },
   { name: 'event_log', description: '유튜브 이벤트 한 줄 기록. "지원 십만양품"(댓글 달았음), "당첨 십만양품 에어프라이어 15만"(당첨, 뒤는 메모), "탈락 키보드", "패스 이어폰"(안 할 것). 키워드는 채널명이나 제목 일부. "채널 추가 https://www.youtube.com/@100k-smyp"(감시 채널 등록, @핸들만 줘도 됨), "채널 삭제 @핸들"(감시 목록에서 제외), "이벤트 추가 https://youtu.be/xxx 마감 10-05 발표 10-07"(목록 밖 채널에서 직접 본 이벤트, 날짜는 생략 가능). 당첨 경품을 가계부에 넣고 싶다고 하면 ledger_add 로 "+금액 이벤트 당첨 채널명" 을 따로 기록한다.',
@@ -230,96 +208,6 @@ async function runTool(name: string, args: Record<string, unknown>): Promise<str
     const word = { applied: '지원함', won: '당첨', lost: '탈락', skipped: '패스', new: '', reminded: '' }[cmd.status]
     return `${word}: ${e.channel} · ${e.title}${cmd.note ? ' · ' + cmd.note : ''}` + (cmd.status === 'applied' ? `\n발표 ${e.announce.slice(5)}${e.announceGuessed ? '?' : ''} 에 결과를 확인하세요.` : '')
   }
-
-  if (name === 'health_week') {
-    const days = Math.min(Math.max(Number(args.days) || 7, 1), 60)
-    const r = await gasGet<{ tabs?: Tabs }>('healthAll', `&days=${days + 31}`)  // 이전 30일 기준선 + 전날 밤 취침분
-    const t = r.tabs ?? {}
-    const since = new Date(Date.now() + 9 * 3600_000 - days * 86400_000).toISOString().slice(0, 10)
-    const recent = (rows: HealthRow[] = []) => rows.filter((x) => x.start >= since)
-    return ['[수면]', summarizeSleep(recent(t.sleep)), '', summarizeDaily(t, days), '', summarizeWorkouts(recent(t.workout)), '', summarizeManual(t.manual, since, t.workout, today())].join('\n')
-  }
-
-  if (name === 'health_today') {
-    // 약속을 읽는 모든 곳이 COMMITMENT_DAYS 하나를 쓴다(api/today.ts, 아래 상한 검사).
-    const r = await gasGet<{ tabs?: Tabs }>('healthAll', `&days=${COMMITMENT_DAYS}`)
-    const todayKey = today()
-    return formatReadiness(readiness(r.tabs ?? {}, todayKey), todayKey, briefTail(morningBrief(r.tabs ?? {}, todayKey), '-'))
-  }
-
-  if (name === 'health_log') {
-    const { stamp, text } = logStamp(String(args.text || ''))
-    const e = parseLog(text)
-    if (e.kind === '약속') {
-      const t = (await gasGet<{ tabs?: Tabs }>('healthAll', `&days=${COMMITMENT_DAYS}`)).tabs ?? {}
-      const refusal = capRefusal(t.manual ?? [], stamp.slice(0, 10))
-      if (refusal) return refusal
-    }
-    const r = await gasPost({ action: 'health', type: 'manual', rows: [stamp, stamp, e.kind, e.extra].join('|') }) as { added?: number; skipped?: number }
-    return `${r.added ? '기록됨' : '이미 있음'}: ${stamp.slice(5, 16)} ${e.kind} — ${e.echo}`
-  }
-
-  if (name === 'coach_week') {
-    const t = (await gasGet<{ tabs?: Tabs }>('healthAll', '&days=3400')).tabs ?? {}
-    const todayKey = today()
-    const weekOf = typeof args.week === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(args.week) ? args.week : undefined
-    const r = weekReview(t, todayKey, weekOf)
-    // 이번 주 제안이 아직 없으면 저장한다(다음 주에 이행 여부를 잰다). 같은 주에 두 번 부르면 덮어쓰지 않는다.
-    const thisMonday = mondayOf(todayKey)
-    const already = !!weekOf || (t.manual ?? []).some((m) => m.value === '코치' && m.start.slice(0, 10) >= thisMonday)
-    if (!already) {
-      const stamp = `${todayKey} 09:00:00`
-      await gasPost({ action: 'health', type: 'manual', rows: [stamp, stamp, '코치', adviceToExtra('주간', r.advice)].join('|') })
-    }
-    return formatWeek(r) + (already ? '' : '\n\n(이 제안을 기록했어요. 다음 주 리뷰에서 지켰는지 확인해요.)')
-  }
-
-  if (name === 'coach_history') {
-    const t = (await gasGet<{ tabs?: Tabs }>('healthAll', '&days=3400')).tabs ?? {}
-    return formatHistory(adviceHistory(t, today(), Math.min(Math.max(Number(args.limit) || 8, 1), 30)))
-  }
-
-  if (name === 'coach_month') {
-    const t = (await gasGet<{ tabs?: Tabs }>('healthAll', '&days=3400')).tabs ?? {}
-    const todayKey = today()
-    const anchor = typeof args.month === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(args.month) ? args.month : undefined
-    const r = monthReview(t, todayKey, anchor)
-    // 이번 달 결정이 아직 없으면 저장한다. 과거 달을 다시 볼 때는 저장하지 않는다.
-    const thisMonth = monthOf(todayKey)
-    const already = !!anchor || (t.manual ?? []).some((m) => m.value === '코치' && (m.extra || '').startsWith('월간|') && m.start.slice(0, 10) >= thisMonth)
-    if (!already) {
-      const stamp = `${todayKey} 09:00:00`
-      await gasPost({ action: 'health', type: 'manual', rows: [stamp, stamp, '코치', adviceToExtra('월간', r.decision)].join('|') })
-    }
-    return formatMonth(r) + (already ? '' : '\n\n(이 결정을 기록했어요. 다음 달 리뷰에서 되짚어요.)')
-  }
-
-  if (name === 'health_insight') {
-    const t = (await gasGet<{ tabs?: Tabs }>('healthAll', '&days=3400')).tabs ?? {}
-    const todayKey = today()
-    const rhr = [...(t.resting_hr ?? [])].slice(-90).map((r) => parseFloat(r.value)).filter((v) => v > 0)
-    const daily = dailyLoad(t.workout, rhr.length ? Math.round(rhr.reduce((a, b) => a + b, 0) / rhr.length) : 60)
-    const f = fitnessPayload(t, todayKey, daily)
-    const found = insights(t, todayKey, daily)
-    const load = `[훈련 부하] ${f.load.status} · 급성 ${f.load.acute} / 만성 ${f.load.chronic}` +
-      (f.load.ratio != null ? ` (비율 ${f.load.ratio})` : '') + `\n${f.load.text}\n최근 12주: ${f.load.weeks.map((w) => w.load).join(' ')}`
-    const fit = `[체력] VO2max ${f.vo2max.current ?? '-'} (최고 ${f.vo2max.best ?? '-'} ${f.vo2max.bestMonth ?? ''}, 12개월 ${f.vo2max.change12mo ?? '-'})` +
-      ` · 안정심박 ${f.restingHr.current ?? '-'} (12개월 ${f.restingHr.change12mo ?? '-'})`
-    const ins = found.length
-      ? found.map((i) => `- [${i.strength}] ${i.title}\n  ${i.detail}\n  근거: ${i.evidence}`).join('\n')
-      : '- 아직 문턱(표본 30, 효과크기 0.3)을 넘긴 관계가 없어요.'
-    return [load, '', fit, '', '[발견]', ins].join('\n')
-  }
-
-  if (name === 'health_trend') {
-    const metric = String(args.metric || '').toLowerCase().replace(/[^a-z0-9_가-힣]/g, '')
-    const months = Math.min(Math.max(Number(args.months) || 12, 1), 120)
-    const tab = ['running', '러닝', '달리기', 'swimming', '수영', 'yoga', '요가', 'walking', '걷기', 'cycling', '자전거'].includes(metric) ? 'workout'
-      : ['pullups', '턱걸이'].includes(metric) ? 'manual' : metric
-    const r = await gasGet<{ rows?: HealthRow[] }>('healthRows', `&type=${tab}&days=${months * 31}`)
-    return summarizeTrend(metric, r.rows ?? [])
-  }
-
   throw new Error(`모르는 도구: ${name}`)
 }
 
@@ -353,10 +241,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           capabilities: { tools: {} },
           serverInfo: { name: 'ledger', version: '1.1.0' },
           // 클라이언트가 시스템 컨텍스트로 싣는 안내문 — 앱 쪽에 스킬을 따로 저장하지 않아도 툴을 고르게 한다.
-          instructions: '이 서버는 사용자의 가계부(구글시트)와 애플워치 건강 데이터를 담당한다. ' +
-            '수면·취침·기상·잘 잤는지·컨디션·훈련량 질문은 반드시 health_week 툴로 답한다(노션 일기장을 뒤지지 말 것). 컨디션 점수·sRPE·턱걸이·통증·술/늦은식사 태그 같은 한 줄 기록은 health_log로 저장하고, 주간 리뷰에서는 컨디션 자가평가를 반드시 인용한다. ' +
+          instructions: '이 서버는 사용자의 가계부(구글시트)와 유튜브 구독자 이벤트를 담당한다. ' +
             '지출·수입·분담금·고정비 질문과 "5000 스타벅스 하나카드" 같은 한 줄 입력은 ledger_* 툴을 쓴다. ' +
-            '운동이 아닌 할 일은 "약속 09-13 카제나 제출"(1회성) 또는 "약속 화아침 지원서 3곳"(요일형, 매주 반복, 시간대는 생략 가능)처럼 언제 할지를 붙여 health_log 로 저장하고, 끝내면 "했다 카제나"로 닫는다. 트리거 없는 할 일은 등록되지 않는다. ' +
             '유튜브 구독자 이벤트(지원할 거 있나·마감·당첨) 질문은 event_list, "지원 십만양품"·"당첨 …"·"채널 추가 @핸들" 같은 한 줄은 event_log 로 처리한다. ' +
             '결과는 폰에서 읽기 좋게 3~5줄로 요약한다.',
         })

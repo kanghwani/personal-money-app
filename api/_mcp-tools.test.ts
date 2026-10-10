@@ -4,7 +4,7 @@ import { TOOLS } from './mcp.js'
 
 /**
  * 툴 정의와 핸들러가 어긋나는 것을 막는다.
- * 실제로 있었던 사고: coach_week 핸들러는 args.week 를 읽는데 inputSchema 에 week 를 안 올려서
+ * 실제로 있었던 사고: 핸들러는 args.week 를 읽는데 inputSchema 에 week 를 안 올려서
  * 클라이언트가 넘길 방법이 없었다(설명에는 넘기라고 적혀 있었다).
  */
 const source = readFileSync(new URL('./mcp.ts', import.meta.url), 'utf8')
@@ -40,11 +40,6 @@ describe('툴 스키마 잠금', () => {
 })
 
 describe('MCP 툴 정의', () => {
-  it('coach_week 는 week 를, coach_month 는 month 를 받는다 (실제로 빠졌던 인자)', () => {
-    expect(propsOf(TOOLS.find((t) => t.name === 'coach_week')!)).toContain('week')
-    expect(propsOf(TOOLS.find((t) => t.name === 'coach_month')!)).toContain('month')
-  })
-
   it('모든 툴에 핸들러가 있다', () => {
     const missing = TOOLS.map((t) => t.name).filter((n) => !blocks.has(n))
     expect(missing, `핸들러 없는 툴: ${missing.join(', ')}`).toEqual([])
@@ -76,7 +71,7 @@ describe('MCP 툴 정의', () => {
     const names = TOOLS.map((t) => t.name)
     for (const tool of TOOLS) {
       const declared = propsOf(tool)
-      // 다른 툴의 인자를 안내하는 문장은 제외한다 (예: coach_history 가 "coach_week 에 week 를 넘긴다"고 안내)
+      // 다른 툴의 인자를 안내하는 문장은 제외한다 (예: ledger_split 이 "ledger_settle 로 표시한다"고 안내)
       const own = tool.description.split(/(?<=[.。])\s*/)
         .filter((sentence) => !names.some((n) => n !== tool.name && sentence.includes(n)))
         .join(' ')

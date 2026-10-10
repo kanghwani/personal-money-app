@@ -5,9 +5,18 @@
  * 저장은 건강 탭 저장 경로(action=health&type=events)를 그대로 쓴다. 수정 없이 추가만 하고,
  * 현재 상태 = videoId 별 마지막 행. 언제 지원·확인했는지가 공짜로 남는다.
  */
-import type { HealthRow } from './_health.js'
+export type HealthRow = { start: string; end: string; value: string; extra?: string }
 import { gasGet, gasPost } from './_gas.js'
-import { logStamp } from './_log.js'
+
+/** KST 현재 시각 'yyyy-MM-dd HH:mm:ss'. 앞에 "어제 "가 붙으면 어제 12:00. */
+export function logStamp(text: string, now = Date.now()): { stamp: string; text: string } {
+  const kst = new Date(now + 9 * 3600_000)
+  if (/^어제\s+/.test(text)) {
+    kst.setUTCDate(kst.getUTCDate() - 1)
+    return { stamp: kst.toISOString().slice(0, 10) + ' 12:00:00', text: text.replace(/^어제\s+/, '') }
+  }
+  return { stamp: kst.toISOString().replace('T', ' ').slice(0, 19), text }
+}
 
 export type Snippet = { videoId: string; title: string; description: string; publishedAt: string; channelTitle: string; channelId?: string; comments?: number; live?: boolean }
 export type Status = 'new' | 'reminded' | 'applied' | 'won' | 'lost' | 'skipped'

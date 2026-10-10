@@ -1,7 +1,6 @@
 import type { FixedDef } from '../dashboardLogic'
-import { PROFILE } from '../classifyRules'
 
-export type SyncConfig = { url: string; token: string; profile: string }
+export type SyncConfig = { url: string; token: string }
 
 export type RemoteSnapshot<T> = { store: T; updatedAt: string }
 
@@ -10,20 +9,12 @@ export function getSyncConfig(): SyncConfig | null {
   // 기본은 같은 오리진의 /api/sync 프록시. 토큰이 번들에 박히지 않는다.
   // 로컬 개발에서 GAS를 직접 부르고 싶을 때만 .env에 VITE_SYNC_DIRECT=1 을 둔다.
   if (import.meta.env.VITE_SYNC_DIRECT !== '1') {
-    const profile = PROFILE
-    return { url: '/api/sync', token: '', profile }
+    return { url: '/api/sync', token: '' }
   }
   const url = import.meta.env.VITE_SYNC_URL
   const token = import.meta.env.VITE_SYNC_TOKEN
   if (!url || !token) return null
-  // VITE_PROFILE을 독립적으로 다시 읽지 않고 classifyRules의 단일 출처를 그대로 사용(F5:
-  // VITE_PROFILE만 빠지거나 오타가 나도 LANG과 profile이 항상 함께 ko로 fail-closed됨)
-  return { url, token, profile: PROFILE }
-}
-
-/** profile이 있으면 &profile=... 반환, 없으면 빈 문자열. */
-function profileQuery(cfg: SyncConfig): string {
-  return cfg.profile ? `&profile=${encodeURIComponent(cfg.profile)}` : ''
+  return { url, token }
 }
 
 /**
@@ -36,7 +27,7 @@ export async function loadFromServer<T>(
   cfg: SyncConfig | null = getSyncConfig(),
 ): Promise<RemoteSnapshot<T> | null> {
   if (!cfg) return null
-  const url = `${cfg.url}?action=load&token=${encodeURIComponent(cfg.token)}${profileQuery(cfg)}`
+  const url = `${cfg.url}?action=load&token=${encodeURIComponent(cfg.token)}`
   const res = await fetch(url, { method: 'GET', redirect: 'follow' })
   const data = await res.json()
   if (!data || !data.ok || !data.store) return null
@@ -62,7 +53,6 @@ export async function saveToServer<T>(
       token: cfg.token,
       store: JSON.stringify(store),
       updatedAt,
-      profile: cfg.profile,
     }),
   })
   const data = await res.json()
@@ -81,7 +71,7 @@ export async function loadLedger<T>(
   cfg: SyncConfig | null = getSyncConfig(),
 ): Promise<T[]> {
   if (!cfg) return []
-  const url = `${cfg.url}?action=ledger&token=${encodeURIComponent(cfg.token)}${profileQuery(cfg)}`
+  const url = `${cfg.url}?action=ledger&token=${encodeURIComponent(cfg.token)}`
   const res = await fetch(url, { method: 'GET', redirect: 'follow' })
   const data = await res.json()
   if (!data || !data.ok || !Array.isArray(data.transactions)) throw new Error('ledger: 응답이 올바르지 않습니다')
@@ -101,7 +91,7 @@ export async function assignCategory(
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     redirect: 'follow',
-    body: JSON.stringify({ action: 'assignCategory', token: cfg.token, id, category, subCategory, memo, profile: cfg.profile }),
+    body: JSON.stringify({ action: 'assignCategory', token: cfg.token, id, category, subCategory, memo }),
   })
   const data = await res.json()
   return !!(data && data.ok)
@@ -109,7 +99,7 @@ export async function assignCategory(
 
 export async function loadFixedDefs(cfg: SyncConfig | null = getSyncConfig()): Promise<FixedDef[]> {
   if (!cfg) return []
-  const res = await fetch(`${cfg.url}?action=fixedList&token=${encodeURIComponent(cfg.token)}${profileQuery(cfg)}`, { redirect: 'follow' })
+  const res = await fetch(`${cfg.url}?action=fixedList&token=${encodeURIComponent(cfg.token)}`, { redirect: 'follow' })
   const data = await res.json()
   // 원장과 같은 이유로 실패는 throw. 빈 배열로 돌려주면 할부가 실적에서 통째로 빠진다.
   if (!data || !data.ok || !Array.isArray(data.defs)) throw new Error('fixedList: 응답이 올바르지 않습니다')
@@ -120,7 +110,7 @@ export async function saveFixedDef(def: FixedDef, cfg: SyncConfig | null = getSy
   if (!cfg) return false
   const res = await fetch(cfg.url, {
     method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, redirect: 'follow',
-    body: JSON.stringify({ action: 'fixedSave', token: cfg.token, def, profile: cfg.profile }),
+    body: JSON.stringify({ action: 'fixedSave', token: cfg.token, def }),
   })
   const data = await res.json()
   return !!(data && data.ok)
@@ -130,7 +120,7 @@ export async function deleteFixedDef(id: string, cfg: SyncConfig | null = getSyn
   if (!cfg) return false
   const res = await fetch(cfg.url, {
     method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, redirect: 'follow',
-    body: JSON.stringify({ action: 'fixedDelete', token: cfg.token, id, profile: cfg.profile }),
+    body: JSON.stringify({ action: 'fixedDelete', token: cfg.token, id }),
   })
   const data = await res.json()
   return !!(data && data.ok)
@@ -141,7 +131,7 @@ export async function deleteLedger(id: string, cfg: SyncConfig | null = getSyncC
   if (!cfg) return false
   const res = await fetch(cfg.url, {
     method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, redirect: 'follow',
-    body: JSON.stringify({ action: 'deleteLedger', token: cfg.token, id, profile: cfg.profile }),
+    body: JSON.stringify({ action: 'deleteLedger', token: cfg.token, id }),
   })
   const data = await res.json()
   return !!(data && data.ok)
@@ -152,7 +142,7 @@ export async function updateLedger(tx: unknown, cfg: SyncConfig | null = getSync
   if (!cfg) return false
   const res = await fetch(cfg.url, {
     method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, redirect: 'follow',
-    body: JSON.stringify({ action: 'updateLedger', token: cfg.token, tx, profile: cfg.profile }),
+    body: JSON.stringify({ action: 'updateLedger', token: cfg.token, tx }),
   })
   const data = await res.json()
   return !!(data && data.ok)
@@ -163,7 +153,7 @@ export async function appendLedger(tx: unknown, cfg: SyncConfig | null = getSync
   if (!cfg) return false
   const res = await fetch(cfg.url, {
     method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, redirect: 'follow',
-    body: JSON.stringify({ action: 'appendLedger', token: cfg.token, tx, profile: cfg.profile }),
+    body: JSON.stringify({ action: 'appendLedger', token: cfg.token, tx }),
   })
   const data = await res.json()
   return !!(data && data.ok)

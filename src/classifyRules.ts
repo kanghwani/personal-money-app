@@ -1,9 +1,3 @@
-export type Lang = 'ko' | 'es'
-// 프로필(VITE_PROFILE)이 유일한 진실 공급원. VITE_LANG은 더 이상 언어를 독립적으로 결정하지 않는다.
-// (VITE_PROFILE만 빠지거나 오타가 나도 항상 ko로 안전하게 fail-closed되도록 - F5)
-export const PROFILE: string = import.meta.env.VITE_PROFILE || ''
-export const LANG: Lang = PROFILE === 'es' ? 'es' : 'ko'
-
 export type CatRule = { words: string[]; category: string; sub: string }
 export type RuleSet = {
   categoryRules: CatRule[]
@@ -21,7 +15,7 @@ export type RuleSet = {
   fixedKeywordsRe: RegExp         // 메모에 포함되면 자동으로 고정비로 추정되는 키워드
 }
 
-const ko: RuleSet = {
+export const RULES: RuleSet = {
   categoryRules: [
     { words: ['점심', '저녁', '밥', '식당', '라멘', '피자', '버거', '김밥', '마라탕'], category: '외식비', sub: '외식' },
     { words: ['커피', '카페', '아메리카노', '라떼', '스타벅스', '투썸', '이디야', '빽다방', '컴포즈', '메가커피'], category: '외식비', sub: '카페' },
@@ -68,48 +62,7 @@ const ko: RuleSet = {
   fixedKeywordsRe: /월세|관리비|통신|인터넷|구독|보험|대출|할부|국민연금|건강보험/i,
 }
 
-const es: RuleSet = {
-  categoryRules: [
-    { words: ['café', 'cafetería', 'cafe', 'starbucks'], category: 'Comida', sub: 'Cafetería' },
-    { words: ['supermercado', 'mercado', 'mercadona', 'carrefour', 'costco'], category: 'Comida', sub: 'Supermercado' },
-    { words: ['restaurante', 'comida', 'almuerzo', 'cena', 'pizza', 'hamburguesa'], category: 'Comida', sub: 'Restaurante' },
-    { words: ['tienda', 'conveniencia'], category: 'Vida', sub: 'Varios' },
-    { words: ['alquiler', 'renta', 'luz', 'gas', 'internet', 'teléfono'], category: 'Vivienda', sub: 'Fijos' },
-    { words: ['taxi', 'bus', 'metro', 'gasolina', 'coche', 'transporte'], category: 'Transporte', sub: 'Movilidad' },
-    { words: ['farmacia', 'médico', 'hospital', 'gimnasio'], category: 'Salud', sub: 'Cuidado' },
-    { words: ['netflix', 'suscripción', 'spotify', 'apple'], category: 'Ocio', sub: 'Suscripción' },
-    { words: ['juego', 'steam', 'videojuego'], category: 'Ocio', sub: 'Juegos' },
-    { words: ['ropa', 'zapatos', 'zara', 'uniqlo'], category: 'Compras', sub: 'Ropa' },
-    { words: ['libro', 'curso', 'academia'], category: 'Desarrollo', sub: 'Educación' },
-    { words: ['salario', 'nómina', 'sueldo', 'ingreso'], category: 'Ingreso', sub: 'Salario' },
-  ],
-  defaultPayment: 'Tarjeta',
-  payments: ['tarjeta', 'efectivo', 'transferencia', 'débito', 'crédito'],
-  paymentAlias: { débito: 'Tarjeta', crédito: 'Tarjeta', tarjeta: 'Tarjeta', efectivo: 'Efectivo', transferencia: 'Transferencia' },
-  yesterday: 'ayer',
-  today: 'hoy',
-  incomeRe: /salario|nómina|sueldo|ingreso/i,
-  uncategorized: 'Sin categoría',
-  incomeCategory: 'Ingreso',
-  // es의 categoryRules에 이미 있는 카테고리명을 사용(F2)
-  defaultOptions: [
-    { category: 'Comida', subCategory: 'Cafetería' },
-    { category: 'Comida', subCategory: 'Supermercado' },
-    { category: 'Comida', subCategory: 'Restaurante' },
-    { category: 'Vida', subCategory: 'Varios' },
-    { category: 'Transporte', subCategory: 'Movilidad' },
-    { category: 'Vivienda', subCategory: 'Fijos' },
-    { category: 'Salud', subCategory: 'Cuidado' },
-    { category: 'Ocio', subCategory: 'Suscripción' },
-    { category: 'Ocio', subCategory: 'Juegos' },
-    { category: 'Compras', subCategory: 'Ropa' },
-  ],
-  fixedToken: 'fijo',
-  variableToken: 'variable',
-  fixedKeywordsRe: /alquiler|renta|suscripci[oó]n|seguro|internet|tel[eé]fono|luz|gas|pr[eé]stamo/i,
-}
 
-export const RULES: Record<Lang, RuleSet> = { ko, es }
 
 /** 메모를 규칙셋으로 분류. 대소문자 무시. 미매칭이면 uncategorized. */
 export function classifyMemo(memo: string, rules: RuleSet): { category: string; sub: string } {

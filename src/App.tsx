@@ -69,7 +69,7 @@ import {
   type SplitTxLike,
 } from './dashboardLogic'
 import { loadLearnedRules, saveLearnedRule, classifyByLearned } from './learnedRules'
-import { RULES, LANG, classifyMemo } from './classifyRules'
+import { RULES, classifyMemo } from './classifyRules'
 import { t } from './i18n'
 import './App.css'
 
@@ -147,7 +147,7 @@ const STORAGE_KEY = 'personal-money-app:v1'
 const UPDATED_AT_KEY = 'personal-money-app:v1:updatedAt'
 export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error'
 
-const R = RULES[LANG]
+const R = RULES
 
 // 거래 이력이 없을 때 미분류 교정 칩에 보여줄 기본 카테고리 목록(언어별 RuleSet.defaultOptions - F2)
 const DEFAULT_FIX_OPTIONS = R.defaultOptions
@@ -2757,20 +2757,11 @@ function moneyNumber(value: string) {
   return Number(value.replace(/,/g, ''))
 }
 
-// 통화는 양쪽 다 원화(브리도 한국 거주). 다만 ko는 '원' 접미사, es는 ₩ 기호로 표기해
-// 스페인어 UI에 한글이 남지 않게 한다. 숫자 자리구분은 동일(ko-KR).
 function formatMoney(value: number) {
-  const n = Math.round(value).toLocaleString('ko-KR')
-  return LANG === 'es' ? `₩${n}` : `${n}원`
+  return `${Math.round(value).toLocaleString('ko-KR')}원`
 }
 
-// 축약 단위: ko는 억/만, es는 M(millón)/mil.
 function compactMoney(value: number) {
-  if (LANG === 'es') {
-    if (value >= 1000000) return `₩${Math.round(value / 1000000)}M`
-    if (value >= 1000) return `₩${Math.round(value / 1000)}mil`
-    return `₩${Math.round(value)}`
-  }
   if (value >= 100000000) return `${Math.round(value / 100000000)}억`
   if (value >= 10000) return `${Math.round(value / 10000)}만`
   return `${Math.round(value)}`
