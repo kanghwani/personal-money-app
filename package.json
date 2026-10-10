@@ -11,9 +11,7 @@
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
     "test": "vitest run",
-    "verify:deploy": "VERIFY_DEPLOY=1 vitest run api/_deploy.test.ts",
-    "deploy:prod": "node scripts/deploy.mjs",
-    "tools:lock": "tsx scripts/tools-lock.mts --write"
+    "deploy:prod": "vercel --prod --yes"
   },
   "dependencies": {
     "clsx": "^2.1.1",

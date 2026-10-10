@@ -24,21 +24,6 @@ function handlerBlocks(): Map<string, string> {
 const blocks = handlerBlocks()
 const propsOf = (t: (typeof TOOLS)[number]) => Object.keys((t.inputSchema as { properties?: Record<string, unknown> }).properties ?? {})
 
-describe('툴 스키마 잠금', () => {
-  /**
-   * 잠금 파일은 "클로드 앱 커넥터가 마지막으로 맞춰본 스키마"다.
-   * 배포 경로(deploy:prod / git 자동배포 / 대시보드 redeploy)나 기기가 달라져도 기준이 흔들리지 않게
-   * 저장소에 커밋해 둔다. 어긋나면 여기서 막고, 갱신할 때 커넥터 재추가 안내가 나온다.
-   */
-  it('TOOLS 가 api/tools.lock.json 과 일치한다', () => {
-    const lock = JSON.parse(readFileSync(new URL('./tools.lock.json', import.meta.url), 'utf8')).tools as Record<string, string[]>
-    const current = Object.fromEntries(TOOLS.map((t) => [t.name, propsOf(t).slice().sort()]))
-    const hint = '\n달라졌다면 의도한 변경인지 확인하고 `npm run tools:lock` 으로 갱신하세요.'
-    expect(Object.keys(current).sort(), '툴 목록' + hint).toEqual(Object.keys(lock).sort())
-    for (const name of Object.keys(lock)) expect(current[name], `${name} 의 인자` + hint).toEqual(lock[name])
-  })
-})
-
 describe('MCP 툴 정의', () => {
   it('모든 툴에 핸들러가 있다', () => {
     const missing = TOOLS.map((t) => t.name).filter((n) => !blocks.has(n))

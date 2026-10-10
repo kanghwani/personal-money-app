@@ -16,10 +16,8 @@
 ## 명령
 
 ```bash
-npm test                 # vitest (네트워크 안 탐). 툴 스키마가 잠금 파일과 다르면 여기서 막힌다
-npm run tools:lock       # 툴 스키마 잠금 갱신. 기존 툴 인자가 바뀌었으면 커넥터 재추가 안내가 나온다
-npm run deploy:prod      # 배포 + 실서버 스키마 확인 + 커넥터 재추가 필요 여부 알림
-npm run verify:deploy    # 실서버가 서빙하는 MCP 툴 스키마를 소스와 대조
+npm test                 # vitest (네트워크 안 탐)
+npm run deploy:prod      # vercel --prod
 ```
 
 Apps Script 배포는 따로:
@@ -34,15 +32,8 @@ cd gas && clasp push -f && clasp deploy --deploymentId AKfycby2so1RyMqyuEaKEfOtS
 클로드 앱은 툴 스키마를 캐시한다. 새 툴이 늘어난 것은 목록 새로고침으로 잡히지만,
 이미 있던 툴의 `inputSchema` 변경은 잡히지 않는다. 소스도 맞고 실서버도 맞는데
 앱만 옛 스키마로 호출하는 상태가 되고, 원인 찾기가 제일 오래 걸린다.
-막는 방법이 둘이다.
-1. `api/tools.lock.json` — 커넥터가 마지막으로 맞춰본 스키마. 어긋나면 `npm test` 가 실패한다.
-   의도한 변경이면 `npm run tools:lock` 으로 갱신하고, 그때 커넥터 재추가 안내가 출력된다.
-   **잠금은 배포 경로와 무관하다.** 자동배포를 켜거나 기기가 둘이 돼도 기준이 흔들리지 않는다.
-2. `npm run deploy:prod` — 배포 전후 실서버 스키마를 비교해 같은 안내를 한 번 더 한다.
-   (이쪽만으로는 부족하다. 다른 경로로 이미 배포됐다면 "배포 전"이 이미 바뀐 상태라 조용해진다.)
-
-자동배포를 켜게 되면 GitHub Actions 의 `deployment_status: success` 에서
-`/api/toolcheck` 를 잠금 파일과 대조하는 단계를 추가하면 된다. 지금은 git 연결이 없어 필요 없다.
+`inputSchema` 를 고쳤으면 배포 뒤 **설정 > 커넥터 > 가계부원격을 삭제하고 같은 URL 로 다시 추가**한다(URL 은 삭제 전에 복사).
+한때 잠금 파일·실서버 대조 스크립트로 이걸 막았는데, 인자가 바뀌는 일이 한 달에 한 번도 안 돼서 2026-10 에 걷어냈다.
 
 **핸들러가 읽는 인자는 `inputSchema.properties` 에도 올려야 한다.**
 `args.week` 를 읽어도 스키마에 없으면 클라이언트가 조용히 버린다. `api/_mcp-tools.test.ts` 가
@@ -55,7 +46,7 @@ cd gas && clasp push -f && clasp deploy --deploymentId AKfycby2so1RyMqyuEaKEfOtS
 배포 전 확인: `npx tsc --noEmit --ignoreConfig --strict --skipLibCheck --module nodenext --moduleResolution nodenext --target es2021 api/*.ts`
 
 **`APP_SECRET`·`MCP_SECRET` 은 Vercel Secret 이라 `vercel env pull` 로 못 꺼낸다.**
-쿠키·MCP 인증이 필요한 검증은 앱에서 하거나, `SYNC_TOKEN` 을 쓰는 통로(`/api/events`, `/api/toolcheck`)로 한다.
+쿠키·MCP 인증이 필요한 검증은 앱에서 하거나, `SYNC_TOKEN` 을 쓰는 통로(`/api/events`)로 한다.
 
 **GAS 호출은 창 크기와 무관하게 10초 넘게 걸린다.** 시작 오버헤드가 병목이라 한 번에 많이 받는 편이 호출 수를 줄이는 것보다 낫다.
 
@@ -91,4 +82,4 @@ git log 가 이미 무엇을 바꿨는지 알려주므로, 여기에는 코드�
 
 - 가계부 화면: `/api/login?k=<APP_SECRET>` 로 한 번 접속하면 1년짜리 쿠키가 심긴다
 - MCP: `?k=<MCP_SECRET>` 또는 `Authorization: Bearer`
-- 단축어·검증용 통로: `?t=<SYNC_TOKEN>` (`/api/events`, `/api/toolcheck`)
+- 단축어·검증용 통로: `?t=<SYNC_TOKEN>` (`/api/events`)
