@@ -787,6 +787,49 @@ export function benefitBalances(
   return out
 }
 
+export type CardGlance = {
+  card: string
+  qualified: number   // 이번 달 실적 인정 추정액 — 다음 달 혜택을 연다
+  target: number      // 막대의 끝: 다음 구간 기준(이미 최고 구간이면 그 기준)
+  met: boolean        // 최저 구간을 채웠나 = 다음 달 혜택이 열리나
+  nextGap: number     // 다음 구간까지 남은 금액(최고 구간이면 0)
+  usedAreas: number   // 이번 달 혜택을 한 번이라도 받은 영역 수
+  totalAreas: number
+  remaining: number   // 이번 달 남은 할인 한도 합
+  locked: boolean     // 전월 미달로 이번 달 혜택이 닫힘
+  unknown: boolean    // 가족카드 합산이라 원장으로 실적 판정 불가
+}
+
+/**
+ * 홈 카드 보드 맨 위 한 줄 요약: "실적 찼나 + 혜택 썼나".
+ * 2026-10: 카드를 하나씩 탭으로 열어야 했고, 이번 달 실적이 다음 달 기준에 얼마나 찼는지가 안 보였다.
+ */
+export function cardGlance(
+  transactions: (SplitTxLike & { payment?: string })[],
+  yearMonth: string,
+  balances: UnusedBenefit[],
+  specs: CardSpec[] = CARD_SPECS.filter((s) => s.owned && s.tiers.length),
+): CardGlance[] {
+  const perf = new Map(cardPerformance(transactions, yearMonth).map((c) => [c.name, c.qualified]))
+  return specs.map((spec) => {
+    const qualified = perf.get(spec.card) ?? 0
+    const mins = spec.tiers.map((t) => t.min)
+    const st = tierStatus(qualified, spec.tiers)
+    const mine = balances.filter((b) => b.card === spec.card)
+    return {
+      card: spec.card, qualified,
+      target: st.next?.min ?? Math.max(...mins),
+      met: qualified >= Math.min(...mins),
+      nextGap: st.next?.gap ?? 0,
+      usedAreas: new Set(mine.flatMap((b) => b.uses.map((u) => u.area))).size,
+      totalAreas: spec.benefits.length,
+      remaining: mine.reduce((s, b) => s + b.remaining, 0),
+      locked: mine.some((b) => b.locked),
+      unknown: Boolean(spec.familyPooled),
+    }
+  })
+}
+
 /**
  * 이번 달 아직 안 쓴 혜택만 낸다.
  * "놓친 혜택"이 이미 지나간 결제를 되짚는 것이라면, 이건 앞으로 쓸 수 있는 여유분이다.

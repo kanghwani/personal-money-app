@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, withInstallmentCharges, benefitBalances, unusedBenefits, paymentPlaybook, previousMonthKey, isSaving, isLoanRepay, isNonSpend, isCardPayment, parseBankDeposits } from './dashboardLogic'
+import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, withInstallmentCharges, benefitBalances, unusedBenefits, cardGlance, paymentPlaybook, previousMonthKey, isSaving, isLoanRepay, isNonSpend, isCardPayment, parseBankDeposits } from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
   ({ date, type: 'expense', amount, category, subCategory, payment, fixedType: 'variable' })
@@ -778,5 +778,27 @@ describe('isCardPayment', () => {
     for (const n of ['하나카드', 'NH카드', '여친카드', '토스체크']) expect(isCardPayment(n)).toBe(true)
     for (const n of ['현금', '이음카드', '계좌이체', '미상', '카드/현금', '국민계좌', '네이버페이', '토스뱅크',
       '온라인결제', '알리', '온누리상품권', '토스', '카드/이체', '현금/이체', '페이']) expect(isCardPayment(n)).toBe(false)
+  })
+})
+
+describe('cardGlance', () => {
+  const tx = (date: string, memo: string, amount: number, payment: string) =>
+    ({ id: date + memo, date, memo, amount, payment, type: 'expense' as const, split: 0 })
+  const nh = CARD_SPECS.filter((s) => s.card === 'NH카드')
+  const prev = [tx('2026-07-10', '전월 일반결제', 400000, 'NH카드')]
+
+  it('이번 달 실적이 최저 구간 전이면 미달, 다음 구간까지 남은 금액을 낸다', () => {
+    const rows = [...prev, tx('2026-08-05', '스타벅스', 100000, 'NH카드')]
+    const [g] = cardGlance(rows, '2026-08', benefitBalances(rows, '2026-08', nh), nh)
+    expect(g.met).toBe(false)
+    expect(g.qualified).toBe(100000)
+    expect(g.nextGap).toBe(g.target - 100000)
+  })
+  it('최저 구간을 넘기면 달성, 혜택 받은 영역 수를 센다', () => {
+    const rows = [...prev, tx('2026-08-05', '스타벅스', 400000, 'NH카드')]
+    const [g] = cardGlance(rows, '2026-08', benefitBalances(rows, '2026-08', nh), nh)
+    expect(g.met).toBe(true)
+    expect(g.usedAreas).toBe(1)
+    expect(g.totalAreas).toBe(nh[0].benefits.length)
   })
 })

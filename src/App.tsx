@@ -1,16 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+// recharts 는 인사이트 탭에서만 쓴다 — 홈 첫 화면 번들에서 빼서 따로 받는다
+const TrendChart = lazy(() => import('./Charts').then((m) => ({ default: m.TrendChart })))
+const RankChart = lazy(() => import('./Charts').then((m) => ({ default: m.RankChart })))
 import {
   CalendarClock,
   ChartNoAxesCombined,
@@ -65,6 +56,7 @@ import {
   type CardSpec,
   unusedBenefits,
   benefitBalances,
+  cardGlance,
   previousMonthKey,
   paymentPlaybook,
   isSaving,
@@ -959,6 +951,7 @@ function CardBenefitOverview({ rows, monthKey, onOpenInsights, ledgerStatus }: {
     return saved.size ? saved : new Map(basisPerf.map((c) => [c.name, c.qualified]))
   }, [basisPerf, basisMonth, ledgerStatus])
   const balances = useMemo(() => benefitBalances(rows as never, monthKey, undefined, knownPerf), [rows, monthKey, knownPerf])
+  const glance = useMemo(() => cardGlance(rows as never, monthKey, balances), [rows, monthKey, balances])
   const missed = useMemo(() => missedBenefits(rows as never, monthKey), [rows, monthKey])
   const cardGroups = CARD_SPECS.filter((spec) => spec.owned && spec.benefits.length)
     .map((spec) => ({ spec, items: balances.filter((item) => item.card === spec.card) }))
@@ -987,6 +980,28 @@ function CardBenefitOverview({ rows, monthKey, onOpenInsights, ledgerStatus }: {
 
       {missedTotal > 0 && (
         <p className="benefit-missed"><Sparkles size={14} aria-hidden />{t('home_benefit_missed', { amt: formatMoney(missedTotal) })}</p>
+      )}
+
+      {glance.length > 0 && (
+        <div className="card-glance" aria-label={t('glance_aria')}>
+          {glance.map((g) => {
+            const fill = g.target && !g.unknown ? Math.min(1, g.qualified / g.target) : 0
+            return (
+              <button type="button" className={`card-glance-row${g.card === currentCard ? ' active' : ''}`} key={g.card} onClick={() => setSelectedCard(g.card)}>
+                <span className="cg-name">{g.card.replace('카드', '')}</span>
+                <span className={`cg-bar${g.met ? ' met' : ''}`}><span style={{ width: `${fill * 100}%` }} /></span>
+                <span className="cg-perf">
+                  {g.unknown ? t('glance_family') : g.met
+                    ? (g.nextGap ? t('glance_met_next', { gap: formatMoney(g.nextGap) }) : t('glance_met'))
+                    : t('glance_gap', { gap: formatMoney(g.target - g.qualified) })}
+                </span>
+                <span className="cg-use">
+                  {g.locked ? t('glance_locked') : t('glance_used', { used: g.usedAreas, total: g.totalAreas, rem: formatMoney(g.remaining) })}
+                </span>
+              </button>
+            )
+          })}
+        </div>
       )}
 
       {current ? (
@@ -1522,25 +1537,7 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
       <section className="wide-section">
         <SectionHeader icon={<ChartNoAxesCombined size={18} />} title={t('sec_month_flow')} aside={summary.monthlyTrend.at(-1)?.month ?? ''} />
         <div className="chart-frame">
-          <ResponsiveContainer width="100%" height={230}>
-            <AreaChart data={summary.monthlyTrend} margin={{ left: 0, right: 12, top: 14, bottom: 0 }}>
-              <defs>
-                <linearGradient id="spendFill" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.24} />
-                  <stop offset="95%" stopColor="var(--accent)" stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid stroke="var(--line)" vertical={false} />
-              <XAxis dataKey="monthLabel" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: 'var(--muted)' }} />
-              <YAxis tickLine={false} axisLine={false} tickFormatter={compactMoney} width={50} tick={{ fontSize: 11, fill: 'var(--muted)' }} />
-              <Tooltip
-                contentStyle={{ backgroundColor: 'var(--surface-solid)', borderColor: 'var(--line)', borderRadius: '10px', color: 'var(--ink)' }}
-                formatter={(value) => [formatMoney(Number(value)), t('real_spend')]}
-                labelFormatter={(label) => `${label}`}
-              />
-              <Area type="monotone" dataKey="realSpend" stroke="var(--accent)" strokeWidth={3} fill="url(#spendFill)" />
-            </AreaChart>
-          </ResponsiveContainer>
+          <Suspense fallback={null}><TrendChart data={summary.monthlyTrend} money={formatMoney} compact={compactMoney} label={t('real_spend')} /></Suspense>
         </div>
       </section>
 
@@ -1583,24 +1580,7 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
       <section className="wide-section">
         <SectionHeader icon={<CircleDollarSign size={18} />} title={t('sec_spend_ratio')} aside={summary.monthKey} />
         <div className="chart-frame">
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={summary.categoryTotals.slice(0, 7)} layout="vertical" margin={{ left: 0, right: 20, top: 12, bottom: 8 }}>
-              <CartesianGrid stroke="var(--line)" horizontal={false} />
-              <XAxis type="number" tickFormatter={compactMoney} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--muted)' }} />
-              <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={76} tick={{ fontSize: 11, fill: 'var(--muted)' }} />
-              <Tooltip 
-                contentStyle={{ backgroundColor: 'var(--surface-solid)', borderColor: 'var(--line)', borderRadius: '10px', color: 'var(--ink)' }}
-                itemStyle={{ color: 'var(--ink)' }}
-                labelStyle={{ color: 'var(--accent)', fontWeight: 800 }}
-                formatter={(value) => [formatMoney(Number(value)), t('spend_amount')]}
-              />
-              <Bar dataKey="value" radius={[0, 6, 6, 0]}>
-                {summary.categoryTotals.slice(0, 7).map((entry, index) => (
-                  <Cell key={entry.name} fill={colors[index % colors.length]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <Suspense fallback={null}><RankChart data={summary.categoryTotals.slice(0, 7)} colors={colors} money={formatMoney} compact={compactMoney} label={t('spend_amount')} /></Suspense>
         </div>
       </section>
 
@@ -1661,24 +1641,7 @@ function InsightsView({ store, summary, transactions }: { store: FinanceStore; s
         <section className="wide-section">
           <SectionHeader icon={<CircleDollarSign size={18} />} title={t('sec_place_top')} aside={summary.monthKey} />
           <div className="chart-frame">
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={places} layout="vertical" margin={{ left: 0, right: 20, top: 12, bottom: 8 }}>
-                <CartesianGrid stroke="var(--line)" horizontal={false} />
-                <XAxis type="number" tickFormatter={compactMoney} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--muted)' }} />
-                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={76} tick={{ fontSize: 11, fill: 'var(--muted)' }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: 'var(--surface-solid)', borderColor: 'var(--line)', borderRadius: '10px', color: 'var(--ink)' }}
-                  itemStyle={{ color: 'var(--ink)' }}
-                  labelStyle={{ color: 'var(--accent)', fontWeight: 800 }}
-                  formatter={(value) => [formatMoney(Number(value)), t('spend_amount')]}
-                />
-                <Bar dataKey="value" radius={[0, 6, 6, 0]}>
-                  {places.map((entry, index) => (
-                    <Cell key={entry.name} fill={colors[index % colors.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <Suspense fallback={null}><RankChart data={places} colors={colors} money={formatMoney} compact={compactMoney} label={t('spend_amount')} /></Suspense>
           </div>
         </section>
       )}
