@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   isEvent, extractDates, excerpt, detect, fold, group, newRow, reminderPayload, formatEvents,
-  parseEventLog, parseChannelInput, parseVideoInput, findEvents, mmddToYmd, foldChannels, lastSearchOf, SEARCH_MARK, isSearchWorthy, isTrustedEvent, winnerHints, needsResultCheck, gradeRow, worthOf, type Snippet,
+  parseEventLog, parseChannelInput, parseVideoInput, findEvents, mmddToYmd, foldChannels, lastSearchOf, SEARCH_MARK, isSearchWorthy, isTrustedEvent, winnerHints, needsResultCheck, gradeRow, worthOf, toHandOff, type Snippet,
 } from './_events'
 import type { HealthRow } from './_health'
 
@@ -281,5 +281,17 @@ describe('채점(grade)', () => {
     expect(worthOf(es.find((e) => e.id === 'none')!)).toBe(2.5)
     const t = formatEvents(g, '2026-09-21')
     expect(t).toContain('응모가치 4/5'); expect(t).toContain('미채점'); expect(t).toContain('응모가치 2 이하 1건 생략'); expect(t).not.toContain('상품권 3천원')
+  })
+  it('채점 전에는 알림 보낸 것도 맥에 다시 넘긴다(채점 실패한 날 유실 방지)', () => {
+    const st = (id: string, value: string, extra = '') => ({ start: '2026-09-21 09:00:00', end: id, value, extra })
+    const es = fold([
+      base('new', 0),
+      base('sent', 0), st('sent', 'reminded'),
+      base('done', 0), st('done', 'reminded'), st('done', 'grade', '3000|5|2|상품권'),
+      base('applied', 0), st('applied', 'applied'),
+    ])
+    const ids = (all: boolean) => toHandOff(es, all).map((e) => e.id).sort()
+    expect(ids(false)).toEqual(['new', 'sent'])
+    expect(ids(true)).toEqual(['done', 'new', 'sent'])
   })
 })

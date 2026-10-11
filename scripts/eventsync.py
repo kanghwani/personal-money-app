@@ -36,13 +36,15 @@ def gas_post(body):
     with urllib.request.urlopen(req, timeout=60) as r: return r.read().decode()
 
 def grade(events):
-    """claude -p 로 채점. 실패하면 빈 dict — 미채점은 다음 날 다시 시도된다(ALL=1 이 아니어도 서버가 grade 없는 이벤트를 계속 준다)."""
+    """claude -p 로 채점. 실패하면 빈 dict — 서버가 grade 행이 없는 이벤트를 다음 실행에도 다시 주므로(toHandOff) 잃지 않는다."""
     if not events: return {}
     items = [{'id': e['id'], 'channel': e['channel'], 'title': e['title'][:80], 'excerpt': e['excerpt'][:200], 'comments': int(re.search(r'댓글 (\d+)', e['stats'] or '댓글 0').group(1)) if re.search(r'댓글 (\d+)', e['stats'] or '') else 0, 'subs': e['stats']} for e in events]
     try:
         out = subprocess.run([CLAUDE, '-p', PROMPT + json.dumps(items, ensure_ascii=False), '--output-format', 'json', '--model', 'haiku'],
                              capture_output=True, text=True, timeout=900, env={**os.environ, 'PATH': os.environ.get('PATH', '') + ':' + os.path.dirname(CLAUDE)})
-        text = json.loads(out.stdout)['result']
+        d = json.loads(out.stdout)
+        if d.get('is_error'): raise RuntimeError(d.get('result'))   # 로그인 만료 등. 안 하면 에러 문장을 JSON 으로 읽다 'Expecting value' 만 남는다
+        text = d['result']
         text = re.sub(r'^```\w*\s*|\s*```$', '', text.strip())
         graded = {g['id']: g for g in json.loads(text) if g.get('id')}
     except Exception as ex:

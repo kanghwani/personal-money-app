@@ -132,6 +132,10 @@ export const newRow = (e: Event, stamp: string) =>
 export const statusRow = (id: string, status: Status, note: string, stamp: string) => [stamp, id, status, clean(note)].join('|')
 /** "기록시각|videoId|grade|가치|당첨자수|응모가치|경품" */
 export const gradeRow = (id: string, g: Grade, stamp: string) => [stamp, id, 'grade', g.value, g.winners, g.worth, clean(g.prize)].join('|')
+/** 맥(eventsync)에 넘길 이벤트. 맥이 채점(grade 행)을 남겨야 처리가 끝난 것이라, 채점 전에는 '알림 보냄'이어도 다시 준다.
+ * 안 그러면 채점이 실패한 날의 이벤트가 다음 날부터 사라진다(2026-10-11 22건). all 이면 알림 보낸 것 전부. */
+export const toHandOff = (es: Event[], all: boolean) =>
+  es.filter((e) => e.status === 'new' || (e.status === 'reminded' && (all || !e.grade)))
 
 /** 행들을 videoId 별로 접어 현재 상태만. new 행이 창(120일) 밖이면 그 이벤트는 사라진다 — 어차피 끝난 것. */
 export function fold(rows: HealthRow[]): Event[] {

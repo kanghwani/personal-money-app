@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { logEvent, loadState, scan, checkResults, group, formatEvents, reminderPayload, saveRows, statusRow, stampNow, kstDate, videoUrl } from './_events.js'
+import { logEvent, toHandOff, loadState, scan, checkResults, group, formatEvents, reminderPayload, saveRows, statusRow, stampNow, kstDate, videoUrl } from './_events.js'
 
 /**
  * 구독자 이벤트 스캔 + 미리알림 큐 — iOS 단축어(eventsync)가 매일 09:00 에 GET 한다.
@@ -26,10 +26,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const r = await scan(channels, events, lastSearch, today)
     const everything = [...events, ...r.added]
     const rc = await checkResults(everything, today)   // 발표일 지난 지원 건에서 내 핸들 찾기 → hint 행
-    const fresh = everything.filter((e) => e.status === 'new' || (all && e.status === 'reminded'))
+    const fresh = toHandOff(everything, all)
     if (!peek) {
       const stamp = stampNow()
-      await saveRows('events', fresh.map((e) => statusRow(e.id, 'reminded', '', stamp)))
+      // 이미 '알림 보냄'인 것(채점 대기)은 다시 찍지 않는다 — 날마다 같은 행이 쌓인다
+      await saveRows('events', fresh.filter((e) => e.status === 'new').map((e) => statusRow(e.id, 'reminded', '', stamp)))
     }
     const errors = [...r.errors, ...rc.errors]
     const scanLine = `채널 ${r.scanned}개 스캔${r.searched ? ' + 검색' : ''} · 새 이벤트 ${r.added.length}건 · 당첨 후보 ${rc.hints.length}건` + (rc.checked.length ? ` · 결과 검사: ${rc.checked.join(', ')}` : '') + (errors.length ? ` · 실패: ${errors.join(', ')}` : '')
