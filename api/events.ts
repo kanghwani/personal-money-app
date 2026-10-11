@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { loadState, scan, checkResults, group, formatEvents, reminderPayload, saveRows, statusRow, stampNow, kstDate, videoUrl } from './_events.js'
+import { logEvent, loadState, scan, checkResults, group, formatEvents, reminderPayload, saveRows, statusRow, stampNow, kstDate, videoUrl } from './_events.js'
 
 /**
  * 구독자 이벤트 스캔 + 미리알림 큐 — iOS 단축어(eventsync)가 매일 09:00 에 GET 한다.
@@ -11,6 +11,7 @@ import { loadState, scan, checkResults, group, formatEvents, reminderPayload, sa
  *   &all=1        new 뿐 아니라 reminded 까지, 마감 안 지난 것 전부 (미리알림을 다시 만들 때). 저장 없음
  * 응답의 events 에는 채점(grade)이 실린다. 채점은 맥 스크립트(scripts/eventsync.py)가 claude CLI 로 하고 grade 행으로 저장한다.
  *   &format=text  사람이 읽는 목록
+ *   &log=<한 줄>  "지원 십만양품" 같은 기록만 하고 끝낸다(스캔 없음). ledger.py event 가 쓴다
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store')
@@ -20,6 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const text = req.query.format === 'text'
   try {
     const today = kstDate(Date.now())
+    if (req.query.log) return res.status(200).setHeader('Content-Type', 'text/plain; charset=utf-8').send(await logEvent(String(req.query.log), today))
     const { channels, events, lastSearch } = await loadState()
     const r = await scan(channels, events, lastSearch, today)
     const everything = [...events, ...r.added]

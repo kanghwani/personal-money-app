@@ -1,15 +1,15 @@
 # personal-money-app
 
-돈에 관한 것은 전부 여기서 처리한다. 가계부(React 앱 + MCP 툴)와 유튜브 구독자 이벤트(경품 → 돈), 둘 다 같은 Vercel 서버리스 API와 Google Apps Script 시트 백엔드를 쓴다.
+돈에 관한 것은 전부 여기서 처리한다. 가계부(React 앱)와 유튜브 구독자 이벤트(경품 → 돈), 둘 다 같은 Vercel 서버리스 API와 Google Apps Script 시트 백엔드를 쓴다.
+클로드에서는 코드 세션의 `ledger` 스킬로 조회·수정한다. 폰에서는 웹앱만 쓴다(클로드 앱 커넥터는 2026-10-11 에 없앴다).
 
 | 시스템 | 상태 | 위치 |
 |---|---|---|
-| 가계부 | 유지 | `src/` (React, Vite), MCP `ledger_*` 11개, `gas/Code.gs` |
-| 유튜브 구독자 이벤트 | 개발 중 | `api/_events.ts`·`api/events.ts`, MCP `event_list`·`event_log`, `scripts/eventsync.*` (맥 launchd) |
+| 가계부 | 유지 | `src/` (React, Vite), `gas/Code.gs` |
+| 유튜브 구독자 이벤트 | 개발 중 | `api/_events.ts`·`api/events.ts`, `scripts/eventsync.*` (맥 launchd) |
 | 서버 API | 공용 | `api/` (Vercel 서버리스). `_` 로 시작하는 파일은 함수가 아니라 모듈·테스트 |
-| MCP 서버 | 공용 | `api/mcp.ts` (클로드 앱 커스텀 커넥터가 붙는 곳) |
 | 시트 백엔드 | 공용 | `gas/Code.gs` (clasp 로 배포). `health*` 함수는 이름만 남은 범용 탭 저장소로, 이벤트 탭이 쓴다 |
-| 클로드 스킬 | 공용 | `skills/ledger`(시트 CLI), `skills/money-coach`(월 결산·노션). `~/.claude/skills` 가 여기로 심볼릭 링크 |
+| 클로드 스킬 | 공용 | `skills/ledger`(가계부·이벤트 CLI), `skills/money-coach`(월 결산·노션). `~/.claude/skills` 가 여기로 심볼릭 링크 |
 
 2026-10-10 에 건강 코치·약속 코치·스페인어 인스턴스를 제거했다(iOS 기본 기능으로 대체, 미사용). 필요하면 `git log` 의 그 이전 커밋에 있다.
 
@@ -28,25 +28,14 @@ cd gas && clasp push -f && clasp deploy --deploymentId AKfycby2so1RyMqyuEaKEfOtS
 
 ## 함정 (여기서 시간을 잃은 것들)
 
-**기존 MCP 툴의 인자를 바꾸면 커넥터를 지웠다 다시 추가해야 한다.**
-클로드 앱은 툴 스키마를 캐시한다. 새 툴이 늘어난 것은 목록 새로고침으로 잡히지만,
-이미 있던 툴의 `inputSchema` 변경은 잡히지 않는다. 소스도 맞고 실서버도 맞는데
-앱만 옛 스키마로 호출하는 상태가 되고, 원인 찾기가 제일 오래 걸린다.
-`inputSchema` 를 고쳤으면 배포 뒤 **설정 > 커넥터 > 가계부원격을 삭제하고 같은 URL 로 다시 추가**한다(URL 은 삭제 전에 복사).
-한때 잠금 파일·실서버 대조 스크립트로 이걸 막았는데, 인자가 바뀌는 일이 한 달에 한 번도 안 돼서 2026-10 에 걷어냈다.
-
-**핸들러가 읽는 인자는 `inputSchema.properties` 에도 올려야 한다.**
-`args.week` 를 읽어도 스키마에 없으면 클라이언트가 조용히 버린다. `api/_mcp-tools.test.ts` 가
-핸들러의 `args` 사용·`required`·설명 언급을 스키마와 대조한다.
-
 **`api/` 의 `.ts` 는 전부 서버리스 함수로 잡힌다.** 테스트와 모듈은 `_` 접두어를 붙여야 한다.
 (`api/health.test.ts` 를 두었더니 함수로 취급돼 빌드가 깨졌다.)
 
 **`Array.prototype.at` 을 쓰지 말 것.** Vercel 의 기본 lib 타깃이 낮아 빌드가 깨진다.
 배포 전 확인: `npx tsc --noEmit --ignoreConfig --strict --skipLibCheck --module nodenext --moduleResolution nodenext --target es2021 api/*.ts`
 
-**`APP_SECRET`·`MCP_SECRET` 은 Vercel Secret 이라 `vercel env pull` 로 못 꺼낸다.**
-쿠키·MCP 인증이 필요한 검증은 앱에서 하거나, `SYNC_TOKEN` 을 쓰는 통로(`/api/events`)로 한다.
+**Vercel 환경변수는 전부 Secret 이라 `vercel env pull` 로 꺼내면 가림 값만 온다.** 로컬 `.env` 에 없는 값(`APP_SECRET`·`YOUTUBE_API_KEY`·`YT_HANDLE`)은 다른 곳으로 못 옮긴다.
+쿠키 인증이 필요한 검증은 앱에서 하거나, `SYNC_TOKEN` 을 쓰는 통로(`/api/events`)로 한다.
 
 **GAS 호출은 창 크기와 무관하게 10초 넘게 걸린다.** 시작 오버헤드가 병목이라 한 번에 많이 받는 편이 호출 수를 줄이는 것보다 낫다.
 
@@ -58,7 +47,7 @@ cd gas && clasp push -f && clasp deploy --deploymentId AKfycby2so1RyMqyuEaKEfOtS
 |---|---|
 | 판정·날짜·상태·한 줄 문법 | `api/_events.ts` (순수 함수, `api/_events.test.ts`) |
 | 스캔 + 미리알림 큐 | `api/events.ts` — 감시 채널 최근 10개 + 하루 한 번 검색("댓글 이벤트"·"구독자 이벤트", 7일). 단축어나 `event_list` 가 부른다. cron 없음 |
-| 폰 입력·조회 | MCP `event_list`, `event_log` |
+| 조회·기록 | `ledger.py event` → `/api/events?peek=1&format=text`(목록), `/api/events?log=<한 줄>`(기록, `logEvent`) |
 | 저장 | 건강 데이터 스프레드시트 탭 `events`·`event_channels` (GAS 수정 없음, 추가만) |
 | 당첨 검사 | `checkResults` — 발표일 지난 지원 건마다 영상 설명·상단 댓글·채널의 내 댓글 답글·채널 새 영상에서 `YT_HANDLE` 을 찾아 `hint` 행. 확정은 사람이 "당첨/탈락". 커뮤니티 게시글은 못 본다 |
 | 채점 | `scripts/eventsync.py` 가 미채점 이벤트를 `claude -p --model haiku` 로 채점(경품·1인분 가치·당첨자수·응모가치 1~5) → `grade` 행. 규칙으로는 못 한다 — 경품이 이름뿐이라 금액 정규식은 91건 중 14건만, 그마저 영상 속 가격을 집었다 |
@@ -81,5 +70,4 @@ git log 가 이미 무엇을 바꿨는지 알려주므로, 여기에는 코드�
 ## 인증
 
 - 가계부 화면: `/api/login?k=<APP_SECRET>` 로 한 번 접속하면 1년짜리 쿠키가 심긴다
-- MCP: `?k=<MCP_SECRET>` 또는 `Authorization: Bearer`
-- 단축어·검증용 통로: `?t=<SYNC_TOKEN>` (`/api/events`)
+- 이벤트·검증용 통로: `?t=<SYNC_TOKEN>` (`/api/events`)

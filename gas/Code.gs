@@ -968,7 +968,7 @@ function batchReclassify_(ss, items) {
 }
 
 // 인천e음 캐시백 10%를 '환급' 분담금으로 기록한다 → 실지출은 결제액의 90%, 분담금 목록엔 안 뜬다.
-// ponytail: 정책이 자주 바뀐다(한도·지급률). 바뀌면 여기와 api/_ledger.ts·ledger.py 의 EUM 을 같이 고친다.
+// ponytail: 정책이 자주 바뀐다(한도·지급률). 바뀌면 여기와 skills/ledger/ledger.py 의 EUM 을 같이 고친다.
 var EUM = { payment: '이음카드', rate: 0.1, limit: 500000, limitByMonth: { '2026-09': 1000000 }, tag: ' · e음 캐시백 환급' };
 function eumCashback_(ss, date, amount) {
   var month = String(date).slice(0, 7);

@@ -43,9 +43,6 @@
   "functions": {
     "api/events.ts": {
       "maxDuration": 60
-    },
-    "api/mcp.ts": {
-      "maxDuration": 60
     }
   }
 }

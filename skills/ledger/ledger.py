@@ -16,8 +16,12 @@
   ledger.py edit <id8> amount=15100 payment=하나카드 memo=... cat=식비 sub=외식 date=2026-08-27 split=1000
   ledger.py half <id8>       # 분담금 50%(반반)
   ledger.py rm <id8>         # 삭제
+
+유튜브 구독자 이벤트(경품):
+  ledger.py event                     # 지원 대기·지원함·결과 목록 (스캔 포함, 미리알림 표시는 안 건드림)
+  ledger.py event 지원 십만양품        # 한 줄 기록: 지원/당첨/탈락/패스, 채널 추가·삭제, 이벤트 추가
 """
-import json, os, re, sys, time, urllib.request, urllib.parse, collections
+import json, os, re, sys, time, urllib.request, urllib.parse, urllib.error, collections
 from datetime import date
 
 # .env 후보 경로. 심볼릭 링크로 실행돼도 실제 파일 위치(realpath) 기준으로 찾는다.
@@ -78,6 +82,18 @@ def find_one(id8):
     if len(hit) > 1: sys.exit(f'{id8} 가 {len(hit)}건과 겹침 — 더 길게 지정')
     return hit[0]
 
+EVENTS = 'https://personal-money-app-seven.vercel.app/api/events'
+
+def cmd_event(text):
+    """이벤트 서버를 부른다. 목록은 peek=1 — 안 붙이면 새 이벤트가 '알림 보냄'으로 찍혀 아침 미리알림이 빠진다."""
+    _, tok = cfg()
+    q = {'t': tok, 'log': text} if text else {'t': tok, 'peek': '1', 'format': 'text'}
+    try:
+        with urllib.request.urlopen(f'{EVENTS}?{urllib.parse.urlencode(q)}', timeout=90) as r:
+            print(r.read().decode())
+    except urllib.error.HTTPError as e:
+        sys.exit(e.read().decode())
+
 def rows():   return get('ledger')['transactions']
 def defs():   return get('fixedList').get('defs', [])
 def won(n):   return f'{n:,}원'
@@ -112,12 +128,12 @@ def cmd_check():
         for k in dup[:10]: print(f'  {k} x{key[k]}')
     cmd_month(None, brief=True)
 
-# api/_ledger.ts 의 사본. 규칙을 바꾸면 양쪽을 같이 고친다.
+# 분담금 상수는 api/_ledger.ts 의 사본(앱이 그쪽을 쓴다). 규칙을 바꾸면 양쪽을 같이 고친다.
 PEOPLE = {'여친': ['브리', '여친', '여자친구'], '형': ['형'], '엄마': ['엄마']}
 REFUND_WORDS = ['환급', '리워드', '피클']
 SETTLE_SINCE = '2026-09-01'   # ponytail: 이 날짜 전의 분담금은 '받음' 표시가 없어도 정산된 것으로 본다
 SETTLED = '받음'
-EUM = {'payment': '이음카드', 'limit': 500000, 'by_month': {'2026-09': 1000000}}   # gas·_ledger.ts 와 같은 값
+EUM = {'payment': '이음카드', 'limit': 500000, 'by_month': {'2026-09': 1000000}}   # gas/Code.gs 의 EUM 과 같은 값
 def has(t, ws): return any(w in (t.get('memo') or '') for w in ws)
 def net(t): return t['amount'] - t.get('split', 0)
 def bucket(t):
@@ -155,7 +171,7 @@ def month_insights(d, m):
     return out
 
 def side_income_gap(d, m, today):
-    """_ledger.ts sideIncomeGap 사본 — 끝난 달에 부수입이 0이면 플랫폼 정산을 빠뜨린 것. 이번 달을 보면 지난달을 본다."""
+    """끝난 달에 부수입이 0이면 플랫폼 정산을 빠뜨린 것. 이번 달을 보면 지난달을 본다."""
     target = prev_month(m) if today.startswith(m) else m
     if today[:7] <= target: return ''
     has_ = any(t.get('type') == 'income' and (t.get('date') or '').startswith(target) and t.get('subCategory') == '부수입' for t in d)
@@ -384,6 +400,7 @@ def main():
     elif c == 'edit':  cmd_edit(a[1], a[2:])
     elif c == 'half':  cmd_half(a[1])
     elif c == 'rm':    cmd_rm(a[1])
+    elif c == 'event': cmd_event(' '.join(a[1:]))
     elif c == 'recon':  # recon <카드> <이용내역파일> [형장부파일] [owner=김강환] [prepaid=1000000]
         kv = dict(x.split('=', 1) for x in a[2:] if '=' in x); files = [x for x in a[2:] if '=' not in x]
         cmd_recon(a[1], files[0], files[1] if len(files) > 1 else None, kv.get('owner', ''), int(kv.get('prepaid', 0)))

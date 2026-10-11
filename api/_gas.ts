@@ -1,4 +1,4 @@
-/** GAS 웹앱 호출 공용 (mcp.ts·today.ts). 환경변수 SYNC_URL, SYNC_TOKEN — 서버 전용. */
+/** GAS 웹앱 호출 공용 (이벤트 모듈). 환경변수 SYNC_URL, SYNC_TOKEN — 서버 전용. */
 const env = (k: string) => {
   const v = process.env[k]
   if (!v) throw new Error(`${k} 환경변수가 없습니다`)

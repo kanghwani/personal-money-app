@@ -248,7 +248,7 @@ export type SplitBreakdown = {
 }
 export type SplitTxLike = { date: string; type: string; amount: number; split: number; memo: string }
 
-// 상대·환급·받음 규칙은 api/_ledger.ts 가 원본이다(앱과 MCP 가 같은 답을 내야 한다).
+// 상대·환급·받음 규칙은 api/_ledger.ts 가 원본이다(앱과 ledger.py 가 같은 답을 내야 한다).
 // ponytail: 별도 컬럼(상대/정산일) 없이 메모만으로 구분한다. 구분이 자주 틀리면 그때 필드를 추가.
 const SPLIT_PEOPLE = PEOPLE
 

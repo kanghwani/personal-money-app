@@ -458,3 +458,45 @@ export async function scan(channels: Channel[], known: Event[], lastSearch = '',
   await saveRows('events', [...kept.map((e) => newRow(e, stamp)), ...(searched ? [[stamp, SEARCH_MARK, 'scan', SEARCH_QUERIES.join(',')].join('|')] : [])])
   return { added: kept, errors, scanned: channels.length - errors.filter((x) => !/^(검색|통계):/.test(x)).length, searched }
 }
+
+/** 한 줄 기록("지원 십만양품"·"당첨 …"·"채널 추가 @핸들"·"이벤트 추가 <url>") → 시트에 행 추가, 사람이 읽는 한 줄 응답.
+ * /api/events?log= 와 ledger.py event 가 부른다. */
+export async function logEvent(text: string, today: string): Promise<string> {
+    const cmd = parseEventLog(text)
+    const stamp = stampNow()
+    if (cmd.kind === 'channel') {
+      const { channels } = await loadState()
+      if (cmd.remove) {
+        // 등록된 것 중에서 핸들·이름·ID 로 찾는다. API 호출 없이 끝난다.
+        const q = cmd.input.replace(/^.*@/, '@').toLowerCase()
+        const hit = channels.filter((c) => c.handle.toLowerCase() === q || c.name.toLowerCase() === cmd.input.toLowerCase() || c.id === cmd.input)
+        if (!hit.length) return `등록된 채널 중 '${cmd.input}' 이 없어요.\n` + channels.map((c) => `• ${c.name} (${c.handle})`).join('\n')
+        await saveRows('event_channels', hit.map((c) => [stamp, c.id, '삭제', ''].join('|')))
+        return `채널 삭제: ${hit.map((c) => c.name).join(', ')} — 남은 채널 ${channels.length - hit.length}개`
+      }
+      const ch = await resolveChannel(cmd.input)
+      if (channels.some((c) => c.id === ch.id)) return `이미 등록된 채널: ${ch.name} (${ch.handle})`
+      await saveRows('event_channels', [[stamp, ch.id, ch.name, ch.handle].join('|')])
+      return `채널 등록: ${ch.name} (${ch.handle}) — 총 ${channels.length + 1}개. 다음 스캔부터 최근 영상을 봅니다.`
+    }
+    if (cmd.kind === 'video') {
+      const id = parseVideoInput(cmd.url)
+      if (!id) throw new Error('영상 URL 이 아니에요 (youtu.be/… 또는 watch?v=…)')
+      const { events } = await loadState()
+      if (events.some((e) => e.id === id)) return `이미 있는 이벤트: ${videoUrl(id)}`
+      const e = detect(await videoSnippet(id), true)!
+      const t0 = today
+      if (cmd.deadline) { e.deadline = mmddToYmd(cmd.deadline, t0); e.deadlineGuessed = false }
+      if (cmd.announce) { e.announce = mmddToYmd(cmd.announce, t0); e.announceGuessed = false }
+      await saveRows('events', [newRow(e, stamp)])
+      return `이벤트 등록: ${e.channel} · ${e.title}\n마감 ${e.deadline}${e.deadlineGuessed ? '?' : ''} · 발표 ${e.announce}${e.announceGuessed ? '?' : ''}\n${e.excerpt}`
+    }
+    const { events } = await loadState()
+    const hit = findEvents(events, cmd.query)
+    if (!hit.length) return `'${cmd.query}' 에 해당하는 진행 중 이벤트가 없어요.\n` + formatEvents(group(events, today), today)
+    if (hit.length > 1) return `${hit.length}건이 걸려요. 제목 단어로 더 좁혀 주세요:\n` + hit.map((e) => `• ${e.channel} · ${e.title} (마감 ${e.deadline.slice(5)})`).join('\n')
+    const e = hit[0]
+    await saveRows('events', [statusRow(e.id, cmd.status, cmd.note, stamp)])
+    const word = { applied: '지원함', won: '당첨', lost: '탈락', skipped: '패스', new: '', reminded: '' }[cmd.status]
+    return `${word}: ${e.channel} · ${e.title}${cmd.note ? ' · ' + cmd.note : ''}` + (cmd.status === 'applied' ? `\n발표 ${e.announce.slice(5)}${e.announceGuessed ? '?' : ''} 에 결과를 확인하세요.` : '')
+}
