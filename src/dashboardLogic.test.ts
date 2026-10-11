@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, withInstallmentCharges, benefitBalances, unusedBenefits, cardGlance, paymentPlaybook, previousMonthKey, isSaving, isLoanRepay, isNonSpend, isCardPayment, parseBankDeposits } from './dashboardLogic'
+import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, withInstallmentCharges, benefitBalances, unusedBenefits, cardGlance, paymentPlaybook, previousMonthKey, isSaving, isLoanRepay, isNonSpend, isCardPayment, parseBankDeposits, isOpenSplit, splitPerson } from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
   ({ date, type: 'expense', amount, category, subCategory, payment, fixedType: 'variable' })
@@ -800,5 +800,30 @@ describe('cardGlance', () => {
     expect(g.met).toBe(true)
     expect(g.usedAreas).toBe(1)
     expect(g.totalAreas).toBe(nh[0].benefits.length)
+  })
+})
+
+describe('분담금 판정 공유 (코치용)', () => {
+  const s = (date: string, memo: string, split = 10000) => ({ date, type: 'expense', amount: 20000, split, memo })
+  it('안 받은 분담금만 open', () => {
+    expect(isOpenSplit(s('2026-10-02', '여친 저녁'))).toBe(true)
+    expect(isOpenSplit(s('2026-10-02', '여친 저녁 · 받음 10-05'))).toBe(false)
+    expect(isOpenSplit(s('2026-10-02', '피클 환급'))).toBe(false)
+    expect(isOpenSplit(s('2026-08-20', '여친 저녁'))).toBe(false)   // SETTLE_SINCE(2026-09-01) 이전
+    expect(isOpenSplit(s('2026-10-02', '여친 저녁', 0))).toBe(false)
+  })
+  it('메모로 상대를 찾는다', () => {
+    expect(splitPerson('브리 코스트코')).toBe('여친')
+    expect(splitPerson('형 가게 물품')).toBe('형')
+    expect(splitPerson('모임 회비')).toBe('기타')
+  })
+})
+
+describe('missedBenefits — 가족 합산 카드', () => {
+  it('국민카드는 원장 실적이 0이어도 첫 구간 충족으로 보고 놓친 혜택을 낸다', () => {
+    const hits = missedBenefits([
+      { date: '2026-10-12', type: 'expense', amount: 50000, split: 0, memo: '쿠팡', payment: '현금' },
+    ], '2026-10')
+    expect(hits.some((h) => h.bestCard === '국민카드' && h.area === '온라인쇼핑' && h.discount === 5000)).toBe(true)
   })
 })

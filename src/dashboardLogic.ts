@@ -1,4 +1,4 @@
-import { PEOPLE, REFUND_WORDS, SETTLE_SINCE, SETTLED } from '../api/_ledger'
+import { PEOPLE, REFUND_WORDS, SETTLE_SINCE, SETTLED } from '../api/_ledger.js'
 export type TxLike = {
   date: string
   type: string
@@ -252,6 +252,18 @@ export type SplitTxLike = { date: string; type: string; amount: number; split: n
 // ponytail: 별도 컬럼(상대/정산일) 없이 메모만으로 구분한다. 구분이 자주 틀리면 그때 필드를 추가.
 const SPLIT_PEOPLE = PEOPLE
 
+/** 메모로 분담 상대를 찾는다. 못 찾으면 '기타'. */
+export const splitPerson = (memo: string, people: Record<string, string[]> = SPLIT_PEOPLE) =>
+  Object.keys(people).find((name) => people[name].some((w) => (memo || '').includes(w))) || '기타'
+
+/** 아직 안 받은 정산분인지. 환급(피클 등)과 '받음' 표시, SETTLE_SINCE 이전 기록은 받은 것으로 본다. */
+export const isOpenSplit = (t: SplitTxLike) => {
+  const memo = t.memo || ''
+  return t.type === 'expense' && Boolean(t.split)
+    && !REFUND_WORDS.some((w) => memo.includes(w))
+    && !(t.date < SETTLE_SINCE || memo.includes(SETTLED))
+}
+
 /** 해당 월 분담금을 '정산해서 받을 돈'과 '자동 환급'으로 나누고, 정산분을 상대별로 합산. 전체 거래를 넘기면 월 무관 미수(open)도 낸다. */
 export function splitBreakdown(
   transactions: SplitTxLike[],
@@ -261,22 +273,21 @@ export function splitBreakdown(
   let total = 0, refund = 0, received = 0, open = 0
   const byPerson = new Map<string, number>()
   const openBy = new Map<string, { value: number; count: number }>()
-  const whoOfMemo = (memo: string) => Object.keys(people).find((name) => people[name].some((w) => memo.includes(w))) || '기타'
   for (const t of transactions) {
     if (t.type !== 'expense' || !t.split) continue
     const memo = t.memo || ''
     const isRef = REFUND_WORDS.some((w) => memo.includes(w))
     const settled = t.date < SETTLE_SINCE || memo.includes(SETTLED)
-    if (!isRef && !settled) {
+    if (isOpenSplit(t)) {
       open += t.split
-      const o = openBy.get(whoOfMemo(memo)) || { value: 0, count: 0 }
-      openBy.set(whoOfMemo(memo), { value: o.value + t.split, count: o.count + 1 })
+      const o = openBy.get(splitPerson(memo, people)) || { value: 0, count: 0 }
+      openBy.set(splitPerson(memo, people), { value: o.value + t.split, count: o.count + 1 })
     }
     if (t.date.slice(0, 7) !== yearMonth) continue
     total += t.split
     if (isRef) { refund += t.split; continue }
     if (settled) received += t.split
-    const who = whoOfMemo(memo)
+    const who = splitPerson(memo, people)
     byPerson.set(who, (byPerson.get(who) || 0) + t.split)
   }
   return {
@@ -623,7 +634,8 @@ export function missedBenefits(
     if (!spec.owned || assumeQualified) return b.cap > 0 ? b.cap : Math.max(0, ...spec.tiers.map((t) => t.cap))
     if (!spec.tiers.length) return 0
     // 최소 실적 구간에 못 미치면 그 카드는 이번 달 어떤 혜택도 못 받는다 - 영역별 한도가 있어도 마찬가지.
-    const qualified = perf.get(spec.card) ?? 0
+    // 가족 합산 카드는 가족 지출이 원장에 없다 — 매달 첫 구간 충족으로 본다(benefitBalances 와 같은 가정, 2026-10-11 사용자 확인).
+    const qualified = spec.familyPooled ? Math.min(...spec.tiers.map((t) => t.min)) : (perf.get(spec.card) ?? 0)
     if (qualified < Math.min(...spec.tiers.map((t) => t.min))) return 0
     return b.cap > 0 ? b.cap : tierStatus(qualified, spec.tiers).cap
   }
