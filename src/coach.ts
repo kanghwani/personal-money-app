@@ -215,3 +215,40 @@ export function coachAdvice(transactions: CoachTx[], fixedDefs: FixedDef[], toda
     ...categoryAdvice(transactions, today), ...recordAdvice(transactions, today)]
     .sort((a, b) => (a.due ?? '9999-99-99').localeCompare(b.due ?? '9999-99-99') || b.amount - a.amount)
 }
+
+/**
+ * 오늘 미리알림으로 보낼 것. 정해진 날에만, 여러 개면 하나로 묶는다(하루 최대 1개).
+ * 상태를 저장하지 않는다 — 같은 날 몇 번 불러도 같은 답이라 맥이 실패 후 다시 불러도 안전하다.
+ */
+export function alertFor(transactions: CoachTx[], fixedDefs: FixedDef[], today: string): { title: string; body: string } | null {
+  const day = dayOf(today), left = daysInMonth(ym(today)) - day
+  const advice = coachAdvice(transactions, fixedDefs, today)
+  const of = (kind: AdviceKind) => advice.filter((a) => a.kind === kind)
+  const picked: Advice[] = []
+  if (left === 5 || left === 2) picked.push(...of('tier'))
+  if (left === 3) {
+    const unused = of('unused')
+    if (unused.reduce((s, a) => s + a.amount, 0) >= 10000) picked.push(...unused)
+  }
+  if (day === 1) picked.push(...of('split'))
+  if (day === 3) picked.push(...advice.filter((a) => a.id === 'record:side'))
+  const states = categoryStates(transactions, today)
+  const crossed = states.filter((s) => s.spentYesterday < s.baseline && s.spent >= s.baseline)
+  picked.push(...crossed.map(overAdvice))
+  if (day === 15) {
+    const done = new Set(crossed.map((s) => `cat:${s.category}`))
+    picked.push(...of('category').filter((a) => !done.has(a.id) && /많이 썼어요|넘었어요/.test(a.title)))
+  }
+  if (!picked.length) return null
+  const date = `${today.slice(5, 7)}/${today.slice(8, 10)}`   // 0 채움: 맥이 "[가계부] 11/1" 과 "11/15" 를 헷갈리지 않게
+  return {
+    title: `[가계부] ${date} ${picked[0].title}${picked.length > 1 ? ` 외 ${picked.length - 1}건` : ''}`,
+    body: picked.map((a) => `• ${a.title}\n  ${a.detail}`).join('\n'),
+  }
+}
+
+/** 서버는 UTC 로 돈다. */
+export const kstToday = (now: number) => new Date(now + 9 * 3600_000).toISOString().slice(0, 10)
+/** /api/coach 의 date 인자: YYYY-MM-DD 만 받고, 아니면 KST 오늘. */
+export const coachDate = (q: unknown, now: number) =>
+  typeof q === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(q) ? q : kstToday(now)

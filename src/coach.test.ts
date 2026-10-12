@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fmt, daysInMonth, addMonths, categoryBaselines, categoryVerdict, categoryStates, coachAdvice, type CoachTx } from './coach'
+import { fmt, daysInMonth, addMonths, categoryBaselines, categoryVerdict, categoryStates, coachAdvice, alertFor, coachDate, kstToday, type CoachTx } from './coach'
 
 const tx = (date: string, amount: number, o: Partial<CoachTx> = {}): CoachTx =>
   ({ date, type: 'expense', amount, split: 0, memo: '', payment: '현금', category: '외식비', subCategory: '', fixedType: 'variable', ...o })
@@ -138,5 +138,55 @@ describe('coachAdvice', () => {
       if (key(a[i - 1]) === key(a[i])) expect(a[i - 1].amount).toBeGreaterThanOrEqual(a[i].amount)
     }
     expect(a.findIndex((x) => x.id === 'tier:NH카드')).toBeLessThan(a.findIndex((x) => x.id === 'tier:하나카드'))   // 4.5만 > 1.5만
+  })
+})
+
+describe('alertFor — 보내는 날', () => {
+  const hist = [tx('2026-07-10', 340000), tx('2026-08-10', 340000), tx('2026-09-10', 340000)]
+  it('말일 5일 전·2일 전에 실적 부족, 그 사이엔 없음 (31일 달)', () => {
+    const a = alertFor([], [], '2026-10-26')!
+    expect(a.title.startsWith('[가계부] 10/26 ')).toBe(true)
+    expect(a.title).toContain('실적'); expect(a.title).toContain('외 1건')
+    expect(alertFor([], [], '2026-10-29')).not.toBeNull()
+    expect(alertFor([], [], '2026-10-27')).toBeNull()
+  })
+  it('30일 달·평년 2월·윤년 2월', () => {
+    expect(alertFor([], [], '2026-11-25')).not.toBeNull(); expect(alertFor([], [], '2026-11-24')).toBeNull()
+    expect(alertFor([], [], '2027-02-23')).not.toBeNull()
+    expect(alertFor([], [], '2028-02-24')).not.toBeNull(); expect(alertFor([], [], '2028-02-23')).toBeNull()
+  })
+  it('1일에 분담금, 제목 날짜는 0을 채운다', () => {
+    const a = alertFor([tx('2026-10-01', 60000, { memo: '여친 저녁', split: 30000 })], [], '2026-11-01')!
+    expect(a.title).toBe('[가계부] 11/01 여친 분담금 3만 받을 돈')
+    expect(a.body).toBe('• 여친 분담금 3만 받을 돈\n  1건, 가장 오래된 건 10/1')
+  })
+  it('3일에 끝난 달 부수입 0건, 넣었으면 없음', () => {
+    expect(alertFor([], [], '2026-11-03')?.title).toBe('[가계부] 11/03 10월 부수입 0건')
+    expect(alertFor([tx('2026-10-31', 90000, { type: 'income', category: '수입', subCategory: '부수입' })], [], '2026-11-03')).toBeNull()
+  })
+  it('말일 3일 전, 남은 혜택 합 1만 이상', () => {
+    const a = alertFor([tx('2026-09-10', 300000, { payment: 'NH카드', memo: '마트', category: '생활', fixedType: 'fixed' })], [], '2026-10-28')!
+    expect(a.body).toContain('NH카드 혜택')
+  })
+  it('15일 중간 점검: 많이 쓴 카테고리', () => {
+    expect(alertFor([...hist, tx('2026-10-10', 250000)], [], '2026-10-15')?.body).toContain('외식비 많이 썼어요')
+  })
+  it('한 달치를 처음 넘은 날만, 7일 이전이어도', () => {
+    const ts = [...hist, tx('2026-10-05', 330000), tx('2026-10-06', 20000)]
+    expect(alertFor(ts, [], '2026-10-06')?.body).toContain('외식비 평소 한 달치를 넘었어요')
+    expect(alertFor(ts, [], '2026-10-07')).toBeNull()
+  })
+})
+
+describe('coachDate', () => {
+  it('KST 로 날짜를 잡는다 (UTC 15:30 = KST 다음 날 00:30)', () => {
+    expect(kstToday(Date.parse('2026-10-11T15:30:00Z'))).toBe('2026-10-12')
+  })
+  it('date 인자는 YYYY-MM-DD 만 받고 나머지는 오늘', () => {
+    const now = Date.parse('2026-10-11T03:00:00Z')
+    expect(coachDate('2026-10-26', now)).toBe('2026-10-26')
+    expect(coachDate('2026-1-5', now)).toBe('2026-10-11')
+    expect(coachDate('abc', now)).toBe('2026-10-11')
+    expect(coachDate(undefined, now)).toBe('2026-10-11')
   })
 })
