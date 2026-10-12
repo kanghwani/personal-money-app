@@ -43,6 +43,9 @@
   "functions": {
     "api/events.ts": {
       "maxDuration": 60
+    },
+    "api/coach.ts": {
+      "maxDuration": 60
     }
   }
 }
