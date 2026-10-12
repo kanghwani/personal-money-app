@@ -73,8 +73,8 @@ export function categoryBaselines(transactions: CoachTx[], yearMonth: string): M
  */
 export function categoryVerdict(spent: number, baseline: number, day: number, days: number): Verdict {
   const expected = baseline * day / days                 // 날짜 기준: 오늘까지 평소대로 썼다면 쓴 돈
-  if (day < 7) return 'ok'                               // 월초는 한두 건에 크게 흔들려 판정하지 않는다
-  if (spent >= baseline) return 'over'                   // 평소 한 달치를 넘었다
+  if (spent >= baseline) return 'over'                   // 평소 한 달치를 넘었다 — 추정이 아니라 사실이라 월초에도 판정(알림과 홈이 같은 말)
+  if (day < 7) return 'ok'                               // 페이스는 월초 한두 건에 크게 흔들려 판정하지 않는다
   // 비율은 양변을 곱해 정수로 비교한다: 170000 × 0.7 이 118999.999… 가 되어 경계(119,000)를 놓쳤다.
   const atLeast = (tenths: number) => spent * days * 10 >= baseline * day * tenths   // spent ≥ expected × tenths/10
   const atMost = (tenths: number) => spent * days * 10 <= baseline * day * tenths
@@ -142,7 +142,8 @@ function cardAdvice(transactions: CoachTx[], fixedDefs: FixedDef[], today: strin
     const sum = items.reduce((s, b) => s + b.remaining, 0)
     const top = [...items].sort((a, b) => b.remaining - a.remaining).slice(0, 2)
     out.push({ id: `unused:${card}`, kind: 'unused', title: `${card} 혜택 ${fmt(sum)} 남음`,
-      detail: top.map((b) => `${b.area} ${pct(b.rate)} ${fmt(b.remaining)}`).join(' · '),
+      // 통합 한도 카드의 rate 는 영역 중 최대값이라 "통합 할인 50%" 로 쓰면 전 영역 50% 로 읽힌다 → 한도만.
+      detail: top.map((b) => b.area === '통합 할인' ? `통합 한도 ${fmt(b.remaining)}` : `${b.area} ${pct(b.rate)} ${fmt(b.remaining)}`).join(' · '),
       badge: `${fmt(sum)} 남음`, due, amount: sum, target: 'insights' })
   }
   const missed = new Map<string, { area: string; card: string; sum: number; count: number }>()
@@ -232,8 +233,12 @@ export function alertFor(transactions: CoachTx[], fixedDefs: FixedDef[], today: 
   }
   if (day === 1) picked.push(...of('split'))
   if (day === 3) picked.push(...advice.filter((a) => a.id === 'record:side'))
-  const states = categoryStates(transactions, today)
-  const crossed = states.filter((s) => s.spentYesterday < s.baseline && s.spent >= s.baseline)
+  // 맥은 07:27·09:00 에만 돈다. 넘게 만든 지출은 전날 입력돼 있어 아침엔 어제·오늘 누적이 같다 → "어제 넘었나"를 본다.
+  // 1일의 어제는 지난달이라 건너뛴다.
+  const yesterday = day > 1 ? `${ym(today)}-${String(day - 1).padStart(2, '0')}` : ''
+  const crossed = yesterday
+    ? categoryStates(transactions, yesterday).filter((s) => s.spentYesterday < s.baseline && s.spent >= s.baseline)
+    : []
   picked.push(...crossed.map(overAdvice))
   if (day === 15) {
     const done = new Set(crossed.map((s) => `cat:${s.category}`))

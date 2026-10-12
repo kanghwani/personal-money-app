@@ -46,8 +46,11 @@ describe('categoryBaselines', () => {
 })
 
 describe('categoryVerdict (기준선 340,000, 31일 달)', () => {
-  it('7일 전에는 판정하지 않는다', () => {
-    expect(categoryVerdict(500000, 340000, 6, 31)).toBe('ok')
+  it('7일 전에는 페이스를 판정하지 않는다', () => {
+    expect(categoryVerdict(300000, 340000, 6, 31)).toBe('ok')
+  })
+  it('한 달치를 넘었으면 7일 전이어도 over — 알림과 홈이 같은 말을 한다', () => {
+    expect(categoryVerdict(500000, 340000, 6, 31)).toBe('over')
   })
   it('기준선 이상이면 over', () => {
     expect(categoryVerdict(340000, 340000, 20, 31)).toBe('over')
@@ -73,7 +76,7 @@ describe('categoryStates', () => {
   const hist = [tx('2026-07-10', 340000), tx('2026-08-10', 340000), tx('2026-09-10', 340000)]
   it('오늘·어제 누적과 판정을 낸다', () => {
     const [s] = categoryStates([...hist, tx('2026-10-05', 330000), tx('2026-10-06', 20000)], '2026-10-06')
-    expect(s).toMatchObject({ category: '외식비', spent: 350000, spentYesterday: 330000, baseline: 340000, verdict: 'ok' })
+    expect(s).toMatchObject({ category: '외식비', spent: 350000, spentYesterday: 330000, baseline: 340000, verdict: 'over' })
   })
   it('1일에는 어제 누적이 0', () => {
     const [s] = categoryStates([...hist, tx('2026-10-01', 50000)], '2026-10-01')
@@ -102,6 +105,10 @@ describe('coachAdvice', () => {
     const a = coachAdvice([card('2026-09-10', 300000, 'NH카드')], [], '2026-10-20').find((x) => x.id === 'unused:NH카드')!
     expect(a.title).toBe('NH카드 혜택 4.5만 남음')
     expect(a.detail).toContain('커피 50% 1만')
+  })
+  it('통합 한도 카드는 할인율 없이 남은 한도만 — 최대 할인율을 전 영역 할인율로 오해하지 않게', () => {
+    const a = coachAdvice([card('2026-09-10', 300000, '하나카드')], [], '2026-10-20').find((x) => x.id === 'unused:하나카드')!
+    expect(a.detail).toBe('통합 한도 1.5만')
   })
   it('다른 보유 카드였으면 3천원 이상 더 받았을 때 놓친 혜택', () => {
     const a = coachAdvice([tx('2026-10-12', 50000, { memo: '쿠팡', category: '생활' })], [], '2026-10-20').find((x) => x.kind === 'missed')!
@@ -171,10 +178,11 @@ describe('alertFor — 보내는 날', () => {
   it('15일 중간 점검: 많이 쓴 카테고리', () => {
     expect(alertFor([...hist, tx('2026-10-10', 250000)], [], '2026-10-15')?.body).toContain('외식비 많이 썼어요')
   })
-  it('한 달치를 처음 넘은 날만, 7일 이전이어도', () => {
+  it('한 달치를 넘은 다음 날 아침에 한 번 — 맥은 07:27·09:00 에만 돈다', () => {
     const ts = [...hist, tx('2026-10-05', 330000), tx('2026-10-06', 20000)]
-    expect(alertFor(ts, [], '2026-10-06')?.body).toContain('외식비 평소 한 달치를 넘었어요')
-    expect(alertFor(ts, [], '2026-10-07')).toBeNull()
+    expect(alertFor(ts, [], '2026-10-06')).toBeNull()
+    expect(alertFor(ts, [], '2026-10-07')?.body).toContain('외식비 평소 한 달치를 넘었어요')
+    expect(alertFor(ts, [], '2026-10-08')).toBeNull()
   })
 })
 
