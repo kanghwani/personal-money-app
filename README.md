@@ -6,6 +6,7 @@
 | 시스템 | 상태 | 위치 |
 |---|---|---|
 | 가계부 | 유지 | `src/` (React, Vite), `gas/Code.gs` |
+| 가계부 코치 | 유지 | 판단 `src/coach.ts`(앱·서버 공용), 홈 `CoachCard`, 서버 `api/coach.ts`, 맥 `scripts/eventsync.py` 의 `coach()` + `scripts/coachalert.js` |
 | 유튜브 구독자 이벤트 | 개발 중 | `api/_events.ts`·`api/events.ts`, `scripts/eventsync.*` (맥 launchd) |
 | 서버 API | 공용 | `api/` (Vercel 서버리스). `_` 로 시작하는 파일은 함수가 아니라 모듈·테스트 |
 | 시트 백엔드 | 공용 | `gas/Code.gs` (clasp 로 배포). `health*` 함수는 이름만 남은 범용 탭 저장소로, 이벤트 탭이 쓴다 |
@@ -38,6 +39,11 @@ cd gas && clasp push -f && clasp deploy --deploymentId AKfycby2so1RyMqyuEaKEfOtS
 쿠키 인증이 필요한 검증은 앱에서 하거나, `SYNC_TOKEN` 을 쓰는 통로(`/api/events`)로 한다.
 
 **GAS 호출은 창 크기와 무관하게 10초 넘게 걸린다.** 시작 오버헤드가 병목이라 한 번에 많이 받는 편이 호출 수를 줄이는 것보다 낫다.
+
+**`src/` 파일을 서버가 import 하려면 상대 경로에 `.js` 확장자가 있어야 한다.** 서버는 Node ESM 이라 확장자 없는 import 가 런타임에 깨진다.
+Vite·Vitest 는 `.js` 를 `.ts` 로 풀어 주므로 앱 쪽은 그대로 동작한다. (`src/dashboardLogic.ts`·`src/coach.ts`)
+
+**코치 알림을 실데이터로 미리 보기:** `/api/coach?t=<SYNC_TOKEN>&date=2026-10-26` — 읽기 전용, 그날 보낼 알림과 조언 목록.
 
 ## 유튜브 구독자 이벤트
 
