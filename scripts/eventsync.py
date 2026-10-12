@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
-"""맥용 eventsync — 매일 09:00 + 로그인 시 launchd 가 돌린다 (~/Library/LaunchAgents/com.hwan.eventsync.plist).
+"""맥용 eventsync — 매일 07:27·09:00 + 로그인 시 launchd 가 돌린다 (~/Library/LaunchAgents/com.hwan.eventsync.plist).
+맥은 pmset repeat wake 07:25 로 깬다. 07:27(09시 전)에는 코치만, 09시 이후에는 코치 → 이벤트.
 
+  0. 가계부 코치: /api/coach 의 오늘 알림이 있으면 미리알림 "가계부" 에 하루 1개(scripts/coachalert.js). 서버가 상태 없이
+     날짜로 계산하므로 잠긴 07:27 에 실패해도 09:00 이 같은 알림을 다시 만든다.
   1. /api/events 호출 (서버가 스캔·당첨 검사까지 하고 새 이벤트를 준다)
   2. 미채점 이벤트를 claude CLI(-p, haiku)로 채점: 경품·가치·당첨자 수·응모가치 1~5 → 시트에 grade 행 저장
      규칙으로는 못 한다 — 경품이 "압축 파우치"처럼 이름뿐이라 금액 정규식은 91건 중 14건, 그마저 영상 내용의 가격을 집었다.
@@ -8,7 +11,7 @@
   ALL=1 → 서버에 남은 이벤트 전부 다시(미리알림을 지웠을 때). 같은 제목은 다시 만들지 않는다.
 """
 import json, os, pathlib, re, subprocess, sys, tempfile, time, urllib.parse, urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 
 DIR = pathlib.Path(__file__).resolve().parent
 ENV = dict(l.split('=', 1) for l in (DIR / '../.env').read_text().splitlines() if '=' in l)
@@ -66,6 +69,22 @@ big = lambda e: subs(e) >= 100000 and (int(e['grade'].get('value') or 0) >= 1000
 
 stamp = lambda: datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
+def coach():
+    """오늘 보낼 가계부 코치 알림이 있으면 미리알림 하나. 실패해도 이벤트 단계는 막지 않는다."""
+    try:
+        d = get(f"{BASE}/api/coach?t={urllib.parse.quote(TOKEN)}")
+        a = d.get('alert')
+        if not a: log('코치: 오늘 알림 없음'); return
+        now = datetime.now().astimezone()
+        at = now.replace(hour=9, minute=0, second=0, microsecond=0)
+        if at <= now: at = now + timedelta(minutes=1)   # 09:00 이 지났으면 바로. 울리는 건 iCloud 로 받은 폰이 한다
+        r = subprocess.run(['/usr/bin/osascript', '-l', 'JavaScript', str(DIR / 'coachalert.js'), a['title'], a['body'], at.isoformat()],
+                           capture_output=True, text=True, timeout=120)
+        if r.returncode: raise RuntimeError(r.stderr.strip()[:200])
+        log('코치:', a['title'], '·', r.stdout.strip())
+    except Exception as ex:
+        log('코치 실패:', ex)
+
 def main():
     url = f"{BASE}/api/events?t={urllib.parse.quote(TOKEN)}" + ('&all=1' if os.environ.get('ALL') else '')
     data = get(url)
@@ -87,4 +106,8 @@ def main():
     log(f"이벤트 {len(data['events'])}건(채점 {len(graded)}) · 알림 대상 {len(keep)}건(가치≥{WORTH_MIN}) · 응모중 {len(payload['applied'])} · 당첨후보 {len(payload['hints'])} · 스캔 {data.get('scanned')}채널 +{data.get('added')}"
         + (f" · 실패 {', '.join(data['errors'])}" if data.get('errors') else '') + ' · ' + (r.stdout.strip() or r.stderr.strip()))
 
-if __name__ == '__main__': main()
+if __name__ == '__main__':
+    coach()   # 빠르고 상태가 없다 — 먼저. 이벤트의 1시간 재시도에 묶이지 않게
+    if datetime.now().hour >= 9:   # 이벤트 서버는 넘길 때 상태를 바꾼다 → 잠긴 07:27 에는 돌리지 않는다
+        try: main()
+        except Exception as ex: log('이벤트 실패:', ex)
