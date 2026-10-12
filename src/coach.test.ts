@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fmt, daysInMonth, addMonths, categoryBaselines, categoryVerdict, categoryStates, type CoachTx } from './coach'
+import { fmt, daysInMonth, addMonths, categoryBaselines, categoryVerdict, categoryStates, coachAdvice, type CoachTx } from './coach'
 
 const tx = (date: string, amount: number, o: Partial<CoachTx> = {}): CoachTx =>
   ({ date, type: 'expense', amount, split: 0, memo: '', payment: '현금', category: '외식비', subCategory: '', fixedType: 'variable', ...o })
@@ -78,5 +78,65 @@ describe('categoryStates', () => {
   it('1일에는 어제 누적이 0', () => {
     const [s] = categoryStates([...hist, tx('2026-10-01', 50000)], '2026-10-01')
     expect(s.spentYesterday).toBe(0)
+  })
+})
+
+describe('coachAdvice', () => {
+  const card = (date: string, amount: number, payment: string) => tx(date, amount, { payment, memo: '마트', category: '생활', fixedType: 'fixed' })
+  const ids = (a: { id: string }[]) => a.map((x) => x.id)
+
+  it('실적 첫 구간 미달이면 D-배지와 함께 실적 부족', () => {
+    const a = coachAdvice([card('2026-10-10', 210000, '하나카드')], [], '2026-10-26').find((x) => x.id === 'tier:하나카드')!
+    expect(a).toMatchObject({ kind: 'tier', title: '하나카드 실적 9만 더 필요', badge: 'D-5', due: '2026-10-31', target: 'insights' })
+    expect(a.detail).toContain('11월 할인한도 1.5만')
+  })
+  it('다음 구간까지 5만 이하면 다음 구간 근접', () => {
+    const a = coachAdvice([card('2026-10-10', 560000, '하나카드')], [], '2026-10-20').find((x) => x.id === 'nextTier:하나카드')!
+    expect(a.title).toBe('하나카드 4만 더 쓰면 한도 올라가요')
+    expect(a.detail).toBe('다음 달 할인한도 1.5만 → 3만')
+  })
+  it('가족 합산 카드(국민)는 실적 조언이 없다', () => {
+    expect(ids(coachAdvice([], [], '2026-10-26')).filter((i) => i.endsWith('국민카드') && /tier/i.test(i))).toEqual([])
+  })
+  it('전월 실적을 채운 카드는 이번 달 남은 혜택을 카드별 한 줄로', () => {
+    const a = coachAdvice([card('2026-09-10', 300000, 'NH카드')], [], '2026-10-20').find((x) => x.id === 'unused:NH카드')!
+    expect(a.title).toBe('NH카드 혜택 4.5만 남음')
+    expect(a.detail).toContain('커피 50% 1만')
+  })
+  it('다른 보유 카드였으면 3천원 이상 더 받았을 때 놓친 혜택', () => {
+    const a = coachAdvice([tx('2026-10-12', 50000, { memo: '쿠팡', category: '생활' })], [], '2026-10-20').find((x) => x.kind === 'missed')!
+    expect(a).toMatchObject({ id: 'missed:온라인쇼핑:국민카드', title: '온라인쇼핑엔 국민카드', amount: 5000 })
+  })
+  it('안 받은 지 30일 넘은 분담금만', () => {
+    const old = tx('2026-09-02', 60000, { memo: '여친 저녁', split: 30000 })
+    const fresh = tx('2026-10-01', 60000, { memo: '여친 점심', split: 20000 })
+    const a = coachAdvice([old, fresh], [], '2026-10-11').filter((x) => x.kind === 'split')
+    expect(a).toHaveLength(1)
+    expect(a[0]).toMatchObject({ id: 'split:여친', title: '여친 분담금 3만 받을 돈', detail: '1건, 가장 오래된 건 9/2' })
+  })
+  it('미분류와 끝난 달 부수입 0건', () => {
+    const a = coachAdvice([tx('2026-10-05', 8000, { category: '미분류' })], [], '2026-10-11')
+    expect(a.find((x) => x.id === 'record:uncategorized')).toMatchObject({ title: '미분류 1건', target: 'uncategorized' })
+    expect(a.find((x) => x.id === 'record:side')?.title).toBe('9월 부수입 0건')
+    const paid = coachAdvice([tx('2026-09-30', 120000, { type: 'income', category: '수입', subCategory: '부수입' })], [], '2026-10-11')
+    expect(ids(paid)).not.toContain('record:side')
+  })
+  it('카테고리: 많이 씀·여유 문장', () => {
+    const hist = [tx('2026-07-10', 340000), tx('2026-08-10', 340000), tx('2026-09-10', 340000)]
+    const heavy = coachAdvice([...hist, tx('2026-10-08', 220000)], [], '2026-10-12').find((x) => x.id === 'cat:외식비')!
+    expect(heavy.title).toBe('외식비 많이 썼어요')
+    expect(heavy.detail).toContain('남은 19일은 하루')
+    const room = coachAdvice([...hist, tx('2026-10-08', 60000)], [], '2026-10-17').find((x) => x.id === 'cat:외식비')!
+    expect(room.title).toBe('외식비 여유 있어요')
+    expect(room.detail).toBe('남은 14일 동안 28만까지 괜찮아요. 맛있는 거 드세요')
+  })
+  it('정렬: 마감 가까운 것 먼저, 같으면 금액 큰 것', () => {
+    const a = coachAdvice([], [], '2026-10-26')
+    const key = (x: { due?: string }) => x.due ?? '9999-99-99'
+    for (let i = 1; i < a.length; i++) {
+      expect(key(a[i - 1]) <= key(a[i])).toBe(true)
+      if (key(a[i - 1]) === key(a[i])) expect(a[i - 1].amount).toBeGreaterThanOrEqual(a[i].amount)
+    }
+    expect(a.findIndex((x) => x.id === 'tier:NH카드')).toBeLessThan(a.findIndex((x) => x.id === 'tier:하나카드'))   // 4.5만 > 1.5만
   })
 })
