@@ -1738,3 +1738,31 @@
 .cg-perf { grid-area: perf; font-size: 11px; font-weight: 700; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cg-use { grid-area: use; font-size: 11px; color: var(--muted); }
 .home-motion .cg-bar > span { transform-origin: left; animation: home-grow .7s cubic-bezier(.2, .7, .3, 1) .15s both; }
+
+/* 홈 코치 카드: 혜택 보드와 같은 슬립 한 장. 경고는 --danger, 좋은 신호는 --green(펜 파랑). */
+.coach-card {
+  border: 1px solid var(--line-strong); border-radius: var(--r-lg);
+  background: var(--surface-solid); box-shadow: var(--soft-shadow); padding: 14px 18px 8px;
+}
+.coach-card h2 { margin: 0 0 6px; font-size: 20px; line-height: 1.2; letter-spacing: -.02em; }
+.coach-list { list-style: none; margin: 0; padding: 0; }
+.coach-row {
+  display: grid; grid-template-columns: 22px 1fr auto; column-gap: 10px; row-gap: 2px; align-items: baseline;
+  width: 100%; padding: 9px 0; border: 0; border-top: 1px solid var(--line);
+  background: none; color: inherit; font: inherit; text-align: left;
+}
+.coach-list li:first-child .coach-row { border-top: 0; }
+button.coach-row { cursor: pointer; }
+.coach-ic { grid-row: span 2; font-size: 16px; line-height: 20px; }
+.coach-title { font-size: 14px; font-weight: 800; min-width: 0; }
+.coach-badge { color: var(--accent); font-size: 11px; font-weight: 800; white-space: nowrap; }
+.coach-detail { grid-column: 2 / 4; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.coach-more {
+  display: block; width: 100%; padding: 8px 0 6px; border: 0; border-top: 1px solid var(--line);
+  background: none; color: var(--muted); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.coach-quiet { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
+.coach-skeleton { height: 44px; margin-bottom: 8px; border-radius: var(--r-sm); background: var(--accent-soft); }
+.cat-base { color: var(--muted); font-size: 11px; font-weight: 400; }
+.cat-amt.heavy { color: var(--danger); }
+.cat-amt.room { color: var(--green); }

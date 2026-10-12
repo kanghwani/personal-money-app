@@ -71,6 +71,7 @@ import {
 import { loadLearnedRules, saveLearnedRule, classifyByLearned } from './learnedRules'
 import { RULES, classifyMemo } from './classifyRules'
 import { t } from './i18n'
+import { coachAdvice, categoryStates, type Advice } from './coach'
 import './App.css'
 
 type Tab = 'dashboard' | 'ledger' | 'assets' | 'insights' | 'fixed'
@@ -873,9 +874,21 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit, o
   const prev = summary.previousMonth?.variable ?? 0
   const rate = changeRate(summary.thisMonth.variable, prev)
   const ringSubtitle = rate === null ? null : t('vs_prev_month', { sign: rate >= 0 ? '+' : '−', pct: Math.abs(Math.round(rate * 100)) })
+  // 코치: 원장·고정비가 다 들어온 뒤에만 계산한다(로딩 중엔 실적이 낮게 잡혀 틀린 "실적 부족" 이 나온다).
+  const coach = useMemo(
+    () => benefitDataStatus === 'ready' ? coachAdvice(transactions, fixedDefs, todayIso()) : [],
+    [benefitDataStatus, transactions, fixedDefs],
+  )
+  const catStates = useMemo(() => new Map(categoryStates(transactions, todayIso()).map((s) => [s.category, s])), [transactions])
 
   return (
     <section className="view-stack home-motion">
+      <CoachCard
+        advice={coach}
+        status={benefitDataStatus}
+        onOpenInsights={onOpenInsights}
+        onOpenUncategorized={() => setSelectedCategory('미분류')}
+      />
       <CardBenefitOverview
         rows={cardRows}
         monthKey={summary.monthKey}
@@ -902,7 +915,16 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit, o
                 {categoryIcon(c.name)}
               </span>
               <span className="cat-name">{c.name}</span>
-              <span className="cat-amt">{formatMoney(c.value)}</span>
+              {(() => {
+                const s = catStates.get(c.name)
+                const tone = s?.verdict === 'over' || s?.verdict === 'heavy' ? ' heavy' : s?.verdict === 'room' ? ' room' : ''
+                return (
+                  <span className={`cat-amt${tone}`}>
+                    {formatMoney(c.value)}
+                    {s && <span className="cat-base"> · {t('coach_baseline', { amt: compactMoney(s.baseline) })}</span>}
+                  </span>
+                )
+              })()}
               <span className="cat-pct">
                 {formatPercent(summary.thisMonth.variable ? c.value / summary.thisMonth.variable : 0)}
               </span>
@@ -930,6 +952,57 @@ function Dashboard({ summary, transactions, categoryOptions, onAssign, onEdit, o
   )
 }
 
+const COACH_ICON: Record<Advice['kind'], string> = {
+  tier: '💳', nextTier: '📈', unused: '🎁', missed: '🔁', split: '🤝', category: '🍽️', record: '🧾',
+}
+
+/** 홈 맨 위 코치 카드. 판단은 src/coach.ts(서버 알림과 같은 함수), 여기는 보여주기만 한다. */
+function CoachCard({ advice, status, onOpenInsights, onOpenUncategorized }: {
+  advice: Advice[]
+  status: LedgerLoadStatus
+  onOpenInsights: () => void
+  onOpenUncategorized: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const shown = open ? advice : advice.slice(0, 3)
+  const iconOf = (a: Advice) => a.kind === 'category' ? categoryIcon(a.id.slice(4)) : COACH_ICON[a.kind]
+  const actionOf = (a: Advice) => a.target === 'insights' ? onOpenInsights : a.target === 'uncategorized' ? onOpenUncategorized : undefined
+  return (
+    <section className="coach-card" aria-labelledby="home-coach-title" aria-busy={status === 'loading'}>
+      <h2 id="home-coach-title">{t('coach_title')}</h2>
+      {status === 'loading' ? <div className="coach-skeleton" />
+        : status === 'error' ? <p className="coach-quiet">{t('coach_error')}</p>
+        : !advice.length ? <p className="coach-quiet">{t('coach_empty')}</p>
+        : (
+          <ul className="coach-list">
+            {shown.map((a) => {
+              const act = actionOf(a)
+              const inner = (
+                <>
+                  <span className="coach-ic" aria-hidden>{iconOf(a)}</span>
+                  <span className="coach-title">{a.title}</span>
+                  {a.badge && <span className="coach-badge">{a.badge}</span>}
+                  <span className="coach-detail">{a.detail}</span>
+                </>
+              )
+              return (
+                <li key={a.id}>
+                  {act ? <button type="button" className="coach-row" onClick={act}>{inner}</button>
+                    : <div className="coach-row">{inner}</div>}
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      {status === 'ready' && advice.length > 3 && (
+        <button type="button" className="coach-more" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+          {open ? t('coach_less') : t('coach_more', { n: advice.length - 3 })}
+        </button>
+      )}
+    </section>
+  )
+}
+
 function CardBenefitOverview({ rows, monthKey, onOpenInsights, ledgerStatus }: {
   rows: (SplitTxLike & { payment?: string })[]
   monthKey: string
@@ -952,7 +1025,6 @@ function CardBenefitOverview({ rows, monthKey, onOpenInsights, ledgerStatus }: {
   }, [basisPerf, basisMonth, ledgerStatus])
   const balances = useMemo(() => benefitBalances(rows as never, monthKey, undefined, knownPerf), [rows, monthKey, knownPerf])
   const glance = useMemo(() => cardGlance(rows as never, monthKey, balances), [rows, monthKey, balances])
-  const missed = useMemo(() => missedBenefits(rows as never, monthKey), [rows, monthKey])
   const cardGroups = CARD_SPECS.filter((spec) => spec.owned && spec.benefits.length)
     .map((spec) => ({ spec, items: balances.filter((item) => item.card === spec.card) }))
     .filter((group) => group.items.length)
@@ -965,7 +1037,6 @@ function CardBenefitOverview({ rows, monthKey, onOpenInsights, ledgerStatus }: {
   const currentChecking = !current?.spec.familyPooled && ledgerStatus === 'loading'
   const currentFailed = !current?.spec.familyPooled && ledgerStatus === 'error' && !knownPerf.size
   const currentBasisAmount = basisPerf.find((item) => item.name === currentCard)?.qualified ?? knownPerf.get(currentCard) ?? 0
-  const missedTotal = missed.reduce((sum, item) => sum + item.discount, 0)
   const pct = (rate: number) => `${Math.round(rate * 100)}%`
 
   return (
@@ -978,9 +1049,6 @@ function CardBenefitOverview({ rows, monthKey, onOpenInsights, ledgerStatus }: {
         <button type="button" className="benefit-more" onClick={onOpenInsights}>{t('home_benefit_more')} <span aria-hidden>→</span></button>
       </div>
 
-      {missedTotal > 0 && (
-        <p className="benefit-missed"><Sparkles size={14} aria-hidden />{t('home_benefit_missed', { amt: formatMoney(missedTotal) })}</p>
-      )}
 
       {glance.length > 0 && (
         <div className="card-glance" aria-label={t('glance_aria')}>
