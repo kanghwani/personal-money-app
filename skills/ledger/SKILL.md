@@ -9,10 +9,10 @@ description: 가계부(구글시트 원장) 조회·수정. "가계부 점검", 
 
 ## 실행
 
-작업 디렉터리 무관, 아래 스크립트를 그대로 실행한다.
+작업 디렉터리 무관, 아래 스크립트를 그대로 실행한다. `${CLAUDE_SKILL_DIR}`는 이 스킬 폴더(레포 `skills/ledger`)다.
 
 ```bash
-python3 /Users/hwan/dev/paused/money-app/.claude/skills/ledger/ledger.py <명령>
+python3 "${CLAUDE_SKILL_DIR}/ledger.py" <명령>
 ```
 
 | 요청 예시 | 명령 |

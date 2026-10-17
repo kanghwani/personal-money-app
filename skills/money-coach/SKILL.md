@@ -9,7 +9,7 @@ description: 재정 코치 세션의 시작·월 결산·마무리 절차. 노�
 메모리에는 포인터만 둔다 — 결정 내용을 메모리에 복제하지 않는다.
 
 - 노션 페이지: https://app.notion.com/p/3ec7fea9f7d581aba070c8675f98a25a (id `3ec7fea9-f7d5-81ab-a070-c8675f98a25a`)
-- 가계부: `python3 /Users/hwan/dev/paused/money-app/.claude/skills/ledger/ledger.py <명령>` (명령은 ledger 스킬 참고)
+- 가계부: `python3 "${CLAUDE_SKILL_DIR}/../ledger/ledger.py" <명령>` (명령은 ledger 스킬 참고)
 
 ## A. 세션 시작
 
