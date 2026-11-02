@@ -40,11 +40,8 @@ const AUTO_REFRESH_SOURCE_SHEETS = [
 // 빠른입력 텍스트에서 자동 인식할 결제수단 단어 목록.
 // 주의: 긴 단어가 먼저 와야 한다. (예: '삼성카드'를 '카드'로 잘못 자르지 않도록)
 // alias는 표기가 달라도 같은 결제수단으로 통일하기 위한 것.
+// 카드가 페이보다 먼저: '네이버페이 하나카드'는 하나카드로 긁힌 것(페이는 통로일 뿐). 페이만 있으면 페이로 저장.
 const PAYMENT_KEYWORDS = [
-  { match: '네이버페이', save: '네이버페이' },
-  { match: '카카오페이', save: '카카오페이' },
-  { match: '토스페이', save: '토스페이' },
-  { match: '당근페이', save: '당근페이' },
   { match: '국민카드', save: '국민카드' },
   { match: '삼성카드', save: '삼성카드' },
   { match: '현대카드', save: '현대카드' },
@@ -55,6 +52,10 @@ const PAYMENT_KEYWORDS = [
   { match: 'NH카드', save: 'NH카드' },
   { match: '이음카드', save: '이음카드' },
   { match: '이음', save: '이음카드' },   // 시리 줄임말 '이음' → 이음카드 ('이음카드'보다 뒤에 둬서 긴 것 먼저 매칭)
+  { match: '네이버페이', save: '네이버페이' },
+  { match: '카카오페이', save: '카카오페이' },
+  { match: '토스페이', save: '토스페이' },
+  { match: '당근페이', save: '당근페이' },
   { match: '체크카드', save: '체크카드' },
   { match: '계좌이체', save: '계좌이체' },
   { match: '현금', save: '현금' },
@@ -1426,7 +1427,8 @@ function classify_(ss, memo) {
   if (!sheet) return {};
 
   const rows = sheet.getDataRange().getValues().slice(1);
-  const text = String(memo || '').toLowerCase();
+  // '할부 5개월'·'할부 (1/5)'는 결제 방식이지 품목이 아니다. 지워야 '자동차,할부' 규칙에 애플펜슬이 걸리지 않는다.
+  const text = String(memo || '').toLowerCase().replace(/할부\s*\(?\s*\d+\s*(개월|\/\s*\d+)\)?/g, ' ');
 
   for (const row of rows) {
     const keywords = String(row[0] || '').split(',').map(s => s.trim()).filter(Boolean);
