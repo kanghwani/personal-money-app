@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   isEvent, extractDates, excerpt, detect, fold, group, newRow, reminderPayload, formatEvents,
-  parseEventLog, parseChannelInput, parseVideoInput, findEvents, mmddToYmd, foldChannels, lastSearchOf, SEARCH_MARK, isSearchWorthy, isTrustedEvent, winnerHints, needsResultCheck, gradeRow, worthOf, toHandOff, type Snippet,
+  parseEventLog, parseChannelInput, parseVideoInput, findEvents, mmddToYmd, foldChannels, lastSearchOf, SEARCH_MARK, isSearchWorthy, digest, isTrustedEvent, winnerHints, needsResultCheck, gradeRow, worthOf, toHandOff, type Snippet,
 } from './_events'
 import type { HealthRow } from './_health'
 
@@ -293,5 +293,47 @@ describe('채점(grade)', () => {
     const ids = (all: boolean) => toHandOff(es, all).map((e) => e.id).sort()
     expect(ids(false)).toEqual(['new', 'sent'])
     expect(ids(true)).toEqual(['done', 'new', 'sent'])
+  })
+})
+
+describe('하루 요약 알림', () => {
+  const T = '2026-11-07'
+  const ev = (over: Record<string, unknown>) => ({
+    id: 'vid', channel: '채널', title: '제목', deadline: '2026-11-20', announce: '2026-11-25',
+    deadlineGuessed: false, announceGuessed: false, excerpt: '', status: 'new', note: '', found: T, updated: T, ...over,
+  }) as unknown as Parameters<typeof findEvents>[0][number]
+  const grade = (worth: number) => ({ prize: '경품', value: 0, winners: 1, worth })
+  const empty = { pending: [], applied: [], results: [], missed: [] }
+
+  it('알릴 게 없으면 알림을 만들지 않는다', () => {
+    expect(digest(empty, T)).toBeNull()
+    const later = ev({ deadline: '2026-11-09', grade: grade(5) })     // 모레 마감
+    const low = ev({ deadline: T, grade: grade(3) })                  // 가치 낮음
+    const ungraded = ev({ deadline: T })                              // 미채점
+    expect(digest({ ...empty, pending: [later, low, ungraded] }, T)).toBeNull()
+  })
+  it('당첨 후보 → 결과 확인 → 임박 순으로 적고 앱 링크를 붙인다', () => {
+    const d = digest({
+      ...empty,
+      applied: [
+        ev({ channel: '당첨채널', status: 'applied', hint: '답글' }),
+        ev({ channel: '발표채널', status: 'applied', announce: T }),
+        ev({ channel: '대기채널', status: 'applied', announce: '2026-11-08' }),
+      ],
+      pending: [ev({ channel: '내일채널', deadline: '2026-11-08', grade: grade(4) })],
+    }, T)!
+    expect(d.title).toBe(`[이벤트] ${T}`)
+    expect(d.body.split('\n')).toEqual([
+      '당첨 후보 1건 · 당첨채널', '결과 확인 1건 · 발표채널', '오늘·내일 마감(응모가치 4↑) 1건 · 내일채널',
+      '', 'https://personal-money-app-seven.vercel.app/events',
+    ])
+  })
+  it('채널이 많으면 셋까지만 적는다', () => {
+    const pending = ['가', '나', '다', '라', '마'].map((channel) => ev({ channel, deadline: T, grade: grade(5) }))
+    expect(digest({ ...empty, pending }, T)!.body).toContain('5건 · 가, 나, 다 외 2')
+  })
+  it('/events 버튼은 영상 id 로 정확히 그 건만 찾는다', () => {
+    const a = ev({ id: 'abc', channel: 'abc채널' }), b = ev({ id: 'zzz', channel: 'abc' })
+    expect(findEvents([a, b], 'abc')).toEqual([a])
   })
 })

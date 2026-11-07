@@ -7,8 +7,8 @@
   1. /api/events 호출 (서버가 스캔·당첨 검사까지 하고 새 이벤트를 준다)
   2. 미채점 이벤트를 claude CLI(-p, haiku)로 채점: 경품·가치·당첨자 수·응모가치 1~5 → 시트에 grade 행 저장
      규칙으로는 못 한다 — 경품이 "압축 파우치"처럼 이름뿐이라 금액 정규식은 91건 중 14건, 그마저 영상 내용의 가격을 집었다.
-  3. 미리알림 "이벤트" 목록에 [지원]은 응모가치 >= WORTH_MIN 만, [결과]는 응모한 것만, [당첨확인]은 후보가 나오면.
-  ALL=1 → 서버에 남은 이벤트 전부 다시(미리알림을 지웠을 때). 같은 제목은 다시 만들지 않는다.
+  3. 미리알림 "이벤트" 목록에 하루 1개 요약(서버의 digest). 건별 미리알림은 없다 — 목록은 앱 /events 페이지.
+  ALL=1 → 서버에 남은 이벤트 전부 다시 채점 대상으로. 같은 제목은 다시 만들지 않는다.
 """
 import json, os, pathlib, re, subprocess, sys, tempfile, time, urllib.parse, urllib.request
 from datetime import datetime, timedelta
@@ -93,7 +93,10 @@ def main():
     for e in data['events']:
         if e['id'] in graded: e['grade'] = graded[e['id']]
     keep = [e for e in data['events'] if e.get('grade') and (int(e['grade'].get('worth') or 0) >= WORTH_MIN or vip(e) or big(e))]
-    payload = {'events': keep, 'applied': data.get('applied', []), 'hints': data.get('hints', [])}
+    now = datetime.now().astimezone()
+    at = now.replace(hour=9, minute=0, second=0, microsecond=0)
+    if at <= now: at = now + timedelta(minutes=1)
+    payload = {'digest': data.get('digest'), 'at': at.isoformat(), 'hints': data.get('hints', [])}
     tmp = tempfile.NamedTemporaryFile('w', suffix='.json', delete=False, encoding='utf-8'); json.dump(payload, tmp, ensure_ascii=False); tmp.close()
     # 맥이 잠겨 있으면 미리알림이 AppleEvent 시간 초과(-1712)로 실패한다. 서버는 이벤트를 하루 한 번만 주니
     # 다음 날로 미루면 그날 알림이 사라진다 → 같은 payload 로 1시간 뒤 한 번 더.
@@ -103,7 +106,7 @@ def main():
         log('미리알림 실패, 1시간 뒤 재시도:', r.stderr.strip()[:200])
         time.sleep(3600)
     os.unlink(tmp.name)
-    log(f"이벤트 {len(data['events'])}건(채점 {len(graded)}) · 알림 대상 {len(keep)}건(가치≥{WORTH_MIN}) · 응모중 {len(payload['applied'])} · 당첨후보 {len(payload['hints'])} · 스캔 {data.get('scanned')}채널 +{data.get('added')}"
+    log(f"이벤트 {len(data['events'])}건(채점 {len(graded)}) · 새로 볼 만한 것 {len(keep)}건(가치≥{WORTH_MIN}) · 응모중 {len(data.get('applied', []))} · 당첨후보 {len(payload['hints'])} · 스캔 {data.get('scanned')}채널 +{data.get('added')}"
         + (f" · 실패 {', '.join(data['errors'])}" if data.get('errors') else '') + ' · ' + (r.stdout.strip() or r.stderr.strip()))
 
 if __name__ == '__main__':

@@ -183,6 +183,25 @@ export function group(events: Event[], today: string): Groups {
 }
 
 export const videoUrl = (id: string) => `https://youtu.be/${id}`
+
+/** 하루 1개 요약 미리알림. 줄이 없으면 그날은 알림을 안 만든다. 자세한 건 /events 페이지에서 본다. */
+export function digest(g: Groups, today: string): { title: string; body: string } | null {
+  const lines = digestLines(g, today)
+  if (!lines.length) return null
+  return { title: `[이벤트] ${today}`, body: [...lines, '', `${APP}/events`].join('\n') }
+}
+export const APP = 'https://personal-money-app-seven.vercel.app'
+
+/** 요약 알림 본문의 줄들 — 무엇을 오늘 알릴 가치가 있다고 볼지 */
+export function digestLines(g: Groups, today: string): string[] {
+  const names = (es: Event[]) => es.slice(0, 3).map((e) => e.channel).join(', ') + (es.length > 3 ? ` 외 ${es.length - 3}` : '')
+  const line = (label: string, es: Event[]) => (es.length ? [`${label} ${es.length}건 · ${names(es)}`] : [])
+  const hits = g.applied.filter((e) => e.hint)
+  const due = g.applied.filter((e) => !e.hint && e.announce <= today)
+  // 지원 대기 전부를 넣으면 매일 울려서 건별 알림을 없앤 의미가 사라진다. 미채점(worthOf 2.5)은 여기 안 걸린다
+  const closing = g.pending.filter((e) => e.deadline <= addDays(today, 1) && worthOf(e) >= WORTH_MIN)
+  return [...line('당첨 후보', hits), ...line('결과 확인', due), ...line(`오늘·내일 마감(응모가치 ${WORTH_MIN}↑)`, closing)]
+}
 /** 단축어가 미리알림 2개를 만들 때 쓰는 값. 알림 시각은 ISO(+09:00)라 단축어가 그대로 날짜로 읽는다. */
 export function reminderPayload(e: Event, today: string) {
   const remind = addDays(e.deadline, -1) < today ? today : addDays(e.deadline, -1)
@@ -263,6 +282,8 @@ export function parseVideoInput(s: string): string | null {
 /** 활성(new·reminded·applied) 이벤트 중 채널명·제목에 키워드가 든 것 */
 export function findEvents(events: Event[], query: string): Event[] {
   const q = query.toLowerCase()
+  const byId = events.filter((e) => ACTIVE.includes(e.status) && e.id === query)   // /events 페이지 버튼은 영상 id 로 보낸다
+  if (byId.length) return byId
   return events.filter((e) => ACTIVE.includes(e.status) && (e.channel.toLowerCase().includes(q) || e.title.toLowerCase().includes(q)))
 }
 

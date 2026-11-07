@@ -1,0 +1,17 @@
+/* 토큰은 index.css 것만 쓴다 */
+.ev { max-width: 720px; margin: 0 auto; padding: 16px; color: var(--ink); }
+.ev header { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 2px solid var(--ink); padding-bottom: 8px; }
+.ev h1 { font-size: 1.25rem; margin: 0; }
+.ev h2 { font-size: 0.95rem; margin: 24px 0 6px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--line-strong); padding-bottom: 4px; }
+.ev ul { list-style: none; margin: 0; padding: 0; }
+.ev-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.ev-row a { color: var(--ink); text-decoration: none; line-height: 1.4; overflow-wrap: anywhere; }
+.ev-ch { font-weight: 600; }
+.ev-sub, .ev-muted, .ev-n { color: var(--muted); font-size: 0.85rem; }
+.ev-sub { margin-top: 2px; font-variant-numeric: tabular-nums; }
+.ev-hint { color: var(--stamp); font-size: 0.85rem; margin-top: 4px; }
+.ev-btns { display: flex; gap: 6px; margin-top: 6px; }
+.ev-btns button, .ev-toggle { border: 1px solid var(--line-strong); background: var(--surface-solid); color: var(--ink); padding: 6px 14px; border-radius: 0; font-size: 0.85rem; min-height: 32px; }
+.ev-toggle { margin-left: auto; padding: 2px 10px; min-height: 26px; font-weight: 400; }
+.ev-msg { white-space: pre-line; border: 1px solid var(--pen); color: var(--pen); padding: 8px; margin-top: 12px; font-size: 0.85rem; }
+.ev-err { color: var(--stamp); }

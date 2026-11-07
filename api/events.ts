@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { logEvent, toHandOff, loadState, scan, checkResults, group, formatEvents, reminderPayload, saveRows, statusRow, stampNow, kstDate, videoUrl } from './_events.js'
+import { logEvent, toHandOff, loadState, scan, checkResults, group, formatEvents, reminderPayload, saveRows, statusRow, stampNow, kstDate, videoUrl, digest } from './_events.js'
+import { verify } from './_auth.js'
 
 /**
  * 구독자 이벤트 스캔 + 미리알림 큐 — iOS 단축어(eventsync)가 매일 09:00 에 GET 한다.
@@ -12,10 +13,17 @@ import { logEvent, toHandOff, loadState, scan, checkResults, group, formatEvents
  * 응답의 events 에는 채점(grade)이 실린다. 채점은 맥 스크립트(scripts/eventsync.py)가 claude CLI 로 하고 grade 행으로 저장한다.
  *   &format=text  사람이 읽는 목록
  *   &log=<한 줄>  "지원 십만양품" 같은 기록만 하고 끝낸다(스캔 없음). ledger.py event 가 쓴다
+ *
+ * 앱 쿠키 인증(/events 페이지): 스캔 없이 목록만 GET, 상태 기록은 POST {log} 만.
+ *   쿠키는 SameSite=Lax 라 다른 사이트 링크의 GET 에도 실린다 → 쓰기는 POST 로만 받는다.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store')
-  if ((req.query.t as string) !== process.env.SYNC_TOKEN) return res.status(401).send('unauthorized')
+  const byToken = !!process.env.SYNC_TOKEN && (req.query.t as string) === process.env.SYNC_TOKEN
+  if (!byToken) {
+    if (!verify(req.headers.cookie, process.env.APP_SECRET || '')) return res.status(401).send('unauthorized')
+    return page(req, res)
+  }
   const all = req.query.all === '1'
   const peek = req.query.peek === '1' || all
   const text = req.query.format === 'text'
@@ -39,6 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .send(formatEvents(group(everything, today), today) + `\n\n${scanLine}` + (peek ? '' : `\n미리알림 큐 ${fresh.length}건 전달`))
     }
     return res.status(200).json({
+      digest: digest(group(everything, today), today),   // 하루 1개 요약 미리알림 (scripts/eventsync.js)
       events: fresh.filter((e) => e.deadline >= today).map((e) => reminderPayload(e, today)),
       // [결과] 미리알림은 응모한 것만. 발표일이 어제 이후인 지원 건
       applied: everything.filter((e) => e.status === 'applied' && e.announce >= kstDate(Date.now() - 86400_000)).map((e) => reminderPayload(e, today)),
@@ -47,5 +56,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     })
   } catch (e) {
     return res.status(500).setHeader('Content-Type', 'text/plain; charset=utf-8').send(`이벤트 처리 실패: ${e instanceof Error ? e.message : e}`)
+  }
+}
+
+/** /events 페이지용 — 시트 상태만 읽고 쓴다. 스캔·YouTube API 는 맥 eventsync 의 몫 */
+async function page(req: VercelRequest, res: VercelResponse) {
+  const today = kstDate(Date.now())
+  try {
+    if (req.method === 'POST') {
+      const log = String((req.body as { log?: string } | undefined)?.log ?? '')
+      return res.status(200).json({ ok: true, message: await logEvent(log, today) })
+    }
+    const { events } = await loadState()
+    return res.status(200).json({ ok: true, today, ...group(events, today) })
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e instanceof Error ? e.message : String(e) })
   }
 }
