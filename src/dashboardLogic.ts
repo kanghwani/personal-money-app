@@ -596,6 +596,14 @@ export type BenefitHit = {
 }
 
 /** 혜택 한도를 결정하는 전월(YYYY-MM). 1월이면 전년 12월로 넘긴다. */
+/** 인사이트 월 목록: 거래가 있는 지난 달들 + 이번 달.
+ *  할부는 앞으로 낼 회차를 미래 1일로 미리 넣어 두므로 이번 달 뒤는 자른다.
+ *  안 자르면 월별 흐름이 내년 달까지 그려지고 전월대비가 내년 달과 비교된다. */
+export function summaryMonths(dates: string[], monthKey: string): string[] {
+  const past = [...new Set(dates.map((d) => d.slice(0, 7)))].filter((m) => m < monthKey).sort()
+  return [...past, monthKey]
+}
+
 export function previousMonthKey(yearMonth: string): string {
   const [y, m] = yearMonth.split('-').map(Number)
   return `${m === 1 ? y - 1 : y}-${String(m === 1 ? 12 : m - 1).padStart(2, '0')}`

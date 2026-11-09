@@ -58,6 +58,7 @@ import {
   benefitBalances,
   cardGlance,
   previousMonthKey,
+  summaryMonths,
   paymentPlaybook,
   isSaving,
   isLoanRepay,
@@ -2379,11 +2380,10 @@ function usePersistentStore() {
 }
 
 function buildSummary(store: FinanceStore): Summary {
-  const recorded = Array.from(new Set(store.transactions.map((item) => item.date.slice(0, 7)))).sort()
   // '이번 달'은 말 그대로 이번 달이다. 예전엔 데이터가 있는 마지막 달을 썼는데,
   // 달이 바뀐 직후(예: 9월 1일)에 지난달 숫자가 '이번 달 쓴 돈'으로 찍혔다.
   const monthKey = todayIso().slice(0, 7)
-  const months = recorded.includes(monthKey) ? recorded : [...recorded, monthKey]
+  const months = summaryMonths(store.transactions.map((item) => item.date), monthKey)
   const monthlyTrend = months.slice(-6).map((month) => buildMonthMetric(store.transactions, month))
   const thisMonth = buildMonthMetric(store.transactions, monthKey)
   const previousMonth = months.length > 1 ? buildMonthMetric(store.transactions, months.at(-2) as string) : undefined

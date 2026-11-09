@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, withInstallmentCharges, benefitBalances, unusedBenefits, cardGlance, paymentPlaybook, previousMonthKey, isSaving, isLoanRepay, isNonSpend, isCardPayment, parseBankDeposits, isOpenSplit, splitPerson } from './dashboardLogic'
+import { deriveQuickChips, changeRate, categoryIcon, topNWithOther, dailyTotals, distinctCategoryOptions, fixedRemaining, splitFromText, splitPlaceItem, joinPlaceItem, placeTotals, categoryDeltas, splitBreakdown, parseCardStatement, cardPerformance, tierStatus, dailyCheer, type TxLike, type FixedDef, missedBenefits, CARD_SPECS, installmentCharges, withInstallmentCharges, benefitBalances, unusedBenefits, cardGlance, paymentPlaybook, previousMonthKey, summaryMonths, isSaving, isLoanRepay, isNonSpend, isCardPayment, parseBankDeposits, isOpenSplit, splitPerson } from './dashboardLogic'
 
 const tx = (date: string, amount: number, category: string, subCategory: string, payment: string): TxLike =>
   ({ date, type: 'expense', amount, category, subCategory, payment, fixedType: 'variable' })
@@ -825,5 +825,15 @@ describe('missedBenefits — 가족 합산 카드', () => {
       { date: '2026-10-12', type: 'expense', amount: 50000, split: 0, memo: '쿠팡', payment: '현금' },
     ], '2026-10')
     expect(hits.some((h) => h.bestCard === '국민카드' && h.area === '온라인쇼핑' && h.discount === 5000)).toBe(true)
+  })
+})
+
+describe('summaryMonths', () => {
+  it('미래 할부 회차 달은 빼고 이번 달로 끝난다', () => {
+    const dates = ['2026-09-30', '2026-10-31', '2026-10-01', '2026-11-08', '2026-12-01', '2027-04-01']
+    expect(summaryMonths(dates, '2026-11')).toEqual(['2026-09', '2026-10', '2026-11'])
+  })
+  it('이번 달 거래가 아직 없어도 이번 달이 끝에 온다(전월대비는 바로 앞 달)', () => {
+    expect(summaryMonths(['2026-10-31', '2027-01-01'], '2026-11')).toEqual(['2026-10', '2026-11'])
   })
 })
